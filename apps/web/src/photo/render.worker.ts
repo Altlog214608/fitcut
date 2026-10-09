@@ -1,4 +1,10 @@
-import { renderPhotoWith, type RenderOptions, type RenderResult } from './render';
+import {
+  renderPhotoWith,
+  type CanvasFactory,
+  type RenderOptions,
+  type RenderResult,
+} from './render';
+import { picaResampler } from './resample';
 
 export type WorkerRequest = { id: number; bitmap: ImageBitmap; options: RenderOptions };
 export type WorkerResponse =
@@ -10,10 +16,13 @@ const scope = self as unknown as {
   postMessage: (message: WorkerResponse) => void;
 };
 
+const make: CanvasFactory = (w, h) => new OffscreenCanvas(w, h);
+const resample = picaResampler(make);
+
 scope.onmessage = async (event) => {
   const { id, bitmap, options } = event.data;
   try {
-    const result = await renderPhotoWith(bitmap, options, (w, h) => new OffscreenCanvas(w, h));
+    const result = await renderPhotoWith(bitmap, options, make, resample);
     scope.postMessage({ id, ok: true, result });
   } catch (error) {
     scope.postMessage({

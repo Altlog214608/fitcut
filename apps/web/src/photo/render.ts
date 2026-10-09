@@ -50,6 +50,21 @@ type Source = CanvasImageSource & { width: number; height: number };
 
 export type CanvasFactory = (width: number, height: number) => AnyCanvas;
 
+/** 사진을 정확히 width x height로 바꾼 새 이미지를 돌려준다 (저장용 고품질 축소) */
+export type Resampler = (image: Source, width: number, height: number) => Promise<Source>;
+
+/**
+ * 저장할 때 미리 줄여 둘 크기. 사진을 줄여서 그릴 때만 크기를 돌려주고, 키우거나 그대로면 null.
+ * 확대는 캔버스 보간과 Lanczos의 차이가 작아서(ADR-026) 따로 하지 않는다.
+ */
+export function resampleSize(image: Size, layout: Layout): Size | null {
+  const width = Math.round(Math.abs(layout.image.width));
+  const height = Math.round(Math.abs(layout.image.height));
+  if (width >= image.width && height >= image.height) return null;
+  if (width < 1 || height < 1) return null;
+  return { width, height };
+}
+
 const MIME: Record<OutputFormat, string> = {
   jpeg: 'image/jpeg',
   png: 'image/png',
@@ -358,9 +373,13 @@ export async function renderPhotoWith(
   image: Source,
   options: RenderOptions,
   make: CanvasFactory,
+  resample?: Resampler,
 ): Promise<RenderResult> {
   const canvas = make(options.target.width, options.target.height);
-  drawPhoto(context(canvas), image, options, make);
+  // 줄여서 그릴 때는 먼저 사진 자리 크기로 정확히 줄여 둔다. 그러면 drawPhoto는 1:1로 그린다.
+  const size = resample ? resampleSize(image, options.layout) : null;
+  const source = resample && size ? await resample(image, size.width, size.height) : image;
+  drawPhoto(context(canvas), source, options, make);
   const blob = await encode(canvas, options.format, options.quality);
   return { blob, format: formatOf(blob.type) };
 }
