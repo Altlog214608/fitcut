@@ -1,0 +1,41 @@
+# 의존성
+node_modules/
+.pnpm-store/
+
+# 빌드·테스트 결과
+dist/
+coverage/
+*.tsbuildinfo
+playwright-report/
+test-results/
+
+# 환경 변수·비밀값 (비밀값은 SSM Parameter Store에 둔다)
+.env
+.env.*
+!.env.example
+
+# Terraform (.terraform.lock.hcl은 커밋한다)
+.terraform/
+*.tfstate
+*.tfstate.*
+*.tfplan
+tfplan
+crash.log
+crash.*.log
+override.tf
+override.tf.json
+*_override.tf
+*_override.tf.json
+# 개인 값(알림 이메일 등)이 들어가므로 커밋하지 않는다. *.tfvars.example을 참고한다.
+*.tfvars
+!*.tfvars.example
+
+# 로그
+*.log
+
+# OS·에디터
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/*
+!.vscode/extensions.json

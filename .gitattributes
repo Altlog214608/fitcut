@@ -1,0 +1,11 @@
+# Windows에서도 저장소에는 LF로 저장한다 (Prettier 검사와 CI 결과를 맞추기 위해)
+* text=auto eol=lf
+
+*.png binary
+*.jpg binary
+*.gif binary
+*.webp binary
+*.ico binary
+*.mp4 binary
+*.mp3 binary
+*.woff2 binary
