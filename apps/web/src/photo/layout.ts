@@ -35,6 +35,15 @@ function place(free: number, position: number): number {
   return Math.round((free * (clamp(position, -1, 1) + 1)) / 2);
 }
 
+/**
+ * 사진 시작 위치. 사진이 화면보다 작으면 남는 곳에, 크면 잘리는 만큼 밖으로 놓는다.
+ * 어느 쪽이든 -1은 왼쪽·위 끝에, 1은 오른쪽·아래 끝에 붙인다.
+ */
+function offset(canvas: number, length: number, position: number): number {
+  // 0 - n으로 써서 -0이 생기지 않게 한다
+  return length <= canvas ? place(canvas - length, position) : 0 - place(length - canvas, position);
+}
+
 function assertSize(size: Size, label: string): void {
   if (!(size.width > 0 && size.height > 0)) {
     throw new RangeError(`${label} 크기가 0보다 커야 한다: ${size.width}x${size.height}`);
@@ -48,19 +57,38 @@ function coverRect(source: Size, target: Size, position: Position): Rect {
   const width = widthLimited ? target.width : Math.round(source.width * scale);
   const height = widthLimited ? Math.round(source.height * scale) : target.height;
   return {
-    // 0 - n으로 써서 -0이 생기지 않게 한다
-    x: 0 - place(width - target.width, position.x),
-    y: 0 - place(height - target.height, position.y),
+    x: offset(target.width, width, position.x),
+    y: offset(target.height, height, position.y),
     width,
     height,
   };
 }
 
+/** 배경 채우기에서 배경이 생기는 축. 사진이 화면보다 납작하면 위아래(y), 길쭉하면 양옆(x) */
+export function fillAxis(source: Size, target: Size): 'x' | 'y' {
+  return target.width / source.width <= target.height / source.height ? 'y' : 'x';
+}
+
+/**
+ * 배경 채우기에서 사진을 키울 수 있는 최대 배율. 이만큼 키우면 꽉 채우기와 같아진다.
+ * 1이면 사진 비율이 화면과 같아서 채울 곳이 없다.
+ */
+export function maxZoom(source: Size, target: Size): number {
+  const sx = target.width / source.width;
+  const sy = target.height / source.height;
+  return Math.max(sx, sy) / Math.min(sx, sy);
+}
+
+/**
+ * zoom은 배경 채우기에서만 쓴다. 1이면 사진 전체가 들어가고, 키우면 반대쪽(가로로 채울 땐 위아래,
+ * 세로로 채울 땐 양옆)이 조금씩 잘리는 대신 채울 곳이 줄어든다.
+ */
 export function computeLayout(
   source: Size,
   target: Size,
   mode: FitMode,
   position: Position = CENTER,
+  zoom = 1,
 ): Layout {
   assertSize(source, '원본');
   assertSize(target, '목표');
@@ -85,20 +113,23 @@ export function computeLayout(
   }
 
   // contain: 한쪽 길이를 목표에 딱 맞추고, 다른 쪽에 남는 공간을 배경으로 채운다
-  const widthLimited = target.width / source.width <= target.height / source.height;
-  const scale = widthLimited ? target.width / source.width : target.height / source.height;
-  const width = widthLimited ? target.width : Math.round(source.width * scale);
-  const height = widthLimited ? Math.round(source.height * scale) : target.height;
+  const widthLimited = fillAxis(source, target) === 'y';
+  const k = clamp(zoom, 1, maxZoom(source, target));
+  const fit = widthLimited ? target.width / source.width : target.height / source.height;
+  const scale = fit * k;
+  // 키우지 않았을 때는 맞춘 쪽 길이를 목표와 정확히 같게 둔다 (반올림 오차 방지)
+  const width = widthLimited && k === 1 ? target.width : Math.round(source.width * scale);
+  const height = !widthLimited && k === 1 ? target.height : Math.round(source.height * scale);
   return {
     image: {
-      x: place(target.width - width, position.x),
-      y: place(target.height - height, position.y),
+      x: offset(target.width, width, position.x),
+      y: offset(target.height, height, position.y),
       width,
       height,
     },
     background: coverRect(source, target, CENTER),
     scale,
-    movable: { x: width < target.width, y: height < target.height },
+    movable: { x: width !== target.width, y: height !== target.height },
   };
 }
 

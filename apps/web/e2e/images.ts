@@ -34,6 +34,33 @@ export async function makeImage(
   return Buffer.from(dataUrl.split(',')[1] ?? '', 'base64');
 }
 
+/**
+ * 위는 민무늬 벽, 아래 35%는 회색·살구색 세로 줄무늬(잘린 팔다리·옷처럼 복잡한 것)인 사진.
+ * 배경 채우기에서 아래에 붙고 위만 채워지는지 확인하는 데 쓴다.
+ */
+export async function makeCutPortrait(page: Page, width: number, height: number): Promise<Buffer> {
+  const dataUrl = await page.evaluate(
+    ({ width, height }) => {
+      const canvas = document.createElement('canvas');
+      canvas.width = width;
+      canvas.height = height;
+      const ctx = canvas.getContext('2d');
+      if (!ctx) throw new Error('no canvas');
+      ctx.fillStyle = '#d8cbb8';
+      ctx.fillRect(0, 0, width, height);
+      const top = Math.round(height * 0.65);
+      const stripe = Math.max(4, Math.round(width / 24));
+      for (let x = 0; x < width; x += stripe) {
+        ctx.fillStyle = (x / stripe) % 2 ? '#6d6f73' : '#f0c8b0';
+        ctx.fillRect(x, top, stripe, height - top);
+      }
+      return canvas.toDataURL('image/jpeg', 0.95);
+    },
+    { width, height },
+  );
+  return Buffer.from(dataUrl.split(',')[1] ?? '', 'base64');
+}
+
 function u16(n: number): Buffer {
   const b = Buffer.alloc(2);
   b.writeUInt16BE(n);

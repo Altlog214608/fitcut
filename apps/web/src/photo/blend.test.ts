@@ -17,6 +17,18 @@ describe('fillExtent', () => {
     });
   });
 
+  it('사진을 키워 양옆이 잘려도 채우는 축은 y', () => {
+    const target = { width: 1440, height: 3200 };
+    const layout = computeLayout(
+      { width: 3024, height: 4032 },
+      target,
+      'contain',
+      { x: 0, y: 1 },
+      1.3,
+    );
+    expect(fillExtent(layout, target)).toMatchObject({ axis: 'y', before: 704, after: 0 });
+  });
+
   it('가로로 채울 때는 x축', () => {
     const layout = computeLayout({ width: 500, height: 3000 }, PHONE, 'contain');
     const ext = fillExtent(layout, PHONE);

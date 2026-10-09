@@ -119,6 +119,28 @@ function maskAlong(canvas: AnyCanvas, ext: FillExtent, stops: Stop[]): void {
   ctx.globalCompositeOperation = 'source-over';
 }
 
+/** 가장자리 띠 두께 (사진 길이 대비) */
+const EDGE_BAND = 0.012;
+/** 가장자리 줄을 가로(세로)로 이만큼 줄여 뭉갠다 (사진 길이 대비 칸 수) */
+const EDGE_SMEAR = 1 / 32;
+
+/**
+ * 가장자리 띠를 한 줄로 평균 내고, 띠 방향으로도 크게 뭉갠 작은 캔버스.
+ * 띠를 그대로 늘이면 대리석 무늬·옷 주름이 커튼 같은 줄무늬가 된다. 뭉개면 벽처럼 매끈하게 이어진다.
+ */
+function edgeLine(image: Source, side: 'top' | 'bottom' | 'left' | 'right', make: CanvasFactory) {
+  const y = side === 'top' || side === 'bottom';
+  const band = Math.max(1, Math.round((y ? image.height : image.width) * EDGE_BAND));
+  const crop = y ? make(image.width, band) : make(band, image.height);
+  const sx = side === 'right' ? image.width - band : 0;
+  const sy = side === 'bottom' ? image.height - band : 0;
+  context(crop).drawImage(image, sx, sy, crop.width, crop.height, 0, 0, crop.width, crop.height);
+  const cells = (length: number) => Math.max(2, Math.round(length * EDGE_SMEAR));
+  const line = y ? make(cells(image.width), 1) : make(1, cells(image.height));
+  drawRect(context(line), crop, { x: 0, y: 0, width: line.width, height: line.height }, make);
+  return line;
+}
+
 /** 사진 바깥(위아래 또는 양옆)을 가장자리 늘이기 또는 거울 반사로 칠한다 */
 function paintOutside(
   ctx: Ctx,
@@ -131,39 +153,15 @@ function paintOutside(
   const y = ext.axis === 'y';
   const end = ext.start + ext.length;
   if (kind === 'extend') {
-    // 가장자리 1% 띠를 바깥 끝까지 늘인다. 흐림 단계에서 줄무늬가 부드러워진다.
-    const band = Math.max(1, Math.round((y ? image.height : image.width) * 0.012));
+    // 가장자리 1% 띠를 바깥 끝까지 늘인다
     if (y) {
-      if (ext.before > 0) ctx.drawImage(image, 0, 0, image.width, band, r.x, 0, r.width, ext.start);
-      if (ext.after > 0) {
-        ctx.drawImage(
-          image,
-          0,
-          image.height - band,
-          image.width,
-          band,
-          r.x,
-          end,
-          r.width,
-          ext.after,
-        );
-      }
+      if (ext.before > 0) ctx.drawImage(edgeLine(image, 'top', make), r.x, 0, r.width, ext.start);
+      if (ext.after > 0)
+        ctx.drawImage(edgeLine(image, 'bottom', make), r.x, end, r.width, ext.after);
     } else {
-      if (ext.before > 0)
-        ctx.drawImage(image, 0, 0, band, image.height, 0, r.y, ext.start, r.height);
-      if (ext.after > 0) {
-        ctx.drawImage(
-          image,
-          image.width - band,
-          0,
-          band,
-          image.height,
-          end,
-          r.y,
-          ext.after,
-          r.height,
-        );
-      }
+      if (ext.before > 0) ctx.drawImage(edgeLine(image, 'left', make), 0, r.y, ext.start, r.height);
+      if (ext.after > 0)
+        ctx.drawImage(edgeLine(image, 'right', make), end, r.y, ext.after, r.height);
     }
     return;
   }
@@ -254,7 +252,7 @@ function drawEdge(
   const pixels = sctx.getImageData(0, 0, sampleWidth, sampleHeight);
   const { image: r } = layout;
   // 사진 가운데까지 칠해 둔다. 경계를 섞을 때 사진 가장자리 아래가 비어 검게 보이지 않게 한다.
-  if (layout.movable.y) {
+  if (fillExtent(layout, target).axis === 'y') {
     const [top, bottom] = edgeColors(pixels, 'y');
     const middle = Math.round(r.y + r.height / 2);
     ctx.fillStyle = toCss(top);
