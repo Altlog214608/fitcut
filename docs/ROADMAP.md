@@ -6,14 +6,23 @@
 
 - [x] pnpm 모노레포, TypeScript strict, ESLint, Prettier
 - [x] `apps/web`: Vite + React 초기화, 라우팅 (홈, 사진, 움짤, 음성, 링크, 하이라이트, 관리자)
-- [ ] `infra/terraform`: S3 원격 상태, dev 환경, 공통 태그 (`Project=fitcut`, `Env`, `Component`) — 원격 상태·bootstrap 적용 완료, dev 첫 적용 대기
-- [ ] S3(web) + CloudFront(OAC) 정적 배포 — 코드 완료, 첫 배포 대기
-- [ ] GitHub Actions: PR에서 lint·test·`terraform plan`, main 머지 시 배포 (OIDC, plan 역할과 배포 역할 분리) — 워크플로 작성 완료, 실행 확인 대기
+- [x] `infra/terraform`: S3 원격 상태, dev 환경, 공통 태그 (`Project=fitcut`, `Env`, `Component`)
+- [x] S3(web) + CloudFront(OAC) 정적 배포
+- [x] GitHub Actions: PR에서 lint·test·`terraform plan`, main 머지 시 배포 (OIDC, plan 역할과 배포 역할 분리)
 - [x] AWS Budgets 알림 (월 $20, 실제 50%·100%, 예측 100%)
 - [x] CLAUDE.md의 "명령어" 섹션 채우기
 - [ ] 비용 할당 태그(`Project`, `Env`, `Component`) 활성화 — 첫 배포 후 태그가 결제 데이터에 나타나면 Terraform으로
 
 완료 기준: main에 머지하면 빈 페이지가 CloudFront 주소로 자동 배포된다.
+
+완료 (2026-10-09): PR #1 머지 → Deploy 워크플로가 dev에 apply(리소스 11개)하고 웹을 올렸다. 확인한 것:
+
+- 모든 경로(`/photo` 등, 없는 경로 포함)가 새로고침해도 200 + index.html. 없는 정적 파일은 403
+- `index.html`은 `Cache-Control: no-cache`, `assets/`는 `max-age=31536000, immutable`
+- 보안 헤더(HSTS, X-Content-Type-Options, X-Frame-Options, Referrer-Policy) 적용, HTTP는 HTTPS로 301
+- S3 버킷 직접 접근은 403 (CloudFront OAC로만 읽힘). 서울 엣지(ICN)에서 응답
+
+남은 후속 작업: 비용 할당 태그 활성화 (태그가 결제 데이터에 나타난 뒤).
 
 ## M1. 사진 도구 (2주)
 
