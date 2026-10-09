@@ -16,6 +16,8 @@ type Props = {
   isCircle: boolean;
   circleOutside: 'black' | 'transparent';
   onCircleOutside: (value: 'black' | 'transparent') => void;
+  soft: boolean;
+  onSoft: (soft: boolean) => void;
 };
 
 const MODES = [
@@ -25,10 +27,19 @@ const MODES = [
 ] as const;
 
 const BACKGROUNDS = [
+  { value: 'extend', label: '가장자리 늘이기' },
   { value: 'blur', label: '흐린 사진' },
+  { value: 'mirror', label: '거울 반사' },
   { value: 'edge', label: '비슷한 색' },
   { value: 'solid', label: '단색' },
 ] as const;
+
+/** 배경 종류를 바꿀 때의 기본값. 이어 붙이는 방식은 덜 흐리게 시작한다. */
+const PHOTO_DEFAULTS = {
+  blur: { strength: 0.5, dim: 0.15 },
+  extend: { strength: 0.4, dim: 0 },
+  mirror: { strength: 0.45, dim: 0.05 },
+} as const;
 
 const FORMATS = [
   { value: 'jpeg', label: 'JPG' },
@@ -46,8 +57,9 @@ export function Options(props: Props) {
 
   function setKind(kind: Background['kind']) {
     if (kind === background.kind) return;
-    if (kind === 'blur') props.onBackground({ kind: 'blur', strength: 0.5, dim: 0.15 });
-    else if (kind === 'edge') props.onBackground({ kind: 'edge' });
+    if (kind === 'blur' || kind === 'extend' || kind === 'mirror') {
+      props.onBackground({ kind, ...PHOTO_DEFAULTS[kind] });
+    } else if (kind === 'edge') props.onBackground({ kind: 'edge' });
     else props.onBackground({ kind: 'solid', color: '#000000' });
   }
 
@@ -62,8 +74,11 @@ export function Options(props: Props) {
             value={background.kind}
             options={BACKGROUNDS}
             onChange={setKind}
+            wrap
           />
-          {background.kind === 'blur' && (
+          {(background.kind === 'blur' ||
+            background.kind === 'extend' ||
+            background.kind === 'mirror') && (
             <>
               <label className={styles.slider}>
                 <span>흐림</span>
@@ -118,6 +133,14 @@ export function Options(props: Props) {
               </label>
             </div>
           )}
+          <label className={styles.toggle}>
+            <input
+              type="checkbox"
+              checked={props.soft}
+              onChange={(e) => props.onSoft(e.currentTarget.checked)}
+            />
+            <span>사진 경계를 부드럽게 섞기</span>
+          </label>
         </div>
       )}
 

@@ -4,14 +4,13 @@ import { useEffect, useId, useMemo, useState } from 'react';
 import { DropZone } from '../components/DropZone';
 import { detectKind } from '../lib/detectKind';
 import { readJson, writeJson } from '../lib/storage';
-import { edgeColors, type Rgb } from './colors';
 import { DevicePicker } from './DevicePicker';
 import { outputFileName, type OutputFormat } from './fileName';
 import { computeLayout, ratioFit, type FitMode, type Position } from './layout';
 import { Options } from './Options';
 import styles from './PhotoTool.module.css';
 import { Preview } from './Preview';
-import type { Background } from './render';
+import { downscaled, type Background, type CanvasFactory } from './render';
 import { decodePhoto, renderPhoto } from './renderClient';
 import { isTargetList, pushRecent, resolveTarget, sameTarget, type Target } from './target';
 
@@ -23,27 +22,22 @@ type Loaded = {
   file: File;
   url: string;
   bitmap: ImageBitmap;
-  edge: { x: [Rgb, Rgb]; y: [Rgb, Rgb] } | null;
+  /** 미리보기용으로 줄인 사본. 끌 때마다 다시 그리므로 작게 둔다 */
+  preview: CanvasImageSource & { width: number; height: number };
+};
+
+/** 배경 채우기에서 사진 경계를 섞는 길이 (사진 길이 대비) */
+const FEATHER = 0.05;
+const PREVIEW_MAX_SIDE = 1600;
+
+const makeCanvas: CanvasFactory = (width, height) => {
+  const canvas = document.createElement('canvas');
+  canvas.width = width;
+  canvas.height = height;
+  return canvas;
 };
 
 type Saved = { name: string; width: number; height: number; bytes: number; fellBack: boolean };
-
-function sampleEdges(bitmap: ImageBitmap): { x: [Rgb, Rgb]; y: [Rgb, Rgb] } | null {
-  try {
-    const w = Math.min(128, bitmap.width);
-    const h = Math.max(1, Math.round((bitmap.height * w) / bitmap.width));
-    const canvas = document.createElement('canvas');
-    canvas.width = w;
-    canvas.height = h;
-    const ctx = canvas.getContext('2d');
-    if (!ctx) return null;
-    ctx.drawImage(bitmap, 0, 0, w, h);
-    const pixels = ctx.getImageData(0, 0, w, h);
-    return { x: edgeColors(pixels, 'x'), y: edgeColors(pixels, 'y') };
-  } catch {
-    return null;
-  }
-}
 
 function formatBytes(bytes: number): string {
   if (bytes < 1024 * 1024) return `${Math.max(1, Math.round(bytes / 1024))}KB`;
@@ -79,14 +73,16 @@ export function PhotoTool({ initialFile }: { initialFile: File | null }) {
 
   const [mode, setMode] = useState<FitMode>('cover');
   const [position, setPosition] = useState<Position>(CENTER);
+  // 비교해 보니 가장자리 늘이기가 가장 자연스러워 기본값으로 둔다 (ROADMAP M1 배경 채우기)
   const [background, setBackground] = useState<Background>({
-    kind: 'blur',
-    strength: 0.5,
-    dim: 0.15,
+    kind: 'extend',
+    strength: 0.4,
+    dim: 0,
   });
   const [format, setFormat] = useState<OutputFormat>('jpeg');
   const [quality, setQuality] = useState(0.92);
   const [circleOutside, setCircleOutside] = useState<'black' | 'transparent'>('black');
+  const [soft, setSoft] = useState(true);
 
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState<(Saved & { key: string }) | null>(null);
@@ -104,7 +100,7 @@ export function PhotoTool({ initialFile }: { initialFile: File | null }) {
           bitmap.close();
           return;
         }
-        setLoaded({ file, url, bitmap, edge: sampleEdges(bitmap) });
+        setLoaded({ file, url, bitmap, preview: downscaled(bitmap, PREVIEW_MAX_SIDE, makeCanvas) });
       })
       .catch((error: unknown) => {
         if (cancelled) return;
@@ -123,7 +119,6 @@ export function PhotoTool({ initialFile }: { initialFile: File | null }) {
   const current = loaded && loaded.file === file ? loaded : null;
   const bitmap = current?.bitmap ?? null;
   const imageUrl = current?.url ?? null;
-  const edge = current?.edge ?? null;
   const fileError = pickError ?? (decodeError?.file === file ? decodeError.message : null);
   // 저장 결과 안내는 저장할 때와 설정이 같을 때만 보여준다
   const settingsKey = JSON.stringify([
@@ -134,6 +129,7 @@ export function PhotoTool({ initialFile }: { initialFile: File | null }) {
     format,
     quality,
     circleOutside,
+    soft,
   ]);
   const savedNow = saved && saved.key === settingsKey && current ? saved : null;
 
@@ -146,6 +142,7 @@ export function PhotoTool({ initialFile }: { initialFile: File | null }) {
   const fit = resolved && source ? ratioFit(source, resolved.size) : 'match';
   const isCircle = resolved?.shape === 'circle';
   const transparentCircle = isCircle && circleOutside === 'transparent';
+  const feather = mode === 'contain' && soft ? FEATHER : 0;
   const effectiveFormat: OutputFormat = transparentCircle && format === 'jpeg' ? 'png' : format;
 
   function pickFile(next: File) {
@@ -192,6 +189,7 @@ export function PhotoTool({ initialFile }: { initialFile: File | null }) {
         background,
         format: effectiveFormat,
         quality,
+        feather,
         ...(isCircle ? { circleOutside } : {}),
       });
       const name = outputFileName(file.name, resolved.label, resolved.size, result.format);
@@ -274,14 +272,16 @@ export function PhotoTool({ initialFile }: { initialFile: File | null }) {
 
       <div className={styles.main}>
         <div className={styles.previewCol}>
-          {imageUrl && resolved && layout ? (
+          {current && imageUrl && resolved && layout ? (
             <Preview
+              source={current.preview}
               imageUrl={imageUrl}
               target={resolved}
               layout={layout}
               mode={mode}
               background={background}
-              edge={edge}
+              feather={feather}
+              format={effectiveFormat}
               circleOutside={circleOutside}
               position={position}
               onPositionChange={setPosition}
@@ -346,6 +346,8 @@ export function PhotoTool({ initialFile }: { initialFile: File | null }) {
             isCircle={isCircle}
             circleOutside={circleOutside}
             onCircleOutside={setCircleOutside}
+            soft={soft}
+            onSoft={setSoft}
           />
           {transparentCircle && format === 'jpeg' && (
             <p className={styles.hint}>JPG는 투명을 담을 수 없어서 PNG로 저장돼요.</p>

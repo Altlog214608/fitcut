@@ -8,17 +8,29 @@ type Props<T extends string> = {
   value: T;
   options: readonly Option<T>[];
   onChange: (value: T) => void;
+  /** 선택지가 많을 때 여러 줄로 감싼다 */
+  wrap?: boolean;
 };
 
 /** 몇 가지 중 하나를 고르는 버튼 묶음 (맞춤 방식, 형식 등) */
-export function Segmented<T extends string>({ label, value, options, onChange }: Props<T>) {
+export function Segmented<T extends string>({
+  label,
+  value,
+  options,
+  onChange,
+  wrap = false,
+}: Props<T>) {
   const id = useId();
   return (
     <div className={styles.group}>
       <span id={id} className={styles.label}>
         {label}
       </span>
-      <div className={styles.seg} role="radiogroup" aria-labelledby={id}>
+      <div
+        className={wrap ? `${styles.seg} ${styles.wrap}` : styles.seg}
+        role="radiogroup"
+        aria-labelledby={id}
+      >
         {options.map((option) => (
           <button
             key={option.value}
