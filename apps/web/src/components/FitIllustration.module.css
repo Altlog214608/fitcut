@@ -1,0 +1,49 @@
+.art {
+  display: block;
+  width: 100%;
+  max-width: 220px;
+  height: auto;
+}
+
+.band {
+  fill: var(--color-line);
+}
+
+.device {
+  fill: var(--color-accent-soft);
+  stroke: var(--color-slate);
+  stroke-width: 2;
+}
+
+.photo {
+  fill: var(--color-accent-soft);
+}
+
+.mountain {
+  fill: var(--color-accent);
+  opacity: 0.42;
+}
+
+.sun {
+  fill: var(--color-accent);
+  opacity: 0.55;
+}
+
+.crop {
+  fill: none;
+  stroke: var(--color-accent);
+  stroke-width: 3;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.dots {
+  stroke: var(--color-slate);
+  stroke-width: 2;
+  stroke-linecap: round;
+  stroke-dasharray: 1 5;
+}
+
+.camera {
+  fill: var(--color-slate);
+}

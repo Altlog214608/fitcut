@@ -1,0 +1,57 @@
+/* 디자인 토큰. 값의 근거와 쓰는 곳은 docs/UI.md "디자인 방향"을 따른다 (ADR-022). */
+:root {
+  --color-ink: #171a1f;
+  --color-slate: #5b6470;
+  --color-line: #e3e7ec;
+  --color-paper: #f4f6f8;
+  --color-bg: #ffffff;
+  --color-accent: #2b63f0;
+  --color-accent-ink: #2b63f0;
+  --color-accent-soft: #eaf0fe;
+  --color-on-accent: #ffffff;
+  --color-danger: #d92d33;
+
+  --font-sans:
+    'Pretendard Variable', Pretendard, -apple-system, BlinkMacSystemFont, system-ui,
+    'Apple SD Gothic Neo', 'Malgun Gothic', sans-serif;
+
+  --text-title: 26px;
+  --text-subtitle: 20px;
+  --text-body: 16px;
+  --text-caption: 14px;
+  --text-small: 13px;
+
+  --space-1: 8px;
+  --space-2: 16px;
+  --space-3: 24px;
+  --space-4: 32px;
+  --space-6: 48px;
+  --gutter: 20px;
+  --content-max: 680px;
+  --tool-max: 1200px;
+
+  --radius-control: 12px;
+  --radius-button: 14px;
+  --radius-panel: 16px;
+  --radius-sheet: 20px;
+
+  --button-height: 52px;
+  --motion-fast: 200ms;
+
+  color-scheme: light;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --color-ink: #f2f4f6;
+    --color-slate: #9aa3ae;
+    --color-line: #2b3038;
+    --color-paper: #1a1d22;
+    --color-bg: #101215;
+    --color-accent-ink: #6e9bff;
+    --color-accent-soft: #1b2440;
+    --color-danger: #ff6369;
+
+    color-scheme: dark;
+  }
+}

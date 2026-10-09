@@ -1,0 +1,28 @@
+.app {
+  max-width: calc(var(--content-max) + 2 * var(--gutter));
+  margin: 0 auto;
+  padding-inline: var(--gutter);
+  padding-block: var(--space-2) var(--space-6);
+}
+
+.header {
+  display: flex;
+  align-items: center;
+  min-height: 48px;
+  margin-bottom: var(--space-2);
+}
+
+.wordmark {
+  font-size: 18px;
+  font-weight: 800;
+  letter-spacing: -0.03em;
+  text-decoration: none;
+}
+
+.wordmark span {
+  color: var(--color-accent-ink);
+}
+
+.main {
+  display: grid;
+}

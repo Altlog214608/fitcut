@@ -1,8 +1,5 @@
+import { ToolPlaceholder } from '../components/ToolPlaceholder';
+
 export function AdminPage() {
-  return (
-    <>
-      <h1>관리자</h1>
-      <p>준비 중이에요.</p>
-    </>
-  );
+  return <ToolPlaceholder title="관리자" summary="사용 분석, 비용, 보관 파일을 봐요." />;
 }

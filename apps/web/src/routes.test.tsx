@@ -10,10 +10,11 @@ function renderAt(path: string) {
 
 describe('routes', () => {
   it.each([
-    ['/', 'FitCut'],
+    ['/', '사진·영상·음성을 내 기기에 딱 맞게'],
     ['/photo', '사진'],
     ['/gif', '움짤'],
     ['/audio', '음성'],
+    ['/rotate', '영상 세로로 돌리기'],
     ['/link', '링크 구간'],
     ['/highlight', '하이라이트'],
     ['/admin', '관리자'],

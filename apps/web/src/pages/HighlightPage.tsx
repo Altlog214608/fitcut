@@ -1,8 +1,10 @@
+import { ToolPlaceholder } from '../components/ToolPlaceholder';
+
 export function HighlightPage() {
   return (
-    <>
-      <h1>하이라이트</h1>
-      <p>준비 중이에요.</p>
-    </>
+    <ToolPlaceholder
+      title="하이라이트"
+      summary="채널을 연결하면 방송 중 채팅으로 하이라이트 후보를 찾아드려요."
+    />
   );
 }
