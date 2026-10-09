@@ -6,10 +6,10 @@
 
 - [x] pnpm 모노레포, TypeScript strict, ESLint, Prettier
 - [x] `apps/web`: Vite + React 초기화, 라우팅 (홈, 사진, 움짤, 음성, 링크, 하이라이트, 관리자)
-- [ ] `infra/terraform`: S3 원격 상태, dev 환경, 공통 태그 (`Project=fitcut`, `Env`, `Component`) — 코드 완료, bootstrap 적용 대기
+- [ ] `infra/terraform`: S3 원격 상태, dev 환경, 공통 태그 (`Project=fitcut`, `Env`, `Component`) — 원격 상태·bootstrap 적용 완료, dev 첫 적용 대기
 - [ ] S3(web) + CloudFront(OAC) 정적 배포 — 코드 완료, 첫 배포 대기
 - [ ] GitHub Actions: PR에서 lint·test·`terraform plan`, main 머지 시 배포 (OIDC, plan 역할과 배포 역할 분리) — 워크플로 작성 완료, 실행 확인 대기
-- [ ] AWS Budgets 알림 — 코드 완료, bootstrap 적용 대기
+- [x] AWS Budgets 알림 (월 $20, 실제 50%·100%, 예측 100%)
 - [x] CLAUDE.md의 "명령어" 섹션 채우기
 - [ ] 비용 할당 태그(`Project`, `Env`, `Component`) 활성화 — 첫 배포 후 태그가 결제 데이터에 나타나면 Terraform으로
 
