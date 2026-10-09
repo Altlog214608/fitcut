@@ -1,0 +1,112 @@
+.stage {
+  container-type: size;
+  position: relative;
+  display: grid;
+  place-items: center;
+  height: min(52vh, 520px);
+  min-height: 320px;
+  overflow: hidden;
+  border-radius: var(--radius-panel);
+  background: var(--color-paper);
+}
+
+.frame {
+  --pad: 56px;
+  position: relative;
+  width: min(100cqw - var(--pad), (100cqh - var(--pad)) * var(--ratio));
+  aspect-ratio: var(--ratio);
+}
+
+/* 꽉 채우기에서 잘려 나가는 부분을 흐릿하게 보여준다 */
+.ghost {
+  position: absolute;
+  max-width: none;
+  opacity: 0.28;
+  pointer-events: none;
+  user-select: none;
+}
+
+.screen {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  background: #000000;
+  touch-action: none;
+}
+
+.screen[data-movable] {
+  cursor: grab;
+}
+
+.screen[data-movable]:active {
+  cursor: grabbing;
+}
+
+/* 기기 테두리. 바깥의 얇은 선은 다크 모드에서 테두리가 바탕에 묻히지 않게 한다 */
+.screen[data-device] {
+  box-shadow:
+    0 0 0 6px #0b0c0e,
+    0 0 0 7px var(--color-line),
+    0 8px 28px rgb(0 0 0 / 0.18);
+}
+
+.screen:not([data-device]) {
+  box-shadow: 0 0 0 1px var(--color-line);
+}
+
+.screen:focus-visible {
+  outline: 2px solid var(--color-accent-ink);
+  outline-offset: 10px;
+}
+
+.layer {
+  position: absolute;
+  max-width: none;
+  pointer-events: none;
+  user-select: none;
+}
+
+.fill {
+  position: absolute;
+  inset: 0;
+}
+
+/* 원형 워치: 결과는 정사각형 이미지이고, 원 바깥은 검정 또는 투명이 된다 */
+.circleMask {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+
+.circleMask[data-outside='black'] {
+  background: radial-gradient(circle closest-side, transparent calc(100% - 1px), #000000 100%);
+}
+
+.circleMask[data-outside='transparent'] {
+  background:
+    radial-gradient(circle closest-side, transparent calc(100% - 1px), rgb(255 255 255 / 0.7) 100%),
+    repeating-conic-gradient(#d0d4da 0 25%, #ffffff 0 50%) 50% / 16px 16px;
+  -webkit-mask: radial-gradient(circle closest-side, transparent calc(100% - 1px), #000000 100%);
+  mask: radial-gradient(circle closest-side, transparent calc(100% - 1px), #000000 100%);
+}
+
+.screen[data-shape='circle'][data-device] {
+  box-shadow: 0 0 0 1px var(--color-line);
+}
+
+.screen[data-shape='circle'][data-device]::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: 50%;
+  box-shadow:
+    0 0 0 6px #0b0c0e,
+    0 0 0 7px var(--color-line);
+  pointer-events: none;
+}
+
+@media (min-width: 920px) {
+  .stage {
+    height: min(64vh, 600px);
+  }
+}

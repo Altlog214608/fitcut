@@ -1,0 +1,154 @@
+import { Segmented } from '../components/Segmented';
+import type { OutputFormat } from './fileName';
+import type { FitMode } from './layout';
+import styles from './Options.module.css';
+import type { Background } from './render';
+
+type Props = {
+  mode: FitMode;
+  onMode: (mode: FitMode) => void;
+  background: Background;
+  onBackground: (background: Background) => void;
+  format: OutputFormat;
+  onFormat: (format: OutputFormat) => void;
+  quality: number;
+  onQuality: (quality: number) => void;
+  isCircle: boolean;
+  circleOutside: 'black' | 'transparent';
+  onCircleOutside: (value: 'black' | 'transparent') => void;
+};
+
+const MODES = [
+  { value: 'cover', label: '꽉 채우기' },
+  { value: 'contain', label: '배경 채우기' },
+  { value: 'stretch', label: '늘이기' },
+] as const;
+
+const BACKGROUNDS = [
+  { value: 'blur', label: '흐린 사진' },
+  { value: 'edge', label: '비슷한 색' },
+  { value: 'solid', label: '단색' },
+] as const;
+
+const FORMATS = [
+  { value: 'jpeg', label: 'JPG' },
+  { value: 'png', label: 'PNG' },
+  { value: 'webp', label: 'WebP' },
+] as const;
+
+const SWATCHES = [
+  { color: '#000000', label: '검정' },
+  { color: '#ffffff', label: '흰색' },
+];
+
+export function Options(props: Props) {
+  const { mode, background, format, quality, isCircle, circleOutside } = props;
+
+  function setKind(kind: Background['kind']) {
+    if (kind === background.kind) return;
+    if (kind === 'blur') props.onBackground({ kind: 'blur', strength: 0.5, dim: 0.15 });
+    else if (kind === 'edge') props.onBackground({ kind: 'edge' });
+    else props.onBackground({ kind: 'solid', color: '#000000' });
+  }
+
+  return (
+    <div className={styles.options}>
+      <Segmented label="맞춤 방식" value={mode} options={MODES} onChange={props.onMode} />
+
+      {mode === 'contain' && (
+        <div className={styles.sub}>
+          <Segmented
+            label="배경"
+            value={background.kind}
+            options={BACKGROUNDS}
+            onChange={setKind}
+          />
+          {background.kind === 'blur' && (
+            <>
+              <label className={styles.slider}>
+                <span>흐림</span>
+                <input
+                  type="range"
+                  min={0}
+                  max={1}
+                  step={0.05}
+                  value={background.strength}
+                  onChange={(e) =>
+                    props.onBackground({ ...background, strength: Number(e.currentTarget.value) })
+                  }
+                />
+              </label>
+              <label className={styles.slider}>
+                <span>어둡게</span>
+                <input
+                  type="range"
+                  min={0}
+                  max={0.6}
+                  step={0.05}
+                  value={background.dim}
+                  onChange={(e) =>
+                    props.onBackground({ ...background, dim: Number(e.currentTarget.value) })
+                  }
+                />
+              </label>
+            </>
+          )}
+          {background.kind === 'solid' && (
+            <div className={styles.swatches} role="group" aria-label="배경 색">
+              {SWATCHES.map((s) => (
+                <button
+                  key={s.color}
+                  type="button"
+                  aria-pressed={background.color === s.color}
+                  onClick={() => props.onBackground({ kind: 'solid', color: s.color })}
+                >
+                  <span className={styles.swatch} style={{ background: s.color }} />
+                  {s.label}
+                </button>
+              ))}
+              <label className={styles.picker}>
+                <input
+                  type="color"
+                  value={background.color}
+                  onChange={(e) =>
+                    props.onBackground({ kind: 'solid', color: e.currentTarget.value })
+                  }
+                />
+                직접 고르기
+              </label>
+            </div>
+          )}
+        </div>
+      )}
+
+      {isCircle && (
+        <Segmented
+          label="원 바깥"
+          value={circleOutside}
+          options={[
+            { value: 'black', label: '검정' },
+            { value: 'transparent', label: '투명 (PNG)' },
+          ]}
+          onChange={props.onCircleOutside}
+        />
+      )}
+
+      <Segmented label="형식" value={format} options={FORMATS} onChange={props.onFormat} />
+      {format !== 'png' && (
+        <label className={styles.slider}>
+          <span>
+            화질 <b className={styles.num}>{Math.round(quality * 100)}</b>
+          </span>
+          <input
+            type="range"
+            min={0.5}
+            max={1}
+            step={0.01}
+            value={quality}
+            onChange={(e) => props.onQuality(Number(e.currentTarget.value))}
+          />
+        </label>
+      )}
+    </div>
+  );
+}

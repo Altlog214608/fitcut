@@ -1,5 +1,5 @@
 .app {
-  max-width: calc(var(--content-max) + 2 * var(--gutter));
+  max-width: calc(var(--tool-max) + 2 * var(--gutter));
   margin: 0 auto;
   padding-inline: var(--gutter);
   padding-block: var(--space-2) var(--space-6);
