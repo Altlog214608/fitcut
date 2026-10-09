@@ -3,6 +3,7 @@ import { ImageUp, ShieldCheck } from 'lucide-react';
 import { useEffect, useId, useMemo, useState } from 'react';
 import { DropZone } from '../components/DropZone';
 import { detectKind } from '../lib/detectKind';
+import { IN_APP, inAppLabel, saveMethod, type SaveMethod } from '../lib/inApp';
 import { readJson, writeJson } from '../lib/storage';
 import { DevicePicker } from './DevicePicker';
 import { outputFileName, type OutputFormat } from './fileName';
@@ -58,16 +59,31 @@ function formatBytes(bytes: number): string {
   return `${(bytes / 1024 / 1024).toFixed(1)}MB`;
 }
 
-function download(blob: Blob, name: string): void {
-  const url = URL.createObjectURL(blob);
+function readAsDataUrl(blob: Blob): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(String(reader.result));
+    reader.onerror = () => reject(new Error('이미지를 저장하지 못했어요.'));
+    reader.readAsDataURL(blob);
+  });
+}
+
+/**
+ * 파일을 기기에 저장한다. 보통은 blob 주소로 내려받는다.
+ * iOS 인앱 브라우저(카카오톡 등)는 blob 다운로드를 못 해서 data URL로 내려받는다 (lib/inApp.ts).
+ */
+async function download(blob: Blob, name: string, method: SaveMethod): Promise<void> {
+  const url = method === 'data-url' ? await readAsDataUrl(blob) : URL.createObjectURL(blob);
   const a = document.createElement('a');
   a.href = url;
   a.download = name;
   document.body.append(a);
   a.click();
   a.remove();
-  setTimeout(() => URL.revokeObjectURL(url), 30_000);
+  if (method === 'blob') setTimeout(() => URL.revokeObjectURL(url), 30_000);
 }
+
+const SAVE_METHOD = saveMethod(IN_APP);
 
 export function PhotoTool({ initialFile }: { initialFile: File | null }) {
   const replaceId = useId();
@@ -211,6 +227,13 @@ export function PhotoTool({ initialFile }: { initialFile: File | null }) {
 
   async function save() {
     if (!bitmap || !layout || !resolved || !file || !target) return;
+    if (SAVE_METHOD === 'unsupported' && IN_APP) {
+      // 안드로이드 인앱 브라우저는 페이지가 만든 파일을 내려받지 못한다. 만들기 전에 알린다.
+      setSaveError(
+        `${inAppLabel(IN_APP.app)} 안에서는 저장할 수 없어요. 맨 위의 안내대로 크롬 같은 다른 브라우저에서 열어 주세요.`,
+      );
+      return;
+    }
     setSaving(true);
     setSaveError(null);
     try {
@@ -224,7 +247,7 @@ export function PhotoTool({ initialFile }: { initialFile: File | null }) {
         ...(isCircle ? { circleOutside } : {}),
       });
       const name = outputFileName(file.name, resolved.label, resolved.size, result.format);
-      download(result.blob, name);
+      await download(result.blob, name, SAVE_METHOD);
       setSaved({
         key: settingsKey,
         name,

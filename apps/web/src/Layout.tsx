@@ -1,4 +1,6 @@
 import { Link, Outlet } from 'react-router';
+import { InAppNotice } from './components/InAppNotice';
+import { IN_APP } from './lib/inApp';
 import styles from './Layout.module.css';
 
 export function Layout() {
@@ -9,6 +11,7 @@ export function Layout() {
           Fit<span>Cut</span>
         </Link>
       </header>
+      <InAppNotice inApp={IN_APP} />
       <main className={styles.main}>
         <Outlet />
       </main>
