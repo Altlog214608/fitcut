@@ -1,0 +1,40 @@
+.group {
+  display: grid;
+  gap: 8px;
+}
+
+.label {
+  font-size: var(--text-small);
+  font-weight: 600;
+  color: var(--color-slate);
+}
+
+.seg {
+  display: grid;
+  grid-auto-flow: column;
+  grid-auto-columns: 1fr;
+  padding: 3px;
+  border-radius: var(--radius-control);
+  background: var(--color-paper);
+}
+
+.seg button {
+  height: 38px;
+  padding: 0 6px;
+  border: 0;
+  border-radius: 9px;
+  background: transparent;
+  color: var(--color-slate);
+  font-size: var(--text-caption);
+  cursor: pointer;
+  transition:
+    background-color var(--motion-fast),
+    color var(--motion-fast);
+}
+
+.seg .on {
+  background: var(--color-bg);
+  color: var(--color-ink);
+  font-weight: 650;
+  box-shadow: 0 1px 3px rgb(0 0 0 / 0.12);
+}

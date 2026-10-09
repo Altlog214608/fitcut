@@ -31,6 +31,17 @@ jobs:
       - run: pnpm typecheck
       - run: pnpm test
       - run: pnpm build
+      - name: E2E (Playwright, Chromium 데스크톱·모바일)
+        run: |
+          pnpm --filter @fitcut/web exec playwright install --with-deps chromium
+          pnpm --filter @fitcut/web e2e
+      - name: E2E 결과 올리기 (실패했을 때만)
+        if: failure()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: playwright-results
+          path: apps/web/test-results
+          retention-days: 7
 
   terraform:
     runs-on: ubuntu-latest

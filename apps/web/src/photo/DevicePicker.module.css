@@ -1,0 +1,241 @@
+.picker {
+  display: grid;
+  gap: 12px;
+}
+
+.title {
+  font-size: var(--text-caption);
+  font-weight: 650;
+  color: var(--color-slate);
+  letter-spacing: 0;
+}
+
+.selected {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.selectedText {
+  display: grid;
+  flex: 1;
+  min-width: 0;
+}
+
+.selectedName {
+  font-weight: 700;
+  font-size: 17px;
+}
+
+.size {
+  font-size: var(--text-small);
+  color: var(--color-slate);
+  font-variant-numeric: tabular-nums;
+}
+
+.star {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 36px;
+  padding: 0 12px;
+  border: 1px solid var(--color-line);
+  border-radius: 999px;
+  background: var(--color-bg);
+  font-size: var(--text-small);
+  color: var(--color-slate);
+  cursor: pointer;
+  flex: none;
+}
+
+.star[aria-pressed='true'] {
+  border-color: transparent;
+  background: var(--color-accent-soft);
+  color: var(--color-accent-ink);
+  font-weight: 650;
+}
+
+.search {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  height: 46px;
+  padding: 0 8px 0 12px;
+  border-radius: var(--radius-control);
+  background: var(--color-paper);
+  color: var(--color-slate);
+}
+
+.search:focus-within {
+  outline: 2px solid var(--color-accent-ink);
+  outline-offset: 2px;
+}
+
+.search input {
+  flex: 1;
+  min-width: 0;
+  height: 100%;
+  border: 0;
+  background: transparent;
+  color: var(--color-ink);
+  outline: none;
+  font-size: 15px;
+}
+
+.search input::placeholder {
+  color: var(--color-slate);
+}
+
+.clear {
+  display: grid;
+  place-items: center;
+  width: 32px;
+  height: 32px;
+  border: 0;
+  border-radius: 8px;
+  background: transparent;
+  color: var(--color-slate);
+  cursor: pointer;
+}
+
+.results {
+  list-style: none;
+  display: grid;
+}
+
+.results button {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+  width: 100%;
+  padding: 11px 4px;
+  border: 0;
+  border-bottom: 1px solid var(--color-line);
+  background: transparent;
+  text-align: left;
+  cursor: pointer;
+}
+
+.resultName {
+  font-weight: 600;
+}
+
+.empty {
+  font-size: var(--text-caption);
+  color: var(--color-slate);
+}
+
+.chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  height: 36px;
+  padding: 0 12px;
+  border: 1px solid var(--color-line);
+  border-radius: 999px;
+  background: var(--color-bg);
+  font-size: var(--text-caption);
+  cursor: pointer;
+}
+
+.chipOn {
+  border-color: transparent;
+  background: var(--color-accent-soft);
+  color: var(--color-accent-ink);
+  font-weight: 650;
+}
+
+.seg {
+  display: grid;
+  grid-auto-flow: column;
+  grid-auto-columns: 1fr;
+  padding: 3px;
+  border-radius: var(--radius-control);
+  background: var(--color-paper);
+}
+
+.seg button {
+  height: 36px;
+  border: 0;
+  border-radius: 9px;
+  background: transparent;
+  color: var(--color-slate);
+  font-size: var(--text-caption);
+  cursor: pointer;
+}
+
+.seg .on {
+  background: var(--color-bg);
+  color: var(--color-ink);
+  font-weight: 650;
+  box-shadow: 0 1px 3px rgb(0 0 0 / 0.12);
+}
+
+.link {
+  justify-self: start;
+  padding: 4px 0;
+  border: 0;
+  background: transparent;
+  color: var(--color-accent-ink);
+  font-size: var(--text-caption);
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.custom {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: end;
+  gap: 8px;
+}
+
+.custom label {
+  display: grid;
+  gap: 4px;
+  font-size: var(--text-small);
+  color: var(--color-slate);
+}
+
+.custom input {
+  width: 96px;
+  height: 44px;
+  padding: 0 12px;
+  border: 1px solid var(--color-line);
+  border-radius: var(--radius-control);
+  background: var(--color-bg);
+  font-variant-numeric: tabular-nums;
+}
+
+.custom > span {
+  padding-bottom: 10px;
+  color: var(--color-slate);
+}
+
+.custom button {
+  height: 44px;
+  padding: 0 16px;
+  border: 0;
+  border-radius: var(--radius-control);
+  background: var(--color-ink);
+  color: var(--color-bg);
+  font-weight: 650;
+  cursor: pointer;
+}
+
+.custom button:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.error {
+  flex-basis: 100%;
+  font-size: var(--text-small);
+  color: var(--color-danger);
+}

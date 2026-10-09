@@ -21,6 +21,8 @@ export type RenderOptions = {
   format: OutputFormat;
   /** JPEG·WebP 화질 0~1 */
   quality: number;
+  /** 원형 워치: 원 바깥을 검정으로 칠하거나 투명하게 (투명은 PNG·WebP만) (F2) */
+  circleOutside?: 'black' | 'transparent';
 };
 
 export type RenderResult = {
@@ -150,6 +152,25 @@ export function drawPhoto(
   }
 
   drawRect(ctx, image, layout.image, make);
+
+  if (options.circleOutside) maskCircle(ctx, target, options.circleOutside);
+}
+
+function maskCircle(ctx: Ctx, target: Size, outside: 'black' | 'transparent'): void {
+  const r = Math.min(target.width, target.height) / 2;
+  ctx.save();
+  ctx.beginPath();
+  ctx.arc(target.width / 2, target.height / 2, r, 0, Math.PI * 2);
+  if (outside === 'transparent') {
+    ctx.globalCompositeOperation = 'destination-in';
+    ctx.fill();
+  } else {
+    // 원 바깥만 칠한다: 화면 전체 사각형에서 원을 빼는 even-odd 채우기
+    ctx.rect(0, 0, target.width, target.height);
+    ctx.fillStyle = '#000000';
+    ctx.fill('evenodd');
+  }
+  ctx.restore();
 }
 
 async function encode(canvas: AnyCanvas, format: OutputFormat, quality: number): Promise<Blob> {

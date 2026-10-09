@@ -19,7 +19,7 @@ describe('홈', () => {
     renderHome();
     pick('wallpaper.jpg', 'image/jpeg');
     expect(await screen.findByRole('heading', { level: 1, name: '사진' })).toBeDefined();
-    expect(screen.getByText('고른 파일: wallpaper.jpg')).toBeDefined();
+    expect(screen.getByText('wallpaper.jpg')).toBeDefined();
   });
 
   it('영상을 고르면 무엇을 만들지 고르게 한다', () => {
