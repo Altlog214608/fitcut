@@ -1,0 +1,8 @@
+pnpm-lock.yaml
+dist/
+coverage/
+.terraform/
+# 기획 문서는 사람이 다듬은 서식을 그대로 둔다
+docs/
+CLAUDE.md
+README.md
