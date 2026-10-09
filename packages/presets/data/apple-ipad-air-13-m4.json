@@ -1,0 +1,19 @@
+{
+  "id": "apple-ipad-air-13-m4",
+  "brand": "Apple",
+  "category": "tablet",
+  "name": "iPad Air 13 (M4)",
+  "aliases": ["아이패드 에어 13", "아이패드 에어 m4", "ipad air 13"],
+  "releaseYear": 2026,
+  "screens": [
+    {
+      "role": "main",
+      "widthPx": 2048,
+      "heightPx": 2732,
+      "shape": "rect"
+    }
+  ],
+  "source": "https://support.apple.com/en-us/126472",
+  "verified": true,
+  "verifiedAt": "2026-10-10"
+}

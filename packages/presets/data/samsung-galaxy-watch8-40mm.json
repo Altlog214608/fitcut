@@ -1,0 +1,20 @@
+{
+  "id": "samsung-galaxy-watch8-40mm",
+  "brand": "Samsung",
+  "category": "watch",
+  "name": "Galaxy Watch8 40mm",
+  "aliases": ["갤럭시 워치8 40mm", "워치8", "watch8 40mm"],
+  "releaseYear": 2025,
+  "screens": [
+    {
+      "role": "main",
+      "widthPx": 438,
+      "heightPx": 438,
+      "shape": "circle",
+      "animated": "gif"
+    }
+  ],
+  "source": "https://www.samsung.com/co/support/mobile-devices/features-of-the-galaxy-watch-8-and-watch-8-classic/",
+  "verified": true,
+  "verifiedAt": "2026-10-10"
+}

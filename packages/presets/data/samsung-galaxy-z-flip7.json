@@ -1,0 +1,25 @@
+{
+  "id": "samsung-galaxy-z-flip7",
+  "brand": "Samsung",
+  "category": "flip",
+  "name": "Galaxy Z Flip7",
+  "aliases": ["갤럭시 Z 플립7", "플립7", "z flip7", "flip 7"],
+  "releaseYear": 2025,
+  "screens": [
+    {
+      "role": "main",
+      "widthPx": 1080,
+      "heightPx": 2520,
+      "shape": "rect"
+    },
+    {
+      "role": "cover",
+      "widthPx": 948,
+      "heightPx": 1048,
+      "shape": "rect"
+    }
+  ],
+  "source": "https://news.samsung.com/global/samsung-galaxy-z-flip7-a-pocket-sized-ai-powerhouse-with-a-new-edge-to-edge-flexwindow",
+  "verified": true,
+  "verifiedAt": "2026-10-10"
+}

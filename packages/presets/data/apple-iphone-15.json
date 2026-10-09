@@ -1,0 +1,19 @@
+{
+  "id": "apple-iphone-15",
+  "brand": "Apple",
+  "category": "phone",
+  "name": "iPhone 15",
+  "aliases": ["아이폰 15", "15", "iphone 15"],
+  "releaseYear": 2023,
+  "screens": [
+    {
+      "role": "main",
+      "widthPx": 1179,
+      "heightPx": 2556,
+      "shape": "rect"
+    }
+  ],
+  "source": "https://support.apple.com/en-us/111831",
+  "verified": true,
+  "verifiedAt": "2026-10-10"
+}

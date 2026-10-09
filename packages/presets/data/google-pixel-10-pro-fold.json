@@ -1,0 +1,25 @@
+{
+  "id": "google-pixel-10-pro-fold",
+  "brand": "Google",
+  "category": "foldable",
+  "name": "Pixel 10 Pro Fold",
+  "aliases": ["픽셀 10 프로 폴드", "pixel 10 pro fold"],
+  "releaseYear": 2025,
+  "screens": [
+    {
+      "role": "main",
+      "widthPx": 2076,
+      "heightPx": 2152,
+      "shape": "rect"
+    },
+    {
+      "role": "cover",
+      "widthPx": 1080,
+      "heightPx": 2364,
+      "shape": "rect"
+    }
+  ],
+  "source": "https://support.google.com/pixelphone/answer/7158570",
+  "verified": true,
+  "verifiedAt": "2026-10-10"
+}

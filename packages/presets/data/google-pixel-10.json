@@ -1,0 +1,19 @@
+{
+  "id": "google-pixel-10",
+  "brand": "Google",
+  "category": "phone",
+  "name": "Pixel 10",
+  "aliases": ["픽셀 10", "pixel 10"],
+  "releaseYear": 2025,
+  "screens": [
+    {
+      "role": "main",
+      "widthPx": 1080,
+      "heightPx": 2424,
+      "shape": "rect"
+    }
+  ],
+  "source": "https://support.google.com/pixelphone/answer/7158570",
+  "verified": true,
+  "verifiedAt": "2026-10-10"
+}

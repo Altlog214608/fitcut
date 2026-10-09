@@ -32,6 +32,15 @@ describe('searchPresets', () => {
     ]);
   });
 
+  it('태블릿·이전 세대·픽셀도 찾는다 (2차 배치)', () => {
+    expect(ids('아이패드 프로 13')[0]).toBe('apple-ipad-pro-13-m5');
+    expect(ids('탭 S11 울트라')[0]).toBe('samsung-galaxy-tab-s11-ultra');
+    expect(ids('아이폰 15 프로')[0]).toBe('apple-iphone-15-pro');
+    expect(ids('폴드7')[0]).toBe('samsung-galaxy-z-fold7');
+    expect(ids('pixel 10 pro')[0]).toBe('google-pixel-10-pro');
+    expect(ids('픽셀 11 프로 폴드')[0]).toBe('google-pixel-11-pro-fold');
+  });
+
   it('확인되지 않은 프리셋은 보이는 목록에서 찾지 않는다', () => {
     expect(ids('폴드8')).toEqual([]);
   });
