@@ -18,6 +18,10 @@ type Props = {
   onCircleOutside: (value: 'black' | 'transparent') => void;
   soft: boolean;
   onSoft: (soft: boolean) => void;
+  /** 배경 채우기에서 사진을 키운 배율 (1 = 사진 전체) */
+  zoom: number;
+  zoomMax: number;
+  onZoom: (zoom: number) => void;
 };
 
 const MODES = [
@@ -69,6 +73,24 @@ export function Options(props: Props) {
 
       {mode === 'contain' && (
         <div className={styles.sub}>
+          {props.zoomMax > 1.01 && (
+            <label className={styles.slider}>
+              <span>
+                사진 크기 <b className={styles.num}>{Math.round(props.zoom * 100)}%</b>
+              </span>
+              <input
+                type="range"
+                min={1}
+                max={props.zoomMax}
+                step={0.01}
+                value={props.zoom}
+                onChange={(e) => props.onZoom(Number(e.currentTarget.value))}
+              />
+              <small className={styles.help}>
+                키우면 양옆이나 위아래가 조금 잘리고 채울 곳이 줄어요
+              </small>
+            </label>
+          )}
           <Segmented
             label="배경"
             value={background.kind}

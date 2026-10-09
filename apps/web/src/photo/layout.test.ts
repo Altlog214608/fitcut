@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { computeLayout, ratioFit } from './layout';
+import { computeLayout, fillAxis, maxZoom, ratioFit } from './layout';
 
 const PHONE = { width: 1170, height: 2532 };
 
@@ -67,6 +67,43 @@ describe('배경 채우기 (contain)', () => {
     expect(image.height).toBe(2532);
     expect(image.width).toBe(422);
     expect(movable).toEqual({ x: true, y: false });
+  });
+
+  it('사진을 키우면 양옆이 잘리고 위아래 채울 곳이 줄어든다', () => {
+    // 3024x4032 → 1440x3200: 그대로면 1440x1920, 1.3배면 1872x2496
+    const src = { width: 3024, height: 4032 };
+    const target = { width: 1440, height: 3200 };
+    const { image, movable } = computeLayout(src, target, 'contain', { x: 0, y: 1 }, 1.3);
+    expect(image).toEqual({ x: -216, y: 3200 - 2496, width: 1872, height: 2496 });
+    expect(movable).toEqual({ x: true, y: true });
+  });
+
+  it('키운 쪽 위치도 -1(왼쪽 끝)~1(오른쪽 끝)로 옮긴다', () => {
+    const src = { width: 3024, height: 4032 };
+    const target = { width: 1440, height: 3200 };
+    expect(computeLayout(src, target, 'contain', { x: -1, y: 0 }, 1.3).image.x).toBe(0);
+    expect(computeLayout(src, target, 'contain', { x: 1, y: 0 }, 1.3).image.x).toBe(-432);
+  });
+
+  it('최대로 키우면 꽉 채우기와 같고, 그 이상은 멈춘다', () => {
+    const src = { width: 3024, height: 4032 };
+    const target = { width: 1440, height: 3200 };
+    expect(maxZoom(src, target)).toBeCloseTo(1.667, 3);
+    const max = computeLayout(src, target, 'contain', { x: 0, y: 0 }, 99);
+    expect(max.image).toEqual(computeLayout(src, target, 'cover').image);
+    expect(max.movable).toEqual({ x: true, y: false });
+  });
+
+  it('1보다 작게는 줄이지 않는다', () => {
+    const src = { width: 900, height: 1200 };
+    expect(computeLayout(src, PHONE, 'contain', { x: 0, y: 0 }, 0.5).image).toEqual(
+      computeLayout(src, PHONE, 'contain').image,
+    );
+  });
+
+  it('채우는 축: 납작한 사진은 위아래(y), 길쭉한 사진은 양옆(x)', () => {
+    expect(fillAxis({ width: 4000, height: 3000 }, PHONE)).toBe('y');
+    expect(fillAxis({ width: 500, height: 3000 }, PHONE)).toBe('x');
   });
 
   it('원본보다 크게 그리면 scale이 1보다 크다 (확대 안내용)', () => {

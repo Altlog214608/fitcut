@@ -23,8 +23,9 @@ export type FillExtent = {
 export type Stop = [number, number];
 
 export function fillExtent(layout: Layout, target: Size): FillExtent {
-  const axis: Axis = layout.movable.x && !layout.movable.y ? 'x' : 'y';
   const { image } = layout;
+  // 사진을 키우면 반대 축은 잘려서(음수) 남는 곳이 없다. 남는 곳이 있는 축이 채우는 축이다.
+  const axis: Axis = target.width - image.width > target.height - image.height ? 'x' : 'y';
   const start = axis === 'y' ? image.y : image.x;
   const length = axis === 'y' ? image.height : image.width;
   const total = axis === 'y' ? target.height : target.width;

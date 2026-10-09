@@ -1,6 +1,6 @@
 import { expect, test, type Page } from '@playwright/test';
 import { readFile } from 'node:fs/promises';
-import { hasExif, imageSize, makeImage, makeScene, withExif } from './images';
+import { hasExif, imageSize, makeCutPortrait, makeImage, makeScene, withExif } from './images';
 
 /** 사진 작업 중 업로드 요청이 없는지 본다 (F1 수용 기준, M1 완료 기준) */
 function watchUploads(page: Page): string[] {
@@ -151,6 +151,37 @@ test('가장자리 늘이기·거울 반사로 저장해도 크기가 정확하�
     expect(imageSize(file)).toEqual({ width: 1206, height: 2622, type: 'jpeg' });
   }
   await expect(page.getByLabel('사진 경계를 부드럽게 섞기')).toBeChecked();
+});
+
+test('아래에서 잘린 사진은 화면 아래에 붙이고 위만 채운다', async ({ page }) => {
+  await page.goto('/');
+  await openPhotoFromHome(page, await makeCutPortrait(page, 1200, 1600), 'cut.jpg');
+  await chooseDevice(page, '17 프로', 'iPhone 17 Pro');
+  await page.getByRole('radio', { name: '배경 채우기' }).click();
+  await expect(page.getByText(/잘린 쪽은 화면 끝에 붙이고 반대쪽만 채웠어요/)).toBeVisible();
+  await page.getByLabel(/사진 크기/).fill('1.2');
+
+  const { file } = await save(page);
+  expect(imageSize(file)).toEqual({ width: 1206, height: 2622, type: 'jpeg' });
+  // 맨 아래 줄이 줄무늬 그대로면 아래에 붙은 것이다 (가운데였다면 늘인 배경이라 매끈하다)
+  const [bottom, top] = await page.evaluate(async (base64) => {
+    const bytes = Uint8Array.from(atob(base64), (c) => c.charCodeAt(0));
+    const bitmap = await createImageBitmap(new Blob([bytes], { type: 'image/jpeg' }));
+    const canvas = new OffscreenCanvas(bitmap.width, bitmap.height);
+    const ctx = canvas.getContext('2d');
+    if (!ctx) throw new Error('no canvas');
+    ctx.drawImage(bitmap, 0, 0);
+    const busy = (y: number) => {
+      const row = ctx.getImageData(0, y, bitmap.width, 1).data;
+      let sum = 0;
+      for (let i = 4; i < row.length; i += 4) sum += Math.abs((row[i] ?? 0) - (row[i - 4] ?? 0));
+      return sum / (bitmap.width - 1);
+    };
+    return [busy(bitmap.height - 2), busy(2)];
+  }, file.toString('base64'));
+  // 줄무늬 폭이 50px 안팎이라 경계에서만 차이가 난다: 줄무늬 그대로면 약 2, 늘여서 뭉개면 0에 가깝다
+  expect(bottom).toBeGreaterThan(1.5);
+  expect(top).toBeLessThan(0.5);
 });
 
 test('배경 종류 비교 캡처', async ({ page }, testInfo) => {

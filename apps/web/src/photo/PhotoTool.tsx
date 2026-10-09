@@ -6,8 +6,9 @@ import { detectKind } from '../lib/detectKind';
 import { readJson, writeJson } from '../lib/storage';
 import { DevicePicker } from './DevicePicker';
 import { outputFileName, type OutputFormat } from './fileName';
-import { computeLayout, ratioFit, type FitMode, type Position } from './layout';
+import { computeLayout, fillAxis, maxZoom, ratioFit, type FitMode, type Position } from './layout';
 import { Options } from './Options';
+import { measureEdges, suggestPosition, type EdgeBusyness } from './placement';
 import styles from './PhotoTool.module.css';
 import { Preview } from './Preview';
 import { downscaled, type Background, type CanvasFactory } from './render';
@@ -24,11 +25,15 @@ type Loaded = {
   bitmap: ImageBitmap;
   /** 미리보기용으로 줄인 사본. 끌 때마다 다시 그리므로 작게 둔다 */
   preview: CanvasImageSource & { width: number; height: number };
+  /** 가장자리가 얼마나 복잡한지. 배경 채우기에서 사진을 붙일 쪽을 고른다 */
+  edges: EdgeBusyness;
 };
 
 /** 배경 채우기에서 사진 경계를 섞는 길이 (사진 길이 대비) */
 const FEATHER = 0.05;
 const PREVIEW_MAX_SIDE = 1600;
+/** 가장자리를 잴 때 줄이는 가로 길이. 잡음 대신 큰 모양만 보도록 작게 줄인다 */
+const EDGE_SAMPLE_WIDTH = 96;
 
 const makeCanvas: CanvasFactory = (width, height) => {
   const canvas = document.createElement('canvas');
@@ -36,6 +41,15 @@ const makeCanvas: CanvasFactory = (width, height) => {
   canvas.height = height;
   return canvas;
 };
+
+function sampleEdges(image: CanvasImageSource & { width: number; height: number }): EdgeBusyness {
+  const width = Math.min(EDGE_SAMPLE_WIDTH, image.width);
+  const height = Math.max(1, Math.round((image.height * width) / image.width));
+  const ctx = makeCanvas(width, height).getContext('2d') as CanvasRenderingContext2D | null;
+  if (!ctx) return { top: 0, bottom: 0, left: 0, right: 0 };
+  ctx.drawImage(image, 0, 0, width, height);
+  return measureEdges(ctx.getImageData(0, 0, width, height));
+}
 
 type Saved = { name: string; width: number; height: number; bytes: number; fellBack: boolean };
 
@@ -72,7 +86,9 @@ export function PhotoTool({ initialFile }: { initialFile: File | null }) {
   const [target, setTarget] = useState<Target | null>(stored.mine[0] ?? stored.recent[0] ?? null);
 
   const [mode, setMode] = useState<FitMode>('cover');
-  const [position, setPosition] = useState<Position>(CENTER);
+  // null이면 자동: 배경 채우기에서는 사진이 잘린 쪽을 화면 끝에 붙인다. 끌면 직접 정한 위치가 된다.
+  const [position, setPosition] = useState<Position | null>(null);
+  const [zoom, setZoom] = useState(1);
   // 비교해 보니 가장자리 늘이기가 가장 자연스러워 기본값으로 둔다 (ROADMAP M1 배경 채우기)
   const [background, setBackground] = useState<Background>({
     kind: 'extend',
@@ -100,7 +116,8 @@ export function PhotoTool({ initialFile }: { initialFile: File | null }) {
           bitmap.close();
           return;
         }
-        setLoaded({ file, url, bitmap, preview: downscaled(bitmap, PREVIEW_MAX_SIDE, makeCanvas) });
+        const preview = downscaled(bitmap, PREVIEW_MAX_SIDE, makeCanvas);
+        setLoaded({ file, url, bitmap, preview, edges: sampleEdges(preview) });
       })
       .catch((error: unknown) => {
         if (cancelled) return;
@@ -125,6 +142,7 @@ export function PhotoTool({ initialFile }: { initialFile: File | null }) {
     target,
     mode,
     position,
+    zoom,
     background,
     format,
     quality,
@@ -138,11 +156,21 @@ export function PhotoTool({ initialFile }: { initialFile: File | null }) {
     [target],
   );
   const source = bitmap ? { width: bitmap.width, height: bitmap.height } : null;
-  const layout = resolved && source ? computeLayout(source, resolved.size, mode, position) : null;
+  const contain = mode === 'contain';
+  const auto =
+    contain && current && resolved && source
+      ? suggestPosition(current.edges, fillAxis(source, resolved.size))
+      : CENTER;
+  const placed = position ?? auto;
+  const zoomMax = contain && resolved && source ? maxZoom(source, resolved.size) : 1;
+  const layout =
+    resolved && source
+      ? computeLayout(source, resolved.size, mode, placed, contain ? zoom : 1)
+      : null;
   const fit = resolved && source ? ratioFit(source, resolved.size) : 'match';
   const isCircle = resolved?.shape === 'circle';
   const transparentCircle = isCircle && circleOutside === 'transparent';
-  const feather = mode === 'contain' && soft ? FEATHER : 0;
+  const feather = contain && soft ? FEATHER : 0;
   const effectiveFormat: OutputFormat = transparentCircle && format === 'jpeg' ? 'png' : format;
 
   function pickFile(next: File) {
@@ -156,18 +184,21 @@ export function PhotoTool({ initialFile }: { initialFile: File | null }) {
       return;
     }
     setPickError(null);
-    setPosition(CENTER);
+    setPosition(null);
+    setZoom(1);
     setFile(next);
   }
 
   function chooseTarget(next: Target) {
     setTarget(next);
-    setPosition(CENTER);
+    setPosition(null);
+    setZoom(1);
   }
 
   function chooseMode(next: FitMode) {
     setMode(next);
-    setPosition(CENTER);
+    setPosition(null);
+    setZoom(1);
   }
 
   function toggleMine(t: Target) {
@@ -278,12 +309,11 @@ export function PhotoTool({ initialFile }: { initialFile: File | null }) {
               imageUrl={imageUrl}
               target={resolved}
               layout={layout}
-              mode={mode}
               background={background}
               feather={feather}
               format={effectiveFormat}
               circleOutside={circleOutside}
-              position={position}
+              position={placed}
               onPositionChange={setPosition}
             />
           ) : (
@@ -319,7 +349,12 @@ export function PhotoTool({ initialFile }: { initialFile: File | null }) {
                 </p>
               )}
               {(layout.movable.x || layout.movable.y) && (
-                <p className={styles.hint}>사진을 끌어서 위치를 옮길 수 있어요.</p>
+                <p className={styles.hint}>
+                  {position === null && (auto.x !== 0 || auto.y !== 0)
+                    ? '사람이나 물건이 잘린 쪽은 화면 끝에 붙이고 반대쪽만 채웠어요. '
+                    : ''}
+                  사진을 끌어서 위치를 옮길 수 있어요.
+                </p>
               )}
             </div>
           )}
@@ -348,6 +383,9 @@ export function PhotoTool({ initialFile }: { initialFile: File | null }) {
             onCircleOutside={setCircleOutside}
             soft={soft}
             onSoft={setSoft}
+            zoom={zoom}
+            zoomMax={zoomMax}
+            onZoom={setZoom}
           />
           {transparentCircle && format === 'jpeg' && (
             <p className={styles.hint}>JPG는 투명을 담을 수 없어서 PNG로 저장돼요.</p>

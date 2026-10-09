@@ -6,14 +6,7 @@ import {
   type KeyboardEvent,
   type PointerEvent,
 } from 'react';
-import {
-  scaleLayout,
-  type FitMode,
-  type Layout,
-  type Position,
-  type Rect,
-  type Size,
-} from './layout';
+import { scaleLayout, type Layout, type Position, type Rect, type Size } from './layout';
 import styles from './Preview.module.css';
 import { drawPhoto, type Background, type CanvasFactory } from './render';
 import type { OutputFormat } from './fileName';
@@ -26,7 +19,6 @@ type Props = {
   imageUrl: string;
   target: ResolvedTarget;
   layout: Layout;
-  mode: FitMode;
   background: Background;
   feather: number;
   format: OutputFormat;
@@ -53,13 +45,17 @@ function rectStyle(rect: Rect, size: Size): CSSProperties {
 
 const clamp = (v: number) => Math.min(1, Math.max(-1, v));
 
-/** 움직일 수 있는 길이(목표 px)와 방향. cover는 사진을 끌면 반대 방향으로 위치 값이 바뀐다. */
-function freeSpace(layout: Layout, size: Size, mode: FitMode) {
+/**
+ * 움직일 수 있는 길이(목표 px)와 방향. 사진이 화면보다 큰 축(잘리는 쪽)은
+ * 사진을 끌면 반대 방향으로 위치 값이 바뀐다.
+ */
+function freeSpace(layout: Layout, size: Size) {
   const { image } = layout;
   return {
     x: layout.movable.x ? Math.abs(image.width - size.width) : 0,
     y: layout.movable.y ? Math.abs(image.height - size.height) : 0,
-    sign: mode === 'cover' ? -1 : 1,
+    signX: image.width > size.width ? -1 : 1,
+    signY: image.height > size.height ? -1 : 1,
   };
 }
 
@@ -68,7 +64,6 @@ export function Preview({
   imageUrl,
   target,
   layout,
-  mode,
   background,
   feather,
   format,
@@ -123,7 +118,9 @@ export function Preview({
     return () => cancelAnimationFrame(frame);
   }, [source, layout, background, feather, format, circleOutside, shape, size, screenWidth]);
 
-  const free = freeSpace(layout, size, mode);
+  const free = freeSpace(layout, size);
+  // 잘려 나가는 부분을 흐릿하게 보여준다 (꽉 채우기, 또는 배경 채우기에서 사진을 키웠을 때)
+  const overflows = layout.image.width > size.width || layout.image.height > size.height;
   const canMove = free.x > 0 || free.y > 0;
 
   function onPointerDown(event: PointerEvent<HTMLDivElement>) {
@@ -139,8 +136,8 @@ export function Preview({
     const dx = (event.clientX - d.x) / d.k;
     const dy = (event.clientY - d.y) / d.k;
     onPositionChange({
-      x: free.x > 0 ? clamp(d.start.x + (free.sign * dx * 2) / free.x) : d.start.x,
-      y: free.y > 0 ? clamp(d.start.y + (free.sign * dy * 2) / free.y) : d.start.y,
+      x: free.x > 0 ? clamp(d.start.x + (free.signX * dx * 2) / free.x) : d.start.x,
+      y: free.y > 0 ? clamp(d.start.y + (free.signY * dy * 2) / free.y) : d.start.y,
     });
   }
 
@@ -157,8 +154,8 @@ export function Preview({
     event.preventDefault();
     // 키보드는 "사진을 그 방향으로 옮긴다"로 맞춘다
     onPositionChange({
-      x: free.x > 0 ? clamp(position.x + free.sign * d[0]) : position.x,
-      y: free.y > 0 ? clamp(position.y + free.sign * d[1]) : position.y,
+      x: free.x > 0 ? clamp(position.x + free.signX * d[0]) : position.x,
+      y: free.y > 0 ? clamp(position.y + free.signY * d[1]) : position.y,
     });
   }
 
@@ -180,7 +177,7 @@ export function Preview({
   return (
     <div className={styles.stage}>
       <div className={styles.frame} style={frameStyle}>
-        {mode === 'cover' && (
+        {overflows && (
           <img
             className={styles.ghost}
             src={imageUrl}
