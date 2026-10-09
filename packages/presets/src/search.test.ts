@@ -41,10 +41,12 @@ describe('searchPresets', () => {
     expect(ids('픽셀 11 프로 폴드')[0]).toBe('google-pixel-11-pro-fold');
   });
 
-  it('확인되지 않은 프리셋은 보이는 목록에서 찾지 않는다', () => {
-    expect(ids('폴드8')).toEqual([]);
+  it('폴드8은 일반 모델이 먼저, 울트라가 그다음이다', () => {
+    expect(ids('폴드8').slice(0, 2)).toEqual([
+      'samsung-galaxy-z-fold8',
+      'samsung-galaxy-z-fold8-ultra',
+    ]);
   });
-
   it('없는 기기나 빈 검색어는 빈 목록', () => {
     expect(ids('없는기기123')).toEqual([]);
     expect(ids('   ')).toEqual([]);
