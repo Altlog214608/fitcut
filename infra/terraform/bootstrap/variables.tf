@@ -1,7 +1,12 @@
-variable "github_repository" {
-  description = "OIDC로 역할을 맡을 수 있는 GitHub 저장소 (owner/name)"
+variable "github_oidc_subject_prefix" {
+  description = <<-EOT
+    OIDC로 역할을 맡을 수 있는 GitHub 저장소의 sub 클레임 접두사.
+    immutable subject 형식(repo:OWNER@OWNER-ID/REPO@REPO-ID)이라 저장소 이름이 바뀌거나
+    같은 이름으로 다시 만들어져도 신뢰가 넘어가지 않는다.
+    확인: gh api repos/Altlog214608/fitcut/actions/oidc/customization/sub
+  EOT
   type        = string
-  default     = "Altlog214608/fitcut"
+  default     = "repo:Altlog214608@186117655/fitcut@1411410621"
 }
 
 variable "alert_email" {

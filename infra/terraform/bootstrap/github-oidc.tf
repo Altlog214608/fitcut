@@ -32,8 +32,8 @@ locals {
 
 data "aws_iam_policy_document" "github_trust" {
   for_each = {
-    plan   = "repo:${var.github_repository}:pull_request"
-    deploy = "repo:${var.github_repository}:ref:refs/heads/main"
+    plan   = "${var.github_oidc_subject_prefix}:pull_request"
+    deploy = "${var.github_oidc_subject_prefix}:ref:refs/heads/main"
   }
 
   statement {
