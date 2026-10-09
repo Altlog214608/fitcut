@@ -1,4 +1,10 @@
-import { renderPhotoWith, type RenderOptions, type RenderResult } from './render';
+import {
+  renderPhotoWith,
+  type CanvasFactory,
+  type RenderOptions,
+  type RenderResult,
+} from './render';
+import { picaResampler } from './resample';
 import type { WorkerRequest, WorkerResponse } from './render.worker';
 
 /**
@@ -45,12 +51,13 @@ export async function renderPhoto(
 ): Promise<RenderResult> {
   const w = getWorker();
   if (!w) {
-    return renderPhotoWith(bitmap, options, (width, height) => {
+    const make: CanvasFactory = (width, height) => {
       const canvas = document.createElement('canvas');
       canvas.width = width;
       canvas.height = height;
       return canvas;
-    });
+    };
+    return renderPhotoWith(bitmap, options, make, picaResampler(make));
   }
   // 원본 비트맵은 미리보기에 계속 쓰므로 복사본을 Worker로 넘긴다
   const copy = await createImageBitmap(bitmap);

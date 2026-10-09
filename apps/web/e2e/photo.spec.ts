@@ -88,7 +88,10 @@ test('원형 워치는 원 바깥을 투명하게 PNG로 저장할 수 있다', 
   const [corner, center] = await page.evaluate(async (base64) => {
     const bytes = Uint8Array.from(atob(base64), (c) => c.charCodeAt(0));
     const bitmap = await createImageBitmap(new Blob([bytes], { type: 'image/png' }));
-    const canvas = new OffscreenCanvas(bitmap.width, bitmap.height);
+    // WebKit(Windows)에는 OffscreenCanvas가 없어서 DOM 캔버스로 읽는다
+    const canvas = document.createElement('canvas');
+    canvas.width = bitmap.width;
+    canvas.height = bitmap.height;
     const ctx = canvas.getContext('2d');
     if (!ctx) throw new Error('no canvas');
     ctx.drawImage(bitmap, 0, 0);
@@ -185,7 +188,10 @@ test('아래에서 잘린 사진은 화면 아래에 붙이고 위만 채운다'
   const [bottom, top] = await page.evaluate(async (base64) => {
     const bytes = Uint8Array.from(atob(base64), (c) => c.charCodeAt(0));
     const bitmap = await createImageBitmap(new Blob([bytes], { type: 'image/jpeg' }));
-    const canvas = new OffscreenCanvas(bitmap.width, bitmap.height);
+    // WebKit(Windows)에는 OffscreenCanvas가 없어서 DOM 캔버스로 읽는다
+    const canvas = document.createElement('canvas');
+    canvas.width = bitmap.width;
+    canvas.height = bitmap.height;
     const ctx = canvas.getContext('2d');
     if (!ctx) throw new Error('no canvas');
     ctx.drawImage(bitmap, 0, 0);

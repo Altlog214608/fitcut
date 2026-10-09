@@ -33,7 +33,7 @@ jobs:
       - run: pnpm build
       - name: E2E (Playwright, Chromium 데스크톱·모바일)
         run: |
-          pnpm --filter @fitcut/web exec playwright install --with-deps chromium
+          pnpm --filter @fitcut/web exec playwright install --with-deps chromium webkit
           pnpm --filter @fitcut/web e2e
       - name: E2E 결과 올리기 (실패했을 때만)
         if: failure()
