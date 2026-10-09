@@ -149,6 +149,17 @@
 - 결정: 로컬·CI·Lambda 모두 Node 24로 맞춘다. TypeScript는 6.0으로 고정한다. Node 26이 Lambda 정식 런타임이 되고, typescript-eslint가 TS 7을 지원하면 다시 검토한다.
 - 대안: TS 7 (typescript-eslint 파서가 지원하지 않아 TS 린트를 돌릴 수 없음).
 
+## ADR-021 AWS 무료 플랜 기준, 로컬 관리 자격 증명은 IAM 사용자
+
+- 상태: 확정 (2026-10-09, M0)
+- 맥락: 계정이 AWS 무료 플랜(Free account plan)이다. IAM Identity Center는 AWS Organizations가 필요하고, 조직을 만들거나 가입하면 계정이 유료 플랜으로 자동 업그레이드되며 남은 프리 티어 크레딧이 즉시 만료된다. 무료 플랜은 가입 후 6개월이 지나거나 크레딧을 다 쓰면 끝나고, 그때 계정이 자동으로 닫힌다(90일 안에 유료로 업그레이드하지 않으면 리소스 삭제). 크레딧을 빠르게 소진할 수 있는 일부 서비스·기능은 무료 플랜에서 쓸 수 없다.
+- 결정:
+  - 로컬 관리 작업(bootstrap 적용 등)은 IAM 사용자 `fitcut-admin`의 액세스 키(`fitcut` 프로필)로 한다. 키는 로컬 `~/.aws`에만 두고, CI는 계속 OIDC를 쓴다 (ADR-018).
+  - Organizations, IAM Identity Center, Control Tower는 쓰지 않는다.
+  - 마일스톤을 시작할 때 쓸 서비스가 무료 플랜에서 되는지 먼저 확인한다. TODO(verify): Data Firehose(M2), Transcribe(M6)는 신규 가입 환경 문서에서 유료 플랜 전용으로 나와 있다. 이 계정에도 해당하는지 확인해야 한다.
+  - 무료 플랜 종료일 전에 유료 업그레이드 여부를 정한다. 업그레이드하지 않으면 배포한 포트폴리오 주소도 사라진다.
+- 대안: Identity Center (유료 플랜 전환 필요), 루트 계정 키 (금지).
+
 ---
 
 ## 템플릿
