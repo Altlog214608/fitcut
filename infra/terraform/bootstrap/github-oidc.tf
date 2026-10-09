@@ -88,7 +88,7 @@ data "aws_iam_policy_document" "plan" {
 
 resource "aws_iam_role" "plan" {
   name               = "fitcut-github-plan"
-  description        = "GitHub Actions PR에서 terraform plan"
+  description        = "GitHub Actions: terraform plan on pull requests"
   assume_role_policy = data.aws_iam_policy_document.github_trust["plan"].json
 }
 
@@ -149,7 +149,7 @@ data "aws_iam_policy_document" "deploy" {
 
 resource "aws_iam_role" "deploy" {
   name               = "fitcut-github-deploy"
-  description        = "GitHub Actions main 브랜치에서 terraform apply와 웹 배포"
+  description        = "GitHub Actions: terraform apply and web deploy from main"
   assume_role_policy = data.aws_iam_policy_document.github_trust["deploy"].json
 }
 

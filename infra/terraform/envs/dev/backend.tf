@@ -1,7 +1,7 @@
 terraform {
   backend "s3" {
-    # TODO: bootstrap을 적용한 뒤 `terraform -chdir=infra/terraform/bootstrap output -raw state_bucket` 값으로 바꾼다.
-    bucket       = "fitcut-tfstate-PENDING"
+    # bootstrap 출력값 state_bucket
+    bucket       = "fitcut-tfstate-c87f4c6d"
     key          = "envs/dev/terraform.tfstate"
     region       = "ap-northeast-2"
     encrypt      = true
