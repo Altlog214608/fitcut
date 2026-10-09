@@ -132,6 +132,7 @@
   - plan 역할은 이 저장소의 `pull_request`에서만 맡을 수 있다. 읽기와 상태 잠금 파일 쓰기만 허용한다.
   - deploy 역할은 `refs/heads/main`에서만 맡을 수 있다. M0에 필요한 S3(`fitcut-dev-*` 버킷)·CloudFront만 관리하고, 새 서비스를 쓰는 마일스톤에서 권한을 넓힌다. AWS 관리형 `AdministratorAccess`나 `ReadOnlyAccess`는 붙이지 않는다 (`ReadOnlyAccess`는 보관 파일 버킷까지 읽을 수 있어서).
   - PR에서 plan 결과를 확인하고 main에 머지하는 것을 적용 요청으로 본다. 머지하면 `envs/dev`에 apply하고 웹을 배포한다.
+  - 머지하는 사람 (2026-10-09 추가): dev plan이 "No changes"인 PR(앱 코드·문서만 바뀜)은 CI 통과를 확인한 뒤 Claude가 머지한다. 인프라가 바뀌는 PR은 plan 요약을 보고 사용자가 머지한다. 머지할 때마다 사람이 확인하는 부담을 줄이면서, AWS 리소스를 바꾸는 결정은 사람이 내리게 한다.
   - 액션은 커밋 SHA로 고정하고, 로그에서 계정 ID를 가린다.
   - 신뢰 정책의 `sub` 조건은 GitHub immutable subject 형식(`repo:OWNER@OWNER-ID/REPO@REPO-ID:...`)을 쓴다. 2026-07-15 이후 만든 저장소의 기본값이다. 저장소 이름이 바뀌거나, 지운 뒤 같은 이름으로 다시 만들어져도 신뢰가 넘어가지 않는다. 처음에는 이름 기반 `repo:OWNER/REPO:...`로 만들었다가 역할을 맡지 못해 이 형식으로 바꿨다.
 - 대안: 역할 하나 (PR 코드가 쓰기 권한을 얻음), 수동 apply (자동 배포 완료 기준을 만족하지 못함).
