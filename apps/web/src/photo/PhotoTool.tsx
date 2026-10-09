@@ -105,12 +105,8 @@ export function PhotoTool({ initialFile }: { initialFile: File | null }) {
   // null이면 자동: 배경 채우기에서는 사진이 잘린 쪽을 화면 끝에 붙인다. 끌면 직접 정한 위치가 된다.
   const [position, setPosition] = useState<Position | null>(null);
   const [zoom, setZoom] = useState(1);
-  // 비교해 보니 가장자리 늘이기가 가장 자연스러워 기본값으로 둔다 (ROADMAP M1 배경 채우기)
-  const [background, setBackground] = useState<Background>({
-    kind: 'extend',
-    strength: 0.4,
-    dim: 0,
-  });
+  // 사용자 사진으로 비교해 보니 '자연스럽게'(결 이어 붙이기)가 목표에 가장 가까웠다 (ROADMAP M1)
+  const [background, setBackground] = useState<Background>({ kind: 'texture' });
   const [format, setFormat] = useState<OutputFormat>('jpeg');
   const [quality, setQuality] = useState(0.92);
   const [circleOutside, setCircleOutside] = useState<'black' | 'transparent'>('black');
