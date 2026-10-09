@@ -1,0 +1,38 @@
+.zone {
+  display: grid;
+  justify-items: center;
+  gap: 4px;
+  padding: var(--space-3) var(--space-2);
+  border: 1.5px dashed var(--color-line);
+  border-radius: var(--radius-panel);
+  background: var(--color-paper);
+  text-align: center;
+  cursor: pointer;
+  transition:
+    border-color var(--motion-fast),
+    background-color var(--motion-fast);
+}
+
+.zone:hover,
+.zone[data-dragging] {
+  border-color: var(--color-accent-ink);
+}
+
+.zone[data-dragging] {
+  background: var(--color-accent-soft);
+}
+
+.zone:has(input:focus-visible) {
+  outline: 2px solid var(--color-accent-ink);
+  outline-offset: 3px;
+}
+
+.title {
+  margin-top: var(--space-1);
+  font-weight: 650;
+}
+
+.hint {
+  font-size: var(--text-small);
+  color: var(--color-slate);
+}

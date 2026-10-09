@@ -1,0 +1,31 @@
+.page {
+  display: grid;
+  gap: var(--space-2);
+}
+
+.title {
+  font-size: var(--text-title);
+  line-height: 1.35;
+  font-weight: 740;
+}
+
+.summary {
+  color: var(--color-slate);
+}
+
+.file {
+  padding: 12px 14px;
+  border-radius: var(--radius-control);
+  background: var(--color-paper);
+  font-size: var(--text-caption);
+  overflow-wrap: anywhere;
+}
+
+.note {
+  font-size: var(--text-caption);
+  color: var(--color-slate);
+}
+
+.note a {
+  color: var(--color-accent-ink);
+}

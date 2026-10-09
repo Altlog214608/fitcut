@@ -1,31 +1,17 @@
-import { NavLink, Outlet } from 'react-router';
-
-const tools = [
-  { to: '/photo', label: '사진' },
-  { to: '/gif', label: '움짤' },
-  { to: '/audio', label: '음성' },
-  { to: '/link', label: '링크 구간' },
-  { to: '/highlight', label: '하이라이트' },
-];
+import { Link, Outlet } from 'react-router';
+import styles from './Layout.module.css';
 
 export function Layout() {
   return (
-    <>
-      <header>
-        <NavLink to="/">FitCut</NavLink>
-        <nav aria-label="도구">
-          <ul>
-            {tools.map((tool) => (
-              <li key={tool.to}>
-                <NavLink to={tool.to}>{tool.label}</NavLink>
-              </li>
-            ))}
-          </ul>
-        </nav>
+    <div className={styles.app}>
+      <header className={styles.header}>
+        <Link to="/" className={styles.wordmark} aria-label="FitCut 처음으로">
+          Fit<span>Cut</span>
+        </Link>
       </header>
-      <main>
+      <main className={styles.main}>
         <Outlet />
       </main>
-    </>
+    </div>
   );
 }
