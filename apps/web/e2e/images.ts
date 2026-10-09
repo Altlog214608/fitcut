@@ -107,3 +107,64 @@ export function imageSize(file: Buffer): {
 export function hasExif(file: Buffer): boolean {
   return file.includes(Buffer.from('Exif\0\0', 'binary'));
 }
+
+/**
+ * 비교 캡처용 장면: 위는 벽과 바닥 타일, 가운데 사람, 아래는 줄무늬 재킷.
+ * 보내준 예시 사진처럼 "위는 단순한 배경, 아래는 무늬 있는 옷"인 경우를 흉내 낸다.
+ */
+export async function makeScene(page: Page, width: number, height: number): Promise<Buffer> {
+  const dataUrl = await page.evaluate(
+    ({ width, height }) => {
+      const canvas = document.createElement('canvas');
+      canvas.width = width;
+      canvas.height = height;
+      const ctx = canvas.getContext('2d');
+      if (!ctx) throw new Error('no canvas');
+      const wall = ctx.createLinearGradient(0, 0, 0, height);
+      wall.addColorStop(0, '#e6e3de');
+      wall.addColorStop(1, '#cfcac3');
+      ctx.fillStyle = wall;
+      ctx.fillRect(0, 0, width, height);
+      ctx.strokeStyle = 'rgba(120, 110, 100, 0.25)';
+      ctx.lineWidth = 2;
+      const tile = Math.round(width / 6);
+      for (let x = 0; x <= width; x += tile) {
+        ctx.beginPath();
+        ctx.moveTo(x, 0);
+        ctx.lineTo(x, height * 0.55);
+        ctx.stroke();
+      }
+      for (let y = 0; y <= height * 0.55; y += tile) {
+        ctx.beginPath();
+        ctx.moveTo(0, y);
+        ctx.lineTo(width, y);
+        ctx.stroke();
+      }
+      // 사람: 머리, 머리카락, 재킷(아래 끝까지)
+      const cx = width / 2;
+      ctx.fillStyle = '#1f1b1a';
+      ctx.beginPath();
+      ctx.ellipse(cx, height * 0.33, width * 0.24, height * 0.2, 0, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.fillStyle = '#f1cbb8';
+      ctx.beginPath();
+      ctx.ellipse(cx, height * 0.36, width * 0.16, height * 0.15, 0, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.fillStyle = '#1d2a55';
+      ctx.beginPath();
+      ctx.moveTo(width * 0.05, height);
+      ctx.lineTo(width * 0.12, height * 0.62);
+      ctx.quadraticCurveTo(cx, height * 0.52, width * 0.88, height * 0.62);
+      ctx.lineTo(width * 0.95, height);
+      ctx.closePath();
+      ctx.fill();
+      ctx.fillStyle = '#f4f4f4';
+      for (let i = 0; i < 3; i++) {
+        ctx.fillRect(width * 0.62 + i * 14, height * 0.6, 7, height * 0.4);
+      }
+      return canvas.toDataURL('image/jpeg', 0.92);
+    },
+    { width, height },
+  );
+  return Buffer.from(dataUrl.split(',')[1] ?? '', 'base64');
+}

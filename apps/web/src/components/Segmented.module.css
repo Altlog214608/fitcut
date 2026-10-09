@@ -18,6 +18,12 @@
   background: var(--color-paper);
 }
 
+.wrap {
+  grid-auto-flow: row;
+  grid-template-columns: repeat(auto-fit, minmax(96px, 1fr));
+  gap: 2px;
+}
+
 .seg button {
   height: 38px;
   padding: 0 6px;

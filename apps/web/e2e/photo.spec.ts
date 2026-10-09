@@ -1,6 +1,6 @@
 import { expect, test, type Page } from '@playwright/test';
 import { readFile } from 'node:fs/promises';
-import { hasExif, imageSize, makeImage, withExif } from './images';
+import { hasExif, imageSize, makeImage, makeScene, withExif } from './images';
 
 /** 사진 작업 중 업로드 요청이 없는지 본다 (F1 수용 기준, M1 완료 기준) */
 function watchUploads(page: Page): string[] {
@@ -137,5 +137,43 @@ test('화면 캡처 (라이트·다크)', async ({ page }, testInfo) => {
       path: testInfo.outputPath(`photo-contain-${scheme}.png`),
       fullPage: true,
     });
+  }
+});
+
+test('가장자리 늘이기·거울 반사로 저장해도 크기가 정확하다', async ({ page }) => {
+  await page.goto('/');
+  await openPhotoFromHome(page, await makeScene(page, 1440, 1440), 'square.jpg');
+  await chooseDevice(page, '17 프로', 'iPhone 17 Pro');
+  await page.getByRole('radio', { name: '배경 채우기' }).click();
+  for (const kind of ['가장자리 늘이기', '거울 반사']) {
+    await page.getByRole('radio', { name: kind }).click();
+    const { file } = await save(page);
+    expect(imageSize(file)).toEqual({ width: 1206, height: 2622, type: 'jpeg' });
+  }
+  await expect(page.getByLabel('사진 경계를 부드럽게 섞기')).toBeChecked();
+});
+
+test('배경 종류 비교 캡처', async ({ page }, testInfo) => {
+  test.skip(testInfo.project.name !== 'desktop', '캡처는 데스크톱 한 번만');
+  await page.goto('/');
+  for (const [name, w, h] of [
+    ['portrait', 850, 1134],
+    ['square', 1440, 1440],
+  ] as const) {
+    await openPhotoFromHome(page, await makeScene(page, w, h), `${name}.jpg`);
+    await chooseDevice(page, '17 프로', 'iPhone 17 Pro');
+    await page.getByRole('radio', { name: '배경 채우기' }).click();
+    for (const [kind, label] of [
+      ['blur', '흐린 사진'],
+      ['extend', '가장자리 늘이기'],
+      ['mirror', '거울 반사'],
+      ['edge', '비슷한 색'],
+    ] as const) {
+      await page.getByRole('radio', { name: label }).click();
+      const screen = page.getByRole('slider', { name: /사진 위치/ });
+      await page.waitForTimeout(150);
+      await screen.screenshot({ path: testInfo.outputPath(`${name}-${kind}.png`) });
+    }
+    await page.goto('/');
   }
 });

@@ -3,13 +3,24 @@
  * 캔버스로 다시 인코딩하므로 EXIF·위치정보 같은 메타데이터는 결과에 남지 않는다.
  * Web Worker(OffscreenCanvas)와 메인 스레드(HTMLCanvasElement) 양쪽에서 같은 코드를 쓴다.
  */
+import { fadeStops, featherStops, fillExtent, type FillExtent, type Stop } from './blend';
 import { edgeColors, toCss } from './colors';
 import type { OutputFormat } from './fileName';
 import type { Layout, Rect, Size } from './layout';
 
+/**
+ * 배경 채우기의 배경. strength는 흐림 0~1, dim은 어둡게 0~0.6.
+ * - extend: 사진 가장자리 줄을 바깥으로 늘여서 이어 붙임 (기본값. 벽·하늘·바닥에 자연스러움)
+ * - blur: 같은 사진을 화면에 꽉 차게 키워 흐리게 (인물 사진은 큰 흐린 얼굴이 뒤에 비친다)
+ * - mirror: 사진을 가장자리에서 거울처럼 뒤집어 이어 붙임
+ * extend·mirror는 사진 가까이는 덜 흐리고 멀수록 많이 흐리게 해서 경계가 이어져 보이게 한다.
+ */
+type PhotoFill = { strength: number; dim: number };
+
 export type Background =
-  /** 같은 사진을 흐리게. strength 0~1, dim 0~0.6 (어둡게) */
-  | { kind: 'blur'; strength: number; dim: number }
+  | ({ kind: 'blur' } & PhotoFill)
+  | ({ kind: 'extend' } & PhotoFill)
+  | ({ kind: 'mirror' } & PhotoFill)
   /** 가장자리 평균 색 */
   | { kind: 'edge' }
   | { kind: 'solid'; color: string };
@@ -23,6 +34,8 @@ export type RenderOptions = {
   quality: number;
   /** 원형 워치: 원 바깥을 검정으로 칠하거나 투명하게 (투명은 PNG·WebP만) (F2) */
   circleOutside?: 'black' | 'transparent';
+  /** 배경 채우기에서 사진 경계를 섞는 길이. 사진 길이 대비 비율 (0 = 섞지 않음) */
+  feather?: number;
 };
 
 export type RenderResult = {
@@ -43,7 +56,7 @@ const MIME: Record<OutputFormat, string> = {
   webp: 'image/webp',
 };
 
-function context(canvas: AnyCanvas): Ctx {
+export function context(canvas: AnyCanvas): Ctx {
   const ctx = canvas.getContext('2d') as Ctx | null;
   if (!ctx) throw new Error('캔버스를 만들 수 없어요.');
   ctx.imageSmoothingEnabled = true;
@@ -69,6 +82,136 @@ function drawRect(ctx: Ctx, image: Source, rect: Rect, make: CanvasFactory): voi
   ctx.drawImage(source, rect.x, rect.y, rect.width, rect.height);
 }
 
+/** 흐림 강도(0~1) → 줄이는 배율. 작게 줄였다가 다시 키우면 흐려진다. */
+function blurFactor(strength: number): number {
+  return 6 + Math.round(Math.min(1, Math.max(0, strength)) * 42);
+}
+
+function dimAll(ctx: Ctx, target: Size, dim: number): void {
+  if (dim <= 0) return;
+  ctx.fillStyle = `rgba(0, 0, 0, ${Math.min(0.6, dim)})`;
+  ctx.fillRect(0, 0, target.width, target.height);
+}
+
+/** source 전체를 size 크기로 흐리게 만든 새 캔버스 */
+function blurred(source: Source, size: Size, factor: number, make: CanvasFactory): AnyCanvas {
+  const small = make(
+    Math.max(1, Math.round(size.width / factor)),
+    Math.max(1, Math.round(size.height / factor)),
+  );
+  drawRect(context(small), source, { x: 0, y: 0, width: small.width, height: small.height }, make);
+  const out = make(size.width, size.height);
+  context(out).drawImage(small, 0, 0, size.width, size.height);
+  return out;
+}
+
+/** 축을 따라가는 알파 그라데이션으로 캔버스를 깎는다 (destination-in) */
+function maskAlong(canvas: AnyCanvas, ext: FillExtent, stops: Stop[]): void {
+  const ctx = context(canvas);
+  const g =
+    ext.axis === 'y'
+      ? ctx.createLinearGradient(0, 0, 0, canvas.height)
+      : ctx.createLinearGradient(0, 0, canvas.width, 0);
+  for (const [at, alpha] of stops) g.addColorStop(at, `rgba(0, 0, 0, ${alpha})`);
+  ctx.globalCompositeOperation = 'destination-in';
+  ctx.fillStyle = g;
+  ctx.fillRect(0, 0, canvas.width, canvas.height);
+  ctx.globalCompositeOperation = 'source-over';
+}
+
+/** 사진 바깥(위아래 또는 양옆)을 가장자리 늘이기 또는 거울 반사로 칠한다 */
+function paintOutside(
+  ctx: Ctx,
+  image: Source,
+  r: Rect,
+  ext: FillExtent,
+  kind: 'extend' | 'mirror',
+  make: CanvasFactory,
+): void {
+  const y = ext.axis === 'y';
+  const end = ext.start + ext.length;
+  if (kind === 'extend') {
+    // 가장자리 1% 띠를 바깥 끝까지 늘인다. 흐림 단계에서 줄무늬가 부드러워진다.
+    const band = Math.max(1, Math.round((y ? image.height : image.width) * 0.012));
+    if (y) {
+      if (ext.before > 0) ctx.drawImage(image, 0, 0, image.width, band, r.x, 0, r.width, ext.start);
+      if (ext.after > 0) {
+        ctx.drawImage(
+          image,
+          0,
+          image.height - band,
+          image.width,
+          band,
+          r.x,
+          end,
+          r.width,
+          ext.after,
+        );
+      }
+    } else {
+      if (ext.before > 0)
+        ctx.drawImage(image, 0, 0, band, image.height, 0, r.y, ext.start, r.height);
+      if (ext.after > 0) {
+        ctx.drawImage(
+          image,
+          image.width - band,
+          0,
+          band,
+          image.height,
+          end,
+          r.y,
+          ext.after,
+          r.height,
+        );
+      }
+    }
+    return;
+  }
+  // mirror: 경계에서 뒤집어 그린다. 채울 곳이 사진보다 길면 뒤집은 사진을 늘여서 덮는다.
+  const sides: { at: number; before: boolean; len: number }[] = [];
+  if (ext.before > 0)
+    sides.push({ at: ext.start, before: true, len: Math.max(ext.length, ext.before) });
+  if (ext.after > 0) sides.push({ at: end, before: false, len: Math.max(ext.length, ext.after) });
+  for (const side of sides) {
+    ctx.save();
+    if (y) {
+      ctx.translate(0, side.at);
+      ctx.scale(1, -1);
+      const rect = { x: r.x, y: side.before ? 0 : -side.len, width: r.width, height: side.len };
+      drawRect(ctx, image, rect, make);
+    } else {
+      ctx.translate(side.at, 0);
+      ctx.scale(-1, 1);
+      const rect = { x: side.before ? 0 : -side.len, y: r.y, width: side.len, height: r.height };
+      drawRect(ctx, image, rect, make);
+    }
+    ctx.restore();
+  }
+}
+
+function drawContinuation(
+  ctx: Ctx,
+  image: Source,
+  layout: Layout,
+  target: Size,
+  background: { kind: 'extend' | 'mirror'; strength: number; dim: number },
+  make: CanvasFactory,
+): void {
+  const ext = fillExtent(layout, target);
+  const base = make(target.width, target.height);
+  const b = context(base);
+  drawRect(b, image, layout.image, make);
+  paintOutside(b, image, layout.image, ext, background.kind, make);
+
+  const factor = blurFactor(background.strength);
+  // 먼 곳: 많이 흐린 층, 가까운 곳: 덜 흐린 층. 덜 흐린 층을 사진 가까이에만 남긴다.
+  ctx.drawImage(blurred(base, target, factor, make), 0, 0);
+  const near = blurred(base, target, Math.max(2, Math.round(factor / 4)), make);
+  maskAlong(near, ext, fadeStops(ext, Math.max(ext.before, ext.after) * 0.6));
+  ctx.drawImage(near, 0, 0);
+  dimAll(ctx, target, background.dim);
+}
+
 function drawBlur(
   ctx: Ctx,
   image: Source,
@@ -78,8 +221,8 @@ function drawBlur(
   dim: number,
   make: CanvasFactory,
 ): void {
-  // 작게 줄였다가 다시 키우면 흐려진다. ctx.filter는 브라우저마다 지원이 달라 쓰지 않는다.
-  const factor = 6 + Math.round(Math.min(1, Math.max(0, strength)) * 42);
+  // ctx.filter는 브라우저마다 지원이 달라 쓰지 않는다
+  const factor = blurFactor(strength);
   const small = make(
     Math.max(1, Math.round(target.width / factor)),
     Math.max(1, Math.round(target.height / factor)),
@@ -93,10 +236,7 @@ function drawBlur(
     make,
   );
   ctx.drawImage(small, 0, 0, target.width, target.height);
-  if (dim > 0) {
-    ctx.fillStyle = `rgba(0, 0, 0, ${Math.min(0.6, dim)})`;
-    ctx.fillRect(0, 0, target.width, target.height);
-  }
+  dimAll(ctx, target, dim);
 }
 
 function drawEdge(
@@ -113,18 +253,21 @@ function drawEdge(
   sctx.drawImage(image, 0, 0, sampleWidth, sampleHeight);
   const pixels = sctx.getImageData(0, 0, sampleWidth, sampleHeight);
   const { image: r } = layout;
+  // 사진 가운데까지 칠해 둔다. 경계를 섞을 때 사진 가장자리 아래가 비어 검게 보이지 않게 한다.
   if (layout.movable.y) {
     const [top, bottom] = edgeColors(pixels, 'y');
+    const middle = Math.round(r.y + r.height / 2);
     ctx.fillStyle = toCss(top);
-    ctx.fillRect(0, 0, target.width, r.y);
+    ctx.fillRect(0, 0, target.width, middle);
     ctx.fillStyle = toCss(bottom);
-    ctx.fillRect(0, r.y + r.height, target.width, target.height - r.y - r.height);
+    ctx.fillRect(0, middle, target.width, target.height - middle);
   } else {
     const [left, right] = edgeColors(pixels, 'x');
+    const middle = Math.round(r.x + r.width / 2);
     ctx.fillStyle = toCss(left);
-    ctx.fillRect(0, 0, r.x, target.height);
+    ctx.fillRect(0, 0, middle, target.height);
     ctx.fillStyle = toCss(right);
-    ctx.fillRect(r.x + r.width, 0, target.width - r.x - r.width, target.height);
+    ctx.fillRect(middle, 0, target.width - middle, target.height);
   }
 }
 
@@ -139,6 +282,8 @@ export function drawPhoto(
   if (layout.background) {
     if (background.kind === 'blur') {
       drawBlur(ctx, image, layout.background, target, background.strength, background.dim, make);
+    } else if (background.kind === 'extend' || background.kind === 'mirror') {
+      drawContinuation(ctx, image, layout, target, background, make);
     } else if (background.kind === 'edge') {
       drawEdge(ctx, image, layout, target, make);
     } else {
@@ -151,9 +296,30 @@ export function drawPhoto(
     ctx.fillRect(0, 0, target.width, target.height);
   }
 
-  drawRect(ctx, image, layout.image, make);
+  const feather = options.feather ?? 0;
+  if (layout.background && feather > 0) {
+    // 사진 경계를 배경 쪽으로 서서히 투명하게 해서 이어지게 한다
+    const ext = fillExtent(layout, target);
+    const layer = make(target.width, target.height);
+    drawRect(context(layer), image, layout.image, make);
+    maskAlong(layer, ext, featherStops(ext, Math.round(feather * ext.length)));
+    ctx.drawImage(layer, 0, 0);
+  } else {
+    drawRect(ctx, image, layout.image, make);
+  }
 
   if (options.circleOutside) maskCircle(ctx, target, options.circleOutside);
+}
+
+/** 큰 사진을 미리보기용으로 줄인 사본 (긴 변 maxSide 이하) */
+export function downscaled(image: Source, maxSide: number, make: CanvasFactory): Source {
+  const k = Math.min(1, maxSide / Math.max(image.width, image.height));
+  if (k === 1) return image;
+  const width = Math.max(1, Math.round(image.width * k));
+  const height = Math.max(1, Math.round(image.height * k));
+  const out = make(width, height);
+  drawRect(context(out), image, { x: 0, y: 0, width, height }, make);
+  return out;
 }
 
 function maskCircle(ctx: Ctx, target: Size, outside: 'black' | 'transparent'): void {

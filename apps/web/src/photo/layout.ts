@@ -102,6 +102,21 @@ export function computeLayout(
   };
 }
 
+/** 레이아웃 전체를 k배로 줄이거나 키운다 (미리보기 캔버스용) */
+export function scaleLayout(layout: Layout, k: number): Layout {
+  const scale = (r: Rect): Rect => ({
+    x: r.x * k,
+    y: r.y * k,
+    width: r.width * k,
+    height: r.height * k,
+  });
+  return {
+    ...layout,
+    image: scale(layout.image),
+    background: layout.background ? scale(layout.background) : null,
+  };
+}
+
 export type RatioFit = 'match' | 'sides-cropped' | 'top-bottom-cropped';
 
 /**
