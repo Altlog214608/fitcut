@@ -7,6 +7,7 @@ import { fadeStops, featherStops, fillExtent, type FillExtent, type Stop } from 
 import { edgeColors, toCss } from './colors';
 import type { OutputFormat } from './fileName';
 import type { Layout, Rect, Size } from './layout';
+import { lastRows, placeFill, stripFrom, textureFill, type Rgba } from './texture';
 
 /**
  * 배경 채우기의 배경. strength는 흐림 0~1, dim은 어둡게 0~0.6.
@@ -18,6 +19,8 @@ import type { Layout, Rect, Size } from './layout';
 type PhotoFill = { strength: number; dim: number };
 
 export type Background =
+  /** 자연스럽게 잇기: 밝기·색을 이어 가고 사진 경계 쪽 벽의 결을 이어 붙인다 (기본값, texture.ts) */
+  | { kind: 'texture' }
   | ({ kind: 'blur' } & PhotoFill)
   | ({ kind: 'extend' } & PhotoFill)
   | ({ kind: 'mirror' } & PhotoFill)
@@ -225,6 +228,70 @@ function drawContinuation(
   dimAll(ctx, target, background.dim);
 }
 
+/** 사진 띠에서 결을 가져오는 깊이 (가로 1440 기준 줄 수). texture.ts가 쓰는 띠보다 조금 넉넉하게 */
+const TEXTURE_DEPTH = 320;
+
+/**
+ * 미리보기는 사진을 끌 때마다 다시 그린다. 사진을 채우는 축으로 옮겨도 경계에 닿는 사진 줄은
+ * 그대로이므로, 남는 길이 전체만큼 한 번 만들어 두고 위치에 맞게 잘라 쓴다 (끄는 동안 무늬도 그대로).
+ */
+const textureCache = new WeakMap<object, Map<string, Rgba>>();
+
+function cachedTexture(image: Source, key: string, build: () => Rgba): Rgba {
+  let byKey = textureCache.get(image);
+  if (!byKey) {
+    byKey = new Map();
+    textureCache.set(image, byKey);
+  }
+  let found = byKey.get(key);
+  if (!found) {
+    // 사진 크기·화면을 바꾸면 키가 늘어난다. 최근 몇 개만 남긴다
+    if (byKey.size >= 8) byKey.clear();
+    found = build();
+    byKey.set(key, found);
+  }
+  return found;
+}
+
+function drawTexture(
+  ctx: Ctx,
+  image: Source,
+  layout: Layout,
+  target: Size,
+  make: CanvasFactory,
+): void {
+  const ext = fillExtent(layout, target);
+  const layer = make(target.width, target.height);
+  const lctx = context(layer);
+  drawRect(lctx, image, layout.image, make);
+  const photo = lctx.getImageData(0, 0, target.width, target.height);
+  const canvas = { data: photo.data, width: photo.width, height: photo.height };
+  const cross = ext.axis === 'y' ? target.width : target.height;
+  // 사진 경계를 섞을 때(drawPhoto의 feather) 사진 아래에 깔릴 만큼 사진 안쪽으로도 채운다
+  const overlap = Math.min(ext.length, Math.round(ext.length * 0.08) + 2);
+  const depth = Math.ceil((TEXTURE_DEPTH * cross) / 1440) + overlap;
+  const gap = ext.before + ext.after;
+  // 잘리는 축의 위치(사진을 키웠을 때)가 바뀌면 경계에 닿는 사진 부분도 바뀐다
+  const crossOffset = ext.axis === 'y' ? layout.image.x : layout.image.y;
+  for (const side of ['before', 'after'] as const) {
+    const size = side === 'before' ? ext.before : ext.after;
+    if (size <= 0) continue;
+    const key = [
+      side,
+      layout.image.width,
+      layout.image.height,
+      crossOffset,
+      target.width,
+      target.height,
+    ].join(':');
+    const full = cachedTexture(image, key, () =>
+      textureFill(stripFrom(canvas, ext, side, depth), gap, overlap),
+    );
+    placeFill(canvas, lastRows(full, size + overlap), ext, side, size);
+  }
+  ctx.putImageData(photo, 0, 0);
+}
+
 function drawBlur(
   ctx: Ctx,
   image: Source,
@@ -293,7 +360,9 @@ export function drawPhoto(
   const { target, layout, background, format } = options;
 
   if (layout.background) {
-    if (background.kind === 'blur') {
+    if (background.kind === 'texture') {
+      drawTexture(ctx, image, layout, target, make);
+    } else if (background.kind === 'blur') {
       drawBlur(ctx, image, layout.background, target, background.strength, background.dim, make);
     } else if (background.kind === 'extend' || background.kind === 'mirror') {
       drawContinuation(ctx, image, layout, target, background, make);
