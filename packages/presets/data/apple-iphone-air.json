@@ -1,0 +1,19 @@
+{
+  "id": "apple-iphone-air",
+  "brand": "Apple",
+  "category": "phone",
+  "name": "iPhone Air",
+  "aliases": ["아이폰 에어", "에어", "air"],
+  "releaseYear": 2025,
+  "screens": [
+    {
+      "role": "main",
+      "widthPx": 1260,
+      "heightPx": 2736,
+      "shape": "rect"
+    }
+  ],
+  "source": "https://support.apple.com/en-us/125092",
+  "verified": true,
+  "verifiedAt": "2026-10-09"
+}

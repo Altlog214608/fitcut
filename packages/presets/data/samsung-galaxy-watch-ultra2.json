@@ -1,0 +1,20 @@
+{
+  "id": "samsung-galaxy-watch-ultra2",
+  "brand": "Samsung",
+  "category": "watch",
+  "name": "Galaxy Watch Ultra2",
+  "aliases": ["갤럭시 워치 울트라2", "워치 울트라2", "watch ultra2"],
+  "releaseYear": 2026,
+  "screens": [
+    {
+      "role": "main",
+      "widthPx": 498,
+      "heightPx": 498,
+      "shape": "circle",
+      "animated": "gif"
+    }
+  ],
+  "source": "https://www.samsung.com/sg/mobile/mobile-phone-buying-guide/galaxy-watch9-watch-ultra2-specs-features/",
+  "verified": true,
+  "verifiedAt": "2026-10-09"
+}

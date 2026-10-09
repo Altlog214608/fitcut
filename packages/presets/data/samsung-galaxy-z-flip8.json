@@ -1,0 +1,25 @@
+{
+  "id": "samsung-galaxy-z-flip8",
+  "brand": "Samsung",
+  "category": "flip",
+  "name": "Galaxy Z Flip8",
+  "aliases": ["갤럭시 Z 플립8", "플립8", "z flip8", "flip 8"],
+  "releaseYear": 2026,
+  "screens": [
+    {
+      "role": "main",
+      "widthPx": 1080,
+      "heightPx": 2520,
+      "shape": "rect"
+    },
+    {
+      "role": "cover",
+      "widthPx": 948,
+      "heightPx": 1048,
+      "shape": "rect"
+    }
+  ],
+  "source": "https://news.samsung.com/kr/%EC%82%BC%EC%84%B1%EC%A0%84%EC%9E%90-%EA%B0%A4%EB%9F%AD%EC%8B%9C-z-%ED%8F%B4%EB%93%9C8-%EC%9A%B8%ED%8A%B8%EB%9D%BC%C2%B7%ED%8F%B4%EB%93%9C8%C2%B7%ED%94%8C%EB%A6%BD8-%EB%93%B1-%ED%8F%B4%EB%8D%94",
+  "verified": true,
+  "verifiedAt": "2026-10-09"
+}

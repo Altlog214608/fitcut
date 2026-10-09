@@ -1,0 +1,19 @@
+{
+  "id": "apple-iphone-17-pro-max",
+  "brand": "Apple",
+  "category": "phone",
+  "name": "iPhone 17 Pro Max",
+  "aliases": ["아이폰 17 프로 맥스", "17 프로 맥스", "17 pro max"],
+  "releaseYear": 2025,
+  "screens": [
+    {
+      "role": "main",
+      "widthPx": 1320,
+      "heightPx": 2868,
+      "shape": "rect"
+    }
+  ],
+  "source": "https://support.apple.com/en-us/125091",
+  "verified": true,
+  "verifiedAt": "2026-10-09"
+}

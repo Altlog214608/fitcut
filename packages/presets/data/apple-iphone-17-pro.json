@@ -1,0 +1,19 @@
+{
+  "id": "apple-iphone-17-pro",
+  "brand": "Apple",
+  "category": "phone",
+  "name": "iPhone 17 Pro",
+  "aliases": ["아이폰 17 프로", "17 프로", "17 pro"],
+  "releaseYear": 2025,
+  "screens": [
+    {
+      "role": "main",
+      "widthPx": 1206,
+      "heightPx": 2622,
+      "shape": "rect"
+    }
+  ],
+  "source": "https://support.apple.com/en-us/125090",
+  "verified": true,
+  "verifiedAt": "2026-10-09"
+}

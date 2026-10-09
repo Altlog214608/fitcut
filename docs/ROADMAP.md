@@ -32,7 +32,7 @@
 - [ ] EXIF 방향 반영, 위치정보 제거
 - [ ] JPG·PNG·WebP 저장, 화질 옵션
 - [ ] 원본보다 크게 내보낼 때 고품질 확대와 확대 배율 안내 (F1 업스케일 기본)
-- [ ] `packages/presets`: 스키마, 검증 테스트, 1차 기기 데이터 (출처 포함)
+- [x] `packages/presets`: 스키마, 검증 테스트, 1차 기기 데이터 (출처 포함) — 31개(보이는 것 29개), 검색 함수 포함. 태블릿·이전 세대는 다음 배치 (`docs/PRESETS.md`)
 - [ ] 기기 검색, 최근 기기, 내 기기
 - [ ] 화면 모양 가이드 (rect, rounded-rect, circle)
 - [x] 디자인 계획 제안 → 확인 → 적용 (2026-10-09, 포인트 색 블루, `docs/UI.md`, 토큰은 `apps/web/src/styles/tokens.css`)

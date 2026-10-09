@@ -1,0 +1,19 @@
+{
+  "id": "apple-iphone-16",
+  "brand": "Apple",
+  "category": "phone",
+  "name": "iPhone 16",
+  "aliases": ["아이폰 16", "16", "16"],
+  "releaseYear": 2024,
+  "screens": [
+    {
+      "role": "main",
+      "widthPx": 1179,
+      "heightPx": 2556,
+      "shape": "rect"
+    }
+  ],
+  "source": "https://support.apple.com/en-us/121029",
+  "verified": true,
+  "verifiedAt": "2026-10-09"
+}

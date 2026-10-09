@@ -1,0 +1,20 @@
+{
+  "id": "apple-watch-series-12-46mm",
+  "brand": "Apple",
+  "category": "watch",
+  "name": "Apple Watch Series 12 46mm",
+  "aliases": ["애플워치 시리즈 12 46mm", "애플워치 12", "워치 시리즈 12", "apple watch series 12"],
+  "releaseYear": 2026,
+  "screens": [
+    {
+      "role": "main",
+      "widthPx": 416,
+      "heightPx": 496,
+      "shape": "rounded-rect",
+      "animated": "live-photo"
+    }
+  ],
+  "source": "https://support.apple.com/en-us/148589",
+  "verified": true,
+  "verifiedAt": "2026-10-09"
+}

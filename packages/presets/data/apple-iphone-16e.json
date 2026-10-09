@@ -1,0 +1,19 @@
+{
+  "id": "apple-iphone-16e",
+  "brand": "Apple",
+  "category": "phone",
+  "name": "iPhone 16e",
+  "aliases": ["아이폰 16e", "16e", "16e"],
+  "releaseYear": 2025,
+  "screens": [
+    {
+      "role": "main",
+      "widthPx": 1170,
+      "heightPx": 2532,
+      "shape": "rect"
+    }
+  ],
+  "source": "https://support.apple.com/en-us/122208",
+  "verified": true,
+  "verifiedAt": "2026-10-09"
+}

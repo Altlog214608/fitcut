@@ -1,0 +1,20 @@
+{
+  "id": "apple-watch-se-3-44mm",
+  "brand": "Apple",
+  "category": "watch",
+  "name": "Apple Watch SE 3 44mm",
+  "aliases": ["애플워치 SE 3 44mm", "애플워치 3", "워치 SE 3", "apple watch se 3"],
+  "releaseYear": 2025,
+  "screens": [
+    {
+      "role": "main",
+      "widthPx": 368,
+      "heightPx": 448,
+      "shape": "rounded-rect",
+      "animated": "live-photo"
+    }
+  ],
+  "source": "https://support.apple.com/en-us/125094",
+  "verified": true,
+  "verifiedAt": "2026-10-09"
+}

@@ -1,0 +1,20 @@
+{
+  "id": "apple-watch-ultra-4",
+  "brand": "Apple",
+  "category": "watch",
+  "name": "Apple Watch Ultra 4",
+  "aliases": ["애플워치 울트라 4", "애플워치 4", "워치 울트라 4", "apple watch ultra 4"],
+  "releaseYear": 2026,
+  "screens": [
+    {
+      "role": "main",
+      "widthPx": 422,
+      "heightPx": 514,
+      "shape": "rounded-rect",
+      "animated": "live-photo"
+    }
+  ],
+  "source": "https://support.apple.com/en-us/148758",
+  "verified": true,
+  "verifiedAt": "2026-10-09"
+}
