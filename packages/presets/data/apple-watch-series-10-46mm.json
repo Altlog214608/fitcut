@@ -1,0 +1,20 @@
+{
+  "id": "apple-watch-series-10-46mm",
+  "brand": "Apple",
+  "category": "watch",
+  "name": "Apple Watch Series 10 46mm",
+  "aliases": ["애플워치 시리즈 10 46mm", "애플워치 10", "워치 시리즈 10", "apple watch series 10"],
+  "releaseYear": 2024,
+  "screens": [
+    {
+      "role": "main",
+      "widthPx": 416,
+      "heightPx": 496,
+      "shape": "rounded-rect",
+      "animated": "live-photo"
+    }
+  ],
+  "source": "https://support.apple.com/en-us/121202",
+  "verified": true,
+  "verifiedAt": "2026-10-09"
+}

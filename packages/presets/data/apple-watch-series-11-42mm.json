@@ -1,0 +1,20 @@
+{
+  "id": "apple-watch-series-11-42mm",
+  "brand": "Apple",
+  "category": "watch",
+  "name": "Apple Watch Series 11 42mm",
+  "aliases": ["애플워치 시리즈 11 42mm", "애플워치 11", "워치 시리즈 11", "apple watch series 11"],
+  "releaseYear": 2025,
+  "screens": [
+    {
+      "role": "main",
+      "widthPx": 374,
+      "heightPx": 446,
+      "shape": "rounded-rect",
+      "animated": "live-photo"
+    }
+  ],
+  "source": "https://support.apple.com/en-us/125093",
+  "verified": true,
+  "verifiedAt": "2026-10-09"
+}

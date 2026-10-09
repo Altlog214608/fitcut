@@ -1,0 +1,20 @@
+{
+  "id": "samsung-galaxy-watch9-44mm",
+  "brand": "Samsung",
+  "category": "watch",
+  "name": "Galaxy Watch9 44mm",
+  "aliases": ["갤럭시 워치9 44mm", "워치9", "watch9 44mm"],
+  "releaseYear": 2026,
+  "screens": [
+    {
+      "role": "main",
+      "widthPx": 480,
+      "heightPx": 480,
+      "shape": "circle",
+      "animated": "gif"
+    }
+  ],
+  "source": "https://www.samsung.com/sg/mobile/mobile-phone-buying-guide/galaxy-watch9-watch-ultra2-specs-features/",
+  "verified": true,
+  "verifiedAt": "2026-10-09"
+}

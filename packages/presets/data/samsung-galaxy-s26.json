@@ -1,0 +1,19 @@
+{
+  "id": "samsung-galaxy-s26",
+  "brand": "Samsung",
+  "category": "phone",
+  "name": "Galaxy S26",
+  "aliases": ["갤럭시 S26", "S26", "s26"],
+  "releaseYear": 2026,
+  "screens": [
+    {
+      "role": "main",
+      "widthPx": 1080,
+      "heightPx": 2340,
+      "shape": "rect"
+    }
+  ],
+  "source": "https://news.samsung.com/kr/%EC%82%BC%EC%84%B1%EC%A0%84%EC%9E%90-3%EC%84%B8%EB%8C%80-ai%ED%8F%B0-%EA%B0%A4%EB%9F%AD%EC%8B%9C-s26-%EC%8B%9C%EB%A6%AC%EC%A6%88-%EA%B3%B5%EA%B0%9C",
+  "verified": true,
+  "verifiedAt": "2026-10-09"
+}

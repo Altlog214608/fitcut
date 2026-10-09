@@ -64,6 +64,24 @@ type Overlay = {
 - 해상도가 같아도 잠금화면 시계 위치는 기기와 OS 버전마다 다르다. `overlays`는 "대략적인 가이드"로만 쓰고 화면에도 그렇게 표시한다.
 - 아이폰 잠금화면 배경을 화면 해상도보다 크게 내보내야 하는지(확대·시차 효과 때문에)는 확인한 뒤 `notes`와 내보내기 기본값에 반영한다.
 
+## 데이터 현황 (2026-10-09)
+
+`packages/presets/data/`에 31개, 그중 사용자에게 보이는 것(verified)은 29개다.
+
+| 묶음 | 기기 | 출처 |
+| --- | --- | --- |
+| 아이폰 | 16, 16 Plus, 16 Pro, 16 Pro Max, 16e, 17, 17 Pro, 17 Pro Max, 17e, Air, 18 Pro, 18 Pro Max | Apple 지원 사이트 Tech Specs |
+| 애플워치 | Series 10·11·12 (42·46mm), SE 3 (40·44mm), Ultra 3, Ultra 4 | Apple 지원 사이트 Tech Specs |
+| 갤럭시 S | S26, S26+, S26 Ultra | Samsung Newsroom Korea 출시 기사 사양표 |
+| 갤럭시 Z | Flip8 (메인·커버). Fold8, Fold8 Ultra는 `verified: false` | Samsung Newsroom Korea 출시 기사 사양표 |
+| 갤럭시 워치 | Watch9 (40·44mm), Watch Ultra2 | samsung.com 구매 가이드 |
+
+다음 배치: 태블릿(아이패드, 갤럭시 탭 S), 한 세대 이전 모델(아이폰 15, 갤럭시 S25, Z Fold7·Flip7, 워치8), 갤럭시 A, 픽셀.
+
+- 삼성 사양표는 해상도를 "세로 x 가로" 순서로 적는다 (예: S26 Ultra `3,120 x 1,440`). 데이터에는 `widthPx`·`heightPx`로 풀어서 넣는다.
+- Fold8·Fold8 Ultra의 펼친 화면은 해상도 순서와 화면비 표기가 서로 맞지 않아, 가로·세로 방향을 확인할 때까지 숨긴다. TODO(verify)
+- samsung.com 제품 스펙 페이지는 스크립트로 그려져서 자동으로 읽히지 않는다. 그래서 Newsroom 기사의 사양표를 출처로 쓴다.
+
 ## 추가 절차
 
 1. 공식 스펙 페이지에서 값을 확인한다.

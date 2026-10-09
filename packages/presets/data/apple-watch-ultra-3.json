@@ -1,0 +1,20 @@
+{
+  "id": "apple-watch-ultra-3",
+  "brand": "Apple",
+  "category": "watch",
+  "name": "Apple Watch Ultra 3",
+  "aliases": ["애플워치 울트라 3", "애플워치 3", "워치 울트라 3", "apple watch ultra 3"],
+  "releaseYear": 2025,
+  "screens": [
+    {
+      "role": "main",
+      "widthPx": 422,
+      "heightPx": 514,
+      "shape": "rounded-rect",
+      "animated": "live-photo"
+    }
+  ],
+  "source": "https://support.apple.com/en-us/125095",
+  "verified": true,
+  "verifiedAt": "2026-10-09"
+}

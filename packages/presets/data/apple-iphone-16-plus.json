@@ -1,0 +1,19 @@
+{
+  "id": "apple-iphone-16-plus",
+  "brand": "Apple",
+  "category": "phone",
+  "name": "iPhone 16 Plus",
+  "aliases": ["아이폰 16 플러스", "16 플러스", "16 plus"],
+  "releaseYear": 2024,
+  "screens": [
+    {
+      "role": "main",
+      "widthPx": 1290,
+      "heightPx": 2796,
+      "shape": "rect"
+    }
+  ],
+  "source": "https://support.apple.com/en-us/121030",
+  "verified": true,
+  "verifiedAt": "2026-10-09"
+}

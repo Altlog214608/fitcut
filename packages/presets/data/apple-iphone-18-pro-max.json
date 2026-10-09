@@ -1,0 +1,19 @@
+{
+  "id": "apple-iphone-18-pro-max",
+  "brand": "Apple",
+  "category": "phone",
+  "name": "iPhone 18 Pro Max",
+  "aliases": ["아이폰 18 프로 맥스", "18 프로 맥스", "18 pro max"],
+  "releaseYear": 2026,
+  "screens": [
+    {
+      "role": "main",
+      "widthPx": 1320,
+      "heightPx": 2868,
+      "shape": "rect"
+    }
+  ],
+  "source": "https://support.apple.com/en-us/148591",
+  "verified": true,
+  "verifiedAt": "2026-10-09"
+}
