@@ -165,6 +165,10 @@ test('태블릿과 폴더블 펼친 화면도 정확한 크기로 저장한다',
     'true',
   );
   expect(imageSize((await save(page)).file)).toMatchObject({ width: 1968, height: 2184 });
+
+  // 폴드8 펼친 화면은 가로가 긴 4:3이다
+  await chooseDevice(page, '폴드8', 'Galaxy Z Fold8');
+  expect(imageSize((await save(page)).file)).toMatchObject({ width: 2448, height: 1848 });
 });
 
 test('아래에서 잘린 사진은 화면 아래에 붙이고 위만 채운다', async ({ page }) => {

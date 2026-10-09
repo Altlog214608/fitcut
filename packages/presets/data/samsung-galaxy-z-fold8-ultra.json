@@ -20,6 +20,7 @@
     }
   ],
   "source": "https://news.samsung.com/kr/%EC%82%BC%EC%84%B1%EC%A0%84%EC%9E%90-%EA%B0%A4%EB%9F%AD%EC%8B%9C-z-%ED%8F%B4%EB%93%9C8-%EC%9A%B8%ED%8A%B8%EB%9D%BC%C2%B7%ED%8F%B4%EB%93%9C8%C2%B7%ED%94%8C%EB%A6%BD8-%EB%93%B1-%ED%8F%B4%EB%8D%94",
-  "verified": false,
-  "notes": "TODO(verify): 펼친 화면(main)의 가로·세로 방향. 사양표의 해상도 순서와 화면비 표기가 서로 맞지 않아 확인 전까지 숨긴다."
+  "verified": true,
+  "notes": "펼친 화면은 세로가 조금 더 길다. 사양표의 펼친 크기(143.2 x 158.4mm) 안에 8형 화면(약 136 x 151mm)은 세로로 놓아야만 들어간다.",
+  "verifiedAt": "2026-10-10"
 }
