@@ -1,0 +1,19 @@
+{
+  "id": "samsung-galaxy-s25-ultra",
+  "brand": "Samsung",
+  "category": "phone",
+  "name": "Galaxy S25 Ultra",
+  "aliases": ["갤럭시 S25 울트라", "S25 울트라", "s25 ultra"],
+  "releaseYear": 2025,
+  "screens": [
+    {
+      "role": "main",
+      "widthPx": 1440,
+      "heightPx": 3120,
+      "shape": "rect"
+    }
+  ],
+  "source": "https://www.samsung.com/uk/support/mobile-devices/what-are-the-differences-between-the-galaxy-s25-ultra-s25-plus-and-s25/",
+  "verified": true,
+  "verifiedAt": "2026-10-10"
+}

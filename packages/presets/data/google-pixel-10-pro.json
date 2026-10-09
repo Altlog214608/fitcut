@@ -1,0 +1,19 @@
+{
+  "id": "google-pixel-10-pro",
+  "brand": "Google",
+  "category": "phone",
+  "name": "Pixel 10 Pro",
+  "aliases": ["픽셀 10 프로", "pixel 10 pro"],
+  "releaseYear": 2025,
+  "screens": [
+    {
+      "role": "main",
+      "widthPx": 1280,
+      "heightPx": 2856,
+      "shape": "rect"
+    }
+  ],
+  "source": "https://support.google.com/pixelphone/answer/7158570",
+  "verified": true,
+  "verifiedAt": "2026-10-10"
+}

@@ -1,0 +1,19 @@
+{
+  "id": "google-pixel-11",
+  "brand": "Google",
+  "category": "phone",
+  "name": "Pixel 11",
+  "aliases": ["픽셀 11", "pixel 11"],
+  "releaseYear": 2026,
+  "screens": [
+    {
+      "role": "main",
+      "widthPx": 1080,
+      "heightPx": 2424,
+      "shape": "rect"
+    }
+  ],
+  "source": "https://support.google.com/pixelphone/answer/7158570",
+  "verified": true,
+  "verifiedAt": "2026-10-10"
+}

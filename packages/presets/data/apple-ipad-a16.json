@@ -1,0 +1,19 @@
+{
+  "id": "apple-ipad-a16",
+  "brand": "Apple",
+  "category": "tablet",
+  "name": "iPad (A16)",
+  "aliases": ["아이패드 a16", "아이패드 11세대", "ipad a16"],
+  "releaseYear": 2025,
+  "screens": [
+    {
+      "role": "main",
+      "widthPx": 1640,
+      "heightPx": 2360,
+      "shape": "rect"
+    }
+  ],
+  "source": "https://support.apple.com/en-us/122240",
+  "verified": true,
+  "verifiedAt": "2026-10-10"
+}

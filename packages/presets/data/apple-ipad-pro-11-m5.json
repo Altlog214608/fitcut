@@ -1,0 +1,19 @@
+{
+  "id": "apple-ipad-pro-11-m5",
+  "brand": "Apple",
+  "category": "tablet",
+  "name": "iPad Pro 11 (M5)",
+  "aliases": ["아이패드 프로 11", "아이패드 프로 m5", "ipad pro 11"],
+  "releaseYear": 2025,
+  "screens": [
+    {
+      "role": "main",
+      "widthPx": 1668,
+      "heightPx": 2420,
+      "shape": "rect"
+    }
+  ],
+  "source": "https://support.apple.com/en-us/125406",
+  "verified": true,
+  "verifiedAt": "2026-10-10"
+}

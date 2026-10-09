@@ -153,6 +153,20 @@ test('가장자리 늘이기·거울 반사로 저장해도 크기가 정확하�
   await expect(page.getByLabel('사진 경계를 부드럽게 섞기')).toBeChecked();
 });
 
+test('태블릿과 폴더블 펼친 화면도 정확한 크기로 저장한다', async ({ page }) => {
+  await page.goto('/');
+  await openPhotoFromHome(page, await makeImage(page, 1600, 1200), 'tab.jpg');
+  await chooseDevice(page, '아이패드 프로 13', 'iPad Pro 13 \\(M5\\)');
+  expect(imageSize((await save(page)).file)).toMatchObject({ width: 2064, height: 2752 });
+
+  await chooseDevice(page, '폴드7', 'Galaxy Z Fold7');
+  await expect(page.getByRole('radio', { name: '메인 화면' })).toHaveAttribute(
+    'aria-checked',
+    'true',
+  );
+  expect(imageSize((await save(page)).file)).toMatchObject({ width: 1968, height: 2184 });
+});
+
 test('아래에서 잘린 사진은 화면 아래에 붙이고 위만 채운다', async ({ page }) => {
   await page.goto('/');
   await openPhotoFromHome(page, await makeCutPortrait(page, 1200, 1600), 'cut.jpg');

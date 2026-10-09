@@ -64,9 +64,9 @@ type Overlay = {
 - 해상도가 같아도 잠금화면 시계 위치는 기기와 OS 버전마다 다르다. `overlays`는 "대략적인 가이드"로만 쓰고 화면에도 그렇게 표시한다.
 - 아이폰 잠금화면 배경을 화면 해상도보다 크게 내보내야 하는지(확대·시차 효과 때문에)는 확인한 뒤 `notes`와 내보내기 기본값에 반영한다.
 
-## 데이터 현황 (2026-10-09)
+## 데이터 현황 (2026-10-10)
 
-`packages/presets/data/`에 31개, 그중 사용자에게 보이는 것(verified)은 29개다.
+`packages/presets/data/`에 60개, 그중 사용자에게 보이는 것(verified)은 58개다.
 
 | 묶음 | 기기 | 출처 |
 | --- | --- | --- |
@@ -75,8 +75,20 @@ type Overlay = {
 | 갤럭시 S | S26, S26+, S26 Ultra | Samsung Newsroom Korea 출시 기사 사양표 |
 | 갤럭시 Z | Flip8 (메인·커버). Fold8, Fold8 Ultra는 `verified: false` | Samsung Newsroom Korea 출시 기사 사양표 |
 | 갤럭시 워치 | Watch9 (40·44mm), Watch Ultra2 | samsung.com 구매 가이드 |
+| 2차 (2026-10-10) | | |
+| 아이폰 | 15, 15 Plus, 15 Pro, 15 Pro Max | Apple 지원 사이트 Tech Specs |
+| 아이패드 | Pro 11·13 (M5), Air 11·13 (M4), iPad (A16), mini (A17 Pro) | Apple 지원 사이트 Tech Specs |
+| 갤럭시 S | S25, S25+, S25 Ultra | samsung.com 지원 페이지(영국) 비교표 |
+| 갤럭시 Z | Fold7 (펼친 화면·커버), Flip7 (메인·커버) | Samsung Global Newsroom 보도자료 사양표 |
+| 갤럭시 워치 | Watch8 (40·44mm), Watch8 Classic | samsung.com 지원 페이지(콜롬비아) |
+| 갤럭시 탭 | Tab S11, Tab S11 Ultra | Samsung Global Newsroom 보도자료 사양표 |
+| 픽셀 | 10, 10 Pro, 10 Pro XL, 10 Pro Fold, 10a, 11, 11 Pro, 11 Pro XL, 11 Pro Fold | Google Pixel 하드웨어 기술 사양 |
 
-다음 배치: 태블릿(아이패드, 갤럭시 탭 S), 한 세대 이전 모델(아이폰 15, 갤럭시 S25, Z Fold7·Flip7, 워치8), 갤럭시 A, 픽셀.
+다음 배치: 갤럭시 A(A57·A37 등. 보도자료에 픽셀 해상도가 글자로 나오지 않아 공식 출처를 찾는 중), 관리자 화면의 "검색했는데 없던 기기" 순위.
+
+- 태블릿은 세로로 든 방향(가로 < 세로)으로 넣었다. 태블릿 배경화면은 화면을 돌리면 같이 돌아가므로, 한 방향 크기로 만들지 긴 변 기준 정사각형으로 만들지는 확인한 뒤 내보내기 기본값에 반영한다. TODO(verify)
+- Fold7 펼친 화면은 사양표가 `2184 x 1968`(세로 x 가로)이고, 펼친 크기(143.2 x 158.4mm)도 세로가 더 길어 방향이 맞는다. 그래서 Fold8과 달리 보이게 둔다.
+- Google은 해상도를 "가로 x 세로"(예: `1080 x 2424`)로, Apple은 "세로-by-가로"(예: `2556-by-1179`)로 적는다.
 
 - 삼성 사양표는 해상도를 "세로 x 가로" 순서로 적는다 (예: S26 Ultra `3,120 x 1,440`). 데이터에는 `widthPx`·`heightPx`로 풀어서 넣는다.
 - Fold8·Fold8 Ultra의 펼친 화면은 해상도 순서와 화면비 표기가 서로 맞지 않아, 가로·세로 방향을 확인할 때까지 숨긴다. TODO(verify)

@@ -1,0 +1,25 @@
+{
+  "id": "samsung-galaxy-z-fold7",
+  "brand": "Samsung",
+  "category": "foldable",
+  "name": "Galaxy Z Fold7",
+  "aliases": ["갤럭시 Z 폴드7", "폴드7", "z fold7", "fold 7"],
+  "releaseYear": 2025,
+  "screens": [
+    {
+      "role": "main",
+      "widthPx": 1968,
+      "heightPx": 2184,
+      "shape": "rect"
+    },
+    {
+      "role": "cover",
+      "widthPx": 1080,
+      "heightPx": 2520,
+      "shape": "rect"
+    }
+  ],
+  "source": "https://news.samsung.com/global/samsung-galaxy-z-fold7-raising-the-bar-for-smartphones",
+  "verified": true,
+  "verifiedAt": "2026-10-10"
+}

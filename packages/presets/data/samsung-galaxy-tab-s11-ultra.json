@@ -1,0 +1,19 @@
+{
+  "id": "samsung-galaxy-tab-s11-ultra",
+  "brand": "Samsung",
+  "category": "tablet",
+  "name": "Galaxy Tab S11 Ultra",
+  "aliases": ["갤럭시 탭 S11 울트라", "탭 S11 울트라", "tab s11 ultra"],
+  "releaseYear": 2025,
+  "screens": [
+    {
+      "role": "main",
+      "widthPx": 1848,
+      "heightPx": 2960,
+      "shape": "rect"
+    }
+  ],
+  "source": "https://news.samsung.com/global/meet-samsung-galaxy-tab-s11-series-packing-everything-you-expect-from-a-premium-tablet",
+  "verified": true,
+  "verifiedAt": "2026-10-10"
+}

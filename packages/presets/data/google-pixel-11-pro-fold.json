@@ -1,0 +1,25 @@
+{
+  "id": "google-pixel-11-pro-fold",
+  "brand": "Google",
+  "category": "foldable",
+  "name": "Pixel 11 Pro Fold",
+  "aliases": ["픽셀 11 프로 폴드", "pixel 11 pro fold"],
+  "releaseYear": 2026,
+  "screens": [
+    {
+      "role": "main",
+      "widthPx": 2076,
+      "heightPx": 2152,
+      "shape": "rect"
+    },
+    {
+      "role": "cover",
+      "widthPx": 1080,
+      "heightPx": 2342,
+      "shape": "rect"
+    }
+  ],
+  "source": "https://support.google.com/pixelphone/answer/7158570",
+  "verified": true,
+  "verifiedAt": "2026-10-10"
+}

@@ -1,0 +1,19 @@
+{
+  "id": "apple-ipad-mini-a17-pro",
+  "brand": "Apple",
+  "category": "tablet",
+  "name": "iPad mini (A17 Pro)",
+  "aliases": ["아이패드 미니", "아이패드 미니 7", "ipad mini"],
+  "releaseYear": 2024,
+  "screens": [
+    {
+      "role": "main",
+      "widthPx": 1488,
+      "heightPx": 2266,
+      "shape": "rect"
+    }
+  ],
+  "source": "https://support.apple.com/en-us/121456",
+  "verified": true,
+  "verifiedAt": "2026-10-10"
+}

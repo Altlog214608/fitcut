@@ -1,0 +1,19 @@
+{
+  "id": "samsung-galaxy-s25-plus",
+  "brand": "Samsung",
+  "category": "phone",
+  "name": "Galaxy S25+",
+  "aliases": ["갤럭시 S25 플러스", "S25 플러스", "s25 plus"],
+  "releaseYear": 2025,
+  "screens": [
+    {
+      "role": "main",
+      "widthPx": 1440,
+      "heightPx": 3120,
+      "shape": "rect"
+    }
+  ],
+  "source": "https://www.samsung.com/uk/support/mobile-devices/what-are-the-differences-between-the-galaxy-s25-ultra-s25-plus-and-s25/",
+  "verified": true,
+  "verifiedAt": "2026-10-10"
+}
