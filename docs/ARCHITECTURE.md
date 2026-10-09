@@ -15,10 +15,12 @@
 | --- | --- | --- |
 | 사진 리사이즈·크롭·포맷 변환 | 브라우저 (Web Worker) | 서버 비용 0, 업로드 대기 없음, 사진이 서버로 가지 않음 |
 | ZIP 묶기, 목표 용량 맞추기 | 브라우저 | 위와 같음 |
+| 사진 확대: 보간(M1), AI 업스케일(M3) | 브라우저 (Web Worker, AI는 WebGPU·wasm) | 사진이 서버로 가지 않음. 모델 파일은 처음 쓸 때만 내려받아 캐시 (ADR-023) |
 | HEIC 디코딩 | 브라우저 (wasm) 우선 검토 | 라이선스·번들 크기 확인 필요 |
 | 링크 구간 재생·선택 | 브라우저 (YouTube 공식 플레이어) | 영상이 서버를 거치지 않음 |
 | 짧은 영상 변환 (초안: 구간 30초·원본 200MB 이하) | Lambda 컨테이너 이미지 + ffmpeg (arm64) | 수 초~수 분 작업, 쓴 만큼 과금 |
 | 음성 추출·벨소리 | Lambda (같은 워커) | 가벼운 작업 |
+| 영상 세로로 돌리기 | 회전 정보만 바꾸기는 Lambda, 재인코딩은 작업 크기에 따라 Lambda / Fargate Spot (같은 워커) | 영상 전체를 다루므로 움짤보다 길 수 있음 (ADR-024) |
 | 긴 영상 변환, 오디오 분석, 오디오그램 | ECS Fargate Spot 태스크 | Lambda 15분 제한, Spot으로 비용 절감 |
 | 사용 이벤트 수집 | Lambda → Data Firehose | 쓴 만큼 과금, 버퍼링으로 S3 객체 수를 줄임 |
 | 관리자 집계 | 하루 한 번 Lambda + Athena | 화면은 집계만 읽어서 쿼리 비용 최소화 |
@@ -95,7 +97,7 @@
 
 | PK | SK | 주요 속성 |
 | --- | --- | --- |
-| `JOB#<id>` | `META` | type(gif·webp·mp4·audio·subtitle·audiogram·clip), status(created·uploaded·queued·processing·done·failed), params, inputKey, outputKeys, retain, retainUntil, deleteTokenHash, error, createdAt, ttl |
+| `JOB#<id>` | `META` | type(gif·webp·mp4·audio·rotate·subtitle·audiogram·clip), status(created·uploaded·queued·processing·done·failed), params, inputKey, outputKeys, retain, retainUntil, deleteTokenHash, error, createdAt, ttl |
 | `LINK#<id>` | `META` | platform, videoId, start, end, createdAt |
 | `CONN#<플랫폼>#<채널ID>` | `META` | encryptedTokens(KMS), scopes, connectedAt, status |
 | `BCAST#<id>` | `META` | platform, channelId, startedAt, endedAt, collector(task·webhook), eventCount, analysisStatus |
