@@ -3,7 +3,7 @@ import { ImageUp, ShieldCheck } from 'lucide-react';
 import { useEffect, useId, useMemo, useState } from 'react';
 import { DropZone } from '../components/DropZone';
 import { detectKind } from '../lib/detectKind';
-import { IN_APP, inAppLabel, saveMethod, type SaveMethod } from '../lib/inApp';
+import { IN_APP, inAppLabel, SAVE_METHOD, type SaveMethod } from '../lib/inApp';
 import { readJson, writeJson } from '../lib/storage';
 import { DevicePicker } from './DevicePicker';
 import { outputFileName, type OutputFormat } from './fileName';
@@ -52,7 +52,15 @@ function sampleEdges(image: CanvasImageSource & { width: number; height: number 
   return measureEdges(ctx.getImageData(0, 0, width, height));
 }
 
-type Saved = { name: string; width: number; height: number; bytes: number; fellBack: boolean };
+type Saved = {
+  name: string;
+  width: number;
+  height: number;
+  bytes: number;
+  fellBack: boolean;
+  /** 공유 화면으로 넘겼다 (아이폰) */
+  shared: boolean;
+};
 
 function formatBytes(bytes: number): string {
   if (bytes < 1024 * 1024) return `${Math.max(1, Math.round(bytes / 1024))}KB`;
@@ -83,7 +91,18 @@ async function download(blob: Blob, name: string, method: SaveMethod): Promise<v
   if (method === 'blob') setTimeout(() => URL.revokeObjectURL(url), 30_000);
 }
 
-const SAVE_METHOD = saveMethod(IN_APP);
+/**
+ * 아이폰 공유 화면을 연다. 결과를 기다리지 않는다: iOS 15에서 '이미지 저장'을 고르면 끝났다는 신호가
+ * 오지 않는 버그가 있었다 (WebKit 231995). 버튼을 누른 직후가 아니어서 막히면 onBlocked로 다시 누르게 한다.
+ */
+function openShare(file: File, onBlocked: () => void): void {
+  navigator.share({ files: [file] }).catch((error: unknown) => {
+    const name = error instanceof DOMException ? error.name : '';
+    if (name === 'AbortError') return; // 사용자가 닫았다
+    if (name === 'NotAllowedError') onBlocked();
+    else void download(file, file.name, 'blob');
+  });
+}
 
 export function PhotoTool({ initialFile }: { initialFile: File | null }) {
   const replaceId = useId();
@@ -115,6 +134,8 @@ export function PhotoTool({ initialFile }: { initialFile: File | null }) {
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState<(Saved & { key: string }) | null>(null);
   const [saveError, setSaveError] = useState<string | null>(null);
+  // 만드는 사이 '누른 직후' 상태가 풀려 공유 화면이 막혔을 때, 다시 눌러 열 파일
+  const [shareFile, setShareFile] = useState<File | null>(null);
 
   useEffect(() => {
     if (!file) return;
@@ -243,7 +264,13 @@ export function PhotoTool({ initialFile }: { initialFile: File | null }) {
         ...(isCircle ? { circleOutside } : {}),
       });
       const name = outputFileName(file.name, resolved.label, resolved.size, result.format);
-      await download(result.blob, name, SAVE_METHOD);
+      setShareFile(null);
+      if (SAVE_METHOD === 'share') {
+        const made = new File([result.blob], name, { type: result.blob.type });
+        openShare(made, () => setShareFile(made));
+      } else {
+        await download(result.blob, name, SAVE_METHOD);
+      }
       setSaved({
         key: settingsKey,
         name,
@@ -251,6 +278,7 @@ export function PhotoTool({ initialFile }: { initialFile: File | null }) {
         height: resolved.size.height,
         bytes: result.blob.size,
         fellBack: result.format !== effectiveFormat,
+        shared: SAVE_METHOD === 'share',
       });
       const nextRecent = pushRecent(recent, target);
       setRecent(nextRecent);
@@ -421,12 +449,26 @@ export function PhotoTool({ initialFile }: { initialFile: File | null }) {
             </button>
             {savedNow && (
               <p className={styles.saved} role="status">
-                저장했어요 ·{' '}
+                {savedNow.shared ? '만들었어요' : '저장했어요'} ·{' '}
                 <span className={styles.num}>
                   {savedNow.width} × {savedNow.height}
                 </span>{' '}
                 · {formatBytes(savedNow.bytes)}
                 {savedNow.fellBack && <> · 이 브라우저는 WebP를 만들 수 없어서 PNG로 저장했어요</>}
+              </p>
+            )}
+            {savedNow && shareFile && (
+              <button
+                type="button"
+                className={styles.again}
+                onClick={() => openShare(shareFile, () => undefined)}
+              >
+                사진 앱에 저장
+              </button>
+            )}
+            {SAVE_METHOD === 'share' && (
+              <p className={styles.hint}>
+                공유 화면에서 &lsquo;이미지 저장&rsquo;을 누르면 사진 앱에 들어가요.
               </p>
             )}
             {saveError && (

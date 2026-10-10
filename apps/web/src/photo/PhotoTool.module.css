@@ -176,6 +176,18 @@
   cursor: not-allowed;
 }
 
+/* 공유 화면이 막혔을 때 다시 여는 버튼 (아이폰) */
+.again {
+  height: 44px;
+  border: 1px solid var(--color-accent);
+  border-radius: var(--radius-button);
+  background: var(--color-accent-soft);
+  color: var(--color-accent-ink);
+  font-size: var(--text-caption);
+  font-weight: 700;
+  cursor: pointer;
+}
+
 .saved {
   font-size: var(--text-caption);
 }
