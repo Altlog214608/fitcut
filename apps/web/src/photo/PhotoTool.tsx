@@ -88,8 +88,12 @@ export function PhotoTool({ initialFile }: { initialFile: File | null }) {
   // null이면 자동: 배경 채우기에서는 사진이 잘린 쪽을 화면 끝에 붙인다. 끌면 직접 정한 위치가 된다.
   const [position, setPosition] = useState<Position | null>(null);
   const [zoom, setZoom] = useState(1);
-  // 사용자 사진으로 비교해 보니 '자연스럽게'(결 이어 붙이기)가 목표에 가장 가까웠다 (ROADMAP M1)
-  const [background, setBackground] = useState<Background>({ kind: 'texture' });
+  // '자연스럽게'(결 이어 붙이기)는 색이 튀어 뺐다 (2026-10-10 사용자 결정, ADR-028)
+  const [background, setBackground] = useState<Background>({
+    kind: 'extend',
+    strength: 0.4,
+    dim: 0,
+  });
   const [format, setFormat] = useState<OutputFormat>('jpeg');
   const [quality, setQuality] = useState(0.92);
   const [circleOutside, setCircleOutside] = useState<'black' | 'transparent'>('black');

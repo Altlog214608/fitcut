@@ -143,12 +143,12 @@ test('화면 캡처 (라이트·다크)', async ({ page }, testInfo) => {
   }
 });
 
-test('자연스럽게·가장자리 늘이기·거울 반사로 저장해도 크기가 정확하다', async ({ page }) => {
+test('가장자리 늘이기·거울 반사로 저장해도 크기가 정확하다', async ({ page }) => {
   await page.goto('/');
   await openPhotoFromHome(page, await makeScene(page, 1440, 1440), 'square.jpg');
   await chooseDevice(page, '17 프로', 'iPhone 17 Pro');
   await page.getByRole('radio', { name: '배경 채우기' }).click();
-  for (const kind of ['자연스럽게', '가장자리 늘이기', '거울 반사']) {
+  for (const kind of ['가장자리 늘이기', '거울 반사']) {
     await page.getByRole('radio', { name: kind }).click();
     const { file } = await save(page);
     expect(imageSize(file)).toEqual({ width: 1206, height: 2622, type: 'jpeg' });
@@ -219,7 +219,6 @@ test('배경 종류 비교 캡처', async ({ page }, testInfo) => {
     await chooseDevice(page, '17 프로', 'iPhone 17 Pro');
     await page.getByRole('radio', { name: '배경 채우기' }).click();
     for (const [kind, label] of [
-      ['texture', '자연스럽게'],
       ['blur', '흐린 사진'],
       ['extend', '가장자리 늘이기'],
       ['mirror', '거울 반사'],
