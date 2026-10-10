@@ -10,6 +10,8 @@ type Props = {
   /** 한 프레임 길이(초) */
   frame: number;
   thumbnails: readonly (string | undefined)[];
+  /** 음성 도구: 썸네일 대신 파형 (0~1) */
+  waveform?: readonly number[] | null;
   onRange: (range: Range) => void;
   onSeek: (t: number) => void;
 };
@@ -25,7 +27,16 @@ const clamp = (v: number, lo: number, hi: number) => Math.min(hi, Math.max(lo, v
  * 구간 타임라인 (FEATURES F4): 썸네일 스트립, 시작·끝 핸들, 재생 위치, 확대.
  * 핸들은 slider 역할이라 포커스한 뒤 화살표로 1프레임(Shift는 1초)씩 옮길 수 있다.
  */
-export function Timeline({ duration, range, current, frame, thumbnails, onRange, onSeek }: Props) {
+export function Timeline({
+  duration,
+  range,
+  current,
+  frame,
+  thumbnails,
+  waveform,
+  onRange,
+  onSeek,
+}: Props) {
   const trackRef = useRef<HTMLDivElement>(null);
   const drag = useRef<Drag | null>(null);
   const [zoom, setZoom] = useState(1);
@@ -107,6 +118,22 @@ export function Timeline({ duration, range, current, frame, thumbnails, onRange,
         onPointerCancel={up}
         data-testid="timeline-track"
       >
+        {waveform && waveform.length > 0 && (
+          <svg
+            className={styles.wave}
+            viewBox={`0 0 ${waveform.length} 100`}
+            preserveAspectRatio="none"
+            aria-hidden="true"
+            style={{
+              left: `${pct(0)}%`,
+              width: `${(duration / span) * 100}%`,
+            }}
+          >
+            {waveform.map((v, i) => (
+              <rect key={i} x={i} width={0.8} y={50 - v * 46} height={Math.max(1, v * 92)} />
+            ))}
+          </svg>
+        )}
         <div className={styles.thumbs} aria-hidden="true">
           {thumbnails.map((url, i) =>
             url && visible(i * slot) ? (

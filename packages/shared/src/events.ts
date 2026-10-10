@@ -38,7 +38,7 @@ export const CLIENT_EVENTS = {
   preset_search_miss: { query: str(40) },
   export_done: {
     tool: oneOf(...TOOLS),
-    format: oneOf('jpeg', 'png', 'webp', 'gif', 'mp4', 'zip'),
+    format: oneOf('jpeg', 'png', 'webp', 'gif', 'mp4', 'zip', 'mp3', 'm4a', 'wav', 'm4r'),
     count: num(0, 100),
     width: num(0, 20000),
     height: num(0, 20000),

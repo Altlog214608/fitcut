@@ -23,7 +23,19 @@ export type JobItem = {
   id: string;
   status: JobStatus;
   kind: CreateJob['kind'];
-  params: { start: number; end: number; fps: number; width: number; height?: number };
+  params: {
+    start: number;
+    end: number;
+    fps: number;
+    width: number;
+    height?: number;
+    /** 음성 (워커 Params와 같은 이름) */
+    fadeIn?: number;
+    fadeOut?: number;
+    normalize?: boolean;
+    channels?: 1 | 2;
+    bitrate?: number;
+  };
   uploadId: string;
   inputKey: string;
   /** 원본 크기. Lambda·Fargate 분배 기준에 쓴다 (ADR-002) */
@@ -73,6 +85,7 @@ export function newJob(id: string, input: CreateJob, upload: UploadItem, now: Da
       fps: input.fps,
       width: input.width,
       ...(input.height ? { height: input.height } : {}),
+      ...(input.audio ?? {}),
     },
     uploadId: upload.id,
     inputKey: upload.inputKey,
@@ -100,6 +113,9 @@ export function publicJob(item: JobItem | undefined, now: Date) {
 export function downloadName(item: JobItem): string {
   const ext = item.outputKey?.split('.').at(-1) ?? item.kind;
   const { width, height } = item.params;
+  if (['mp3', 'm4a', 'wav', 'm4r'].includes(item.kind)) {
+    return `fitcut_${item.kind === 'm4r' ? 'ringtone' : 'audio'}_${item.id.slice(0, 8)}.${ext}`;
+  }
   const size = height ? `${width}x${height}` : `${width}`;
   return `fitcut_${item.kind}_${size}_${item.id.slice(0, 8)}.${ext}`;
 }

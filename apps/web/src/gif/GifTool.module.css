@@ -473,3 +473,23 @@
   color: var(--color-accent-ink);
   flex: none;
 }
+
+/* 체크박스 옵션 (음성 도구) */
+.check {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: var(--text-caption);
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.check input {
+  width: 18px;
+  height: 18px;
+  accent-color: var(--color-accent);
+}
+
+.result audio {
+  width: 100%;
+}

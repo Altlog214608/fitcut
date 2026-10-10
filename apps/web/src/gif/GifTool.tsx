@@ -6,19 +6,9 @@ import { Segmented } from '../components/Segmented';
 import { detectKind } from '../lib/detectKind';
 import { track } from '../lib/analytics';
 import { SAVE_METHOD } from '../lib/inApp';
-import { download, openDownloadUrl, openShare } from '../lib/save';
-import {
-  ApiError,
-  contentTypeOf,
-  createJob,
-  createUpload,
-  getJob,
-  pollDelay,
-  resultName,
-  sendFile,
-  type Job,
-  type Sending,
-} from './api';
+import { openShare } from '../lib/save';
+import { contentTypeOf } from './api';
+import { useMediaJob } from '../media/useMediaJob';
 import { estimateBytes, formatBytes, outputSize, type Size } from './estimate';
 import { DEFAULT_FPS, fpsFromFrameTimes } from './frameRate';
 import styles from './GifTool.module.css';
@@ -31,13 +21,16 @@ import { centerCrop, WATCHES } from './watch';
 const VIDEO_ACCEPT = 'video/mp4,video/quicktime,video/webm,.mp4,.mov,.webm';
 const THUMB_COUNT = 12;
 const THUMB_HEIGHT = 96;
-/** 이보다 오래 걸리면 멈춘 것으로 보고 다시 만들게 한다 (워커 최대 10분 + 여유) */
-const POLL_LIMIT_MS = 15 * 60 * 1000;
-/** 내려받기 주소는 10분 동안 쓸 수 있다. 조금 일찍 새로 받는다 */
-const URL_FRESH_MS = 9 * 60 * 1000;
-
-const KIND_LABEL: Record<JobKind, string> = { gif: 'GIF', webp: 'WebP', mp4: 'MP4' };
-const KIND_HINT: Record<JobKind, string> = {
+const KIND_LABEL: Record<JobKind, string> = {
+  gif: 'GIF',
+  webp: 'WebP',
+  mp4: 'MP4',
+  mp3: 'MP3',
+  m4a: 'M4A',
+  wav: 'WAV',
+  m4r: '벨소리',
+};
+const KIND_HINT: Partial<Record<JobKind, string>> = {
   gif: '어디서나 열리지만 용량이 커요.',
   webp: 'GIF보다 작아요. 일부 앱에서는 열리지 않을 수 있어요.',
   mp4: '가장 작아요. 소리는 담지 않아요.',
@@ -63,13 +56,6 @@ const FPS_OPTIONS: readonly { value: FpsChoice; label: string }[] = (
 type Picked = { file: File; url: string };
 type Meta = { file: File; duration: number; size: Size };
 
-type UploadView =
-  | { state: 'starting' }
-  | { state: 'sending'; sent: number; total: number }
-  | { state: 'done'; id: string }
-  | { state: 'failed'; message: string };
-type UploadState = UploadView & { file: File; attempt: number };
-
 type Request = {
   kind: JobKind;
   start: number;
@@ -84,17 +70,6 @@ const PURPOSES: readonly { value: Purpose; label: string }[] = [
   { value: 'clip', label: '움짤' },
   { value: 'watch', label: '워치 화면' },
 ];
-type Making =
-  | { phase: 'pending'; key: string }
-  | { phase: 'creating'; key: string }
-  | { phase: 'running'; key: string; job: Job }
-  | { phase: 'done'; key: string; job: Job; fetchedAt: number; blob: Blob | null }
-  | { phase: 'failed'; key: string; message: string };
-
-const messageOf = (error: unknown) =>
-  error instanceof ApiError ? error.message : '잠시 후 다시 시도해 주세요.';
-const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
-
 /** 요청할 가로 폭. 서버는 원본보다 키우지 않으므로(ffmpeg min(W,iw)) 실제로 나올 폭을 보낸다 */
 function widthOf(choice: WidthChoice, video: Size | null): number {
   const { min, max } = JOB_LIMITS.width;
@@ -102,18 +77,9 @@ function widthOf(choice: WidthChoice, video: Size | null): number {
   return Math.min(max, Math.max(min, Math.min(wanted, video?.width ?? wanted)));
 }
 
-/** 다른 출처의 결과를 미리 받아 둔다 (아이폰 공유 화면·인앱 저장은 누른 순간 파일이 있어야 한다) */
-const NEEDS_BLOB = SAVE_METHOD === 'share' || SAVE_METHOD === 'data-url';
-
 export function GifTool({ initialFile }: { initialFile: File | null }) {
   const replaceId = useId();
   const videoRef = useRef<HTMLVideoElement>(null);
-  const abortUpload = useRef<(() => void) | null>(null);
-  /** 올리는 중에 '만들기'를 누르면 여기 두었다가 올리기가 끝나면 만든다 */
-  const pending = useRef<{ key: string; request: Request } | null>(null);
-  /** 파일을 바꾸거나 다시 만들면 지난 조회를 멈춘다 */
-  const runToken = useRef(0);
-
   const [picked, setPicked] = useState<Picked | null>(() =>
     initialFile ? { file: initialFile, url: URL.createObjectURL(initialFile) } : null,
   );
@@ -130,9 +96,6 @@ export function GifTool({ initialFile }: { initialFile: File | null }) {
     list: [],
   });
 
-  const [attempt, setAttempt] = useState(0);
-  const [upload, setUpload] = useState<UploadState | null>(null);
-
   const [purpose, setPurpose] = useState<Purpose>('clip');
   const [watchId, setWatchId] = useState(WATCHES[0]?.id ?? '');
   const [clipKind, setKind] = useState<JobKind>('gif');
@@ -140,10 +103,6 @@ export function GifTool({ initialFile }: { initialFile: File | null }) {
   const [fpsChoice, setFpsChoice] = useState<FpsChoice>(
     String(JOB_LIMITS.fps.default) as FpsChoice,
   );
-  const [making, setMaking] = useState<Making | null>(null);
-  const [elapsed, setElapsed] = useState(0);
-  const [shareFile, setShareFile] = useState<File | null>(null);
-  const [saveError, setSaveError] = useState<string | null>(null);
 
   const file = picked?.file ?? null;
   const videoUrl = picked?.url ?? null;
@@ -152,8 +111,6 @@ export function GifTool({ initialFile }: { initialFile: File | null }) {
   const fps = measured && measured.file === file ? measured.fps : DEFAULT_FPS;
   const frame = 1 / fps;
   const thumbList = thumbs.url === videoUrl ? thumbs.list : [];
-  const up: UploadView =
-    upload && upload.file === file && upload.attempt === attempt ? upload : { state: 'starting' };
 
   // 워치 화면이면 크기와 형식은 기기가 정한다 (갤럭시 GIF, 애플워치 MP4)
   const watch =
@@ -178,50 +135,8 @@ export function GifTool({ initialFile }: { initialFile: File | null }) {
       : null;
   const estimate =
     size && !problem ? estimateBytes(kind, size, request.fps, range.end - range.start) : null;
-  const now = making && making.key === key ? making : null;
-  const busy =
-    making?.phase === 'pending' || making?.phase === 'creating' || making?.phase === 'running';
-
-  // ---------- 업로드: 파일을 고르자마자 올린다 (ADR-033) ----------
-  useEffect(() => {
-    if (!file) return;
-    const type = contentTypeOf(file);
-    if (!type) return;
-    let cancelled = false;
-    let sending: Sending | null = null;
-    const set = (view: UploadView) => {
-      if (!cancelled) setUpload({ ...view, file, attempt });
-    };
-    abortUpload.current = () => sending?.abort();
-    void (async () => {
-      try {
-        const target = await createUpload(file.size, type);
-        if (cancelled) return;
-        sending = sendFile(target, file, (sent, total) => set({ state: 'sending', sent, total }));
-        set({ state: 'sending', sent: 0, total: file.size });
-        await sending.done;
-        set({ state: 'done', id: target.id });
-        const waiting = pending.current;
-        pending.current = null;
-        if (waiting && !cancelled) void run(target.id, waiting.key, waiting.request);
-      } catch (error) {
-        pending.current = null;
-        set({ state: 'failed', message: messageOf(error) });
-        if (!cancelled) {
-          setMaking((m) =>
-            m?.phase === 'pending'
-              ? { phase: 'failed', key: m.key, message: '영상을 다시 올린 뒤 만들어 주세요.' }
-              : m,
-          );
-        }
-      }
-    })();
-    return () => {
-      cancelled = true;
-      sending?.abort();
-    };
-    // run은 매번 새로 만들어지지만 안에서 쓰는 값은 모두 인자와 ref로 받는다
-  }, [file, attempt]);
+  const media = useMediaJob(file, 'gif', key);
+  const { up, making, now, busy, elapsed, shareFile, saveError } = media;
 
   // ---------- 썸네일 ----------
   useEffect(() => {
@@ -275,18 +190,6 @@ export function GifTool({ initialFile }: { initialFile: File | null }) {
     return () => video.cancelVideoFrameCallback(handle);
   }, [playing, file, fpsKnown]);
 
-  // ---------- 만드는 동안 걸린 시간 ----------
-  const runningSince = making?.phase === 'running' ? making.job.id : null;
-  useEffect(() => {
-    if (!runningSince) return;
-    const started = Date.now();
-    const timer = setInterval(() => setElapsed(Math.round((Date.now() - started) / 1000)), 1000);
-    return () => {
-      clearInterval(timer);
-      setElapsed(0);
-    };
-  }, [runningSince]);
-
   // ---------- 키보드 (FEATURES F4) ----------
   useEffect(() => {
     if (!info) return;
@@ -336,13 +239,9 @@ export function GifTool({ initialFile }: { initialFile: File | null }) {
       return;
     }
     if (picked) URL.revokeObjectURL(picked.url);
-    runToken.current += 1;
-    pending.current = null;
+    media.reset();
     setPickError(null);
     setPicked({ file: next, url: URL.createObjectURL(next) });
-    setMaking(null);
-    setShareFile(null);
-    setSaveError(null);
     setPlaying(false);
     setCurrent(0);
   }
@@ -375,103 +274,9 @@ export function GifTool({ initialFile }: { initialFile: File | null }) {
     else if (next.end !== range.end) seek(next.end);
   }
 
-  async function run(uploadId: string, runKey: string, req: Request) {
-    const token = ++runToken.current;
-    const live = () => runToken.current === token;
-    setMaking({ phase: 'creating', key: runKey });
-    try {
-      let job = await createJob({ uploadId, ...req });
-      const started = Date.now();
-      let misses = 0;
-      for (let i = 0; job.status === 'queued' || job.status === 'processing'; i += 1) {
-        if (!live()) return;
-        setMaking({ phase: 'running', key: runKey, job });
-        if (Date.now() - started > POLL_LIMIT_MS) {
-          throw new ApiError('시간이 너무 오래 걸려요. 다시 만들어 주세요.', 'timeout', 0);
-        }
-        await sleep(pollDelay(i));
-        try {
-          job = await getJob(job.id);
-          misses = 0;
-        } catch (error) {
-          // 잠깐 끊긴 연결은 몇 번 더 기다린다
-          if (!(error instanceof ApiError) || error.code !== 'network' || ++misses > 3) throw error;
-        }
-      }
-      if (!live()) return;
-      if (job.status === 'failed') {
-        track('error_shown', { tool: 'gif', code: 'job_failed' });
-        setMaking({
-          phase: 'failed',
-          key: runKey,
-          message: job.error ?? '변환하지 못했어요. 잠시 후 다시 시도해 주세요.',
-        });
-        return;
-      }
-      setMaking({ phase: 'done', key: runKey, job, fetchedAt: Date.now(), blob: null });
-      if (NEEDS_BLOB && job.downloadUrl) {
-        const blob = await fetch(job.downloadUrl)
-          .then((r) => (r.ok ? r.blob() : null))
-          .catch(() => null);
-        if (blob && live()) {
-          setMaking((m) => (m?.phase === 'done' && m.job.id === job.id ? { ...m, blob } : m));
-        }
-      }
-    } catch (error) {
-      if (!live()) return;
-      track('error_shown', {
-        tool: 'gif',
-        code: error instanceof ApiError ? error.code : 'unknown',
-      });
-      setMaking({ phase: 'failed', key: runKey, message: messageOf(error) });
-    }
-  }
-
   function make() {
     if (!info || problem) return;
-    setShareFile(null);
-    setSaveError(null);
-    if (up.state === 'done') {
-      void run(up.id, key, request);
-    } else if (up.state === 'failed') {
-      setMaking({ phase: 'failed', key, message: '영상을 다시 올린 뒤 만들어 주세요.' });
-    } else {
-      pending.current = { key, request };
-      setMaking({ phase: 'pending', key });
-    }
-  }
-
-  async function save() {
-    if (now?.phase !== 'done') return;
-    const name = resultName(now.job);
-    setSaveError(null);
-    const { width: w, height: h } = now.job.params;
-    track('export_done', {
-      tool: 'gif',
-      format: now.job.kind,
-      width: w,
-      ...(h ? { height: h } : {}),
-      sizeBytes: now.job.outputBytes ?? 0,
-    });
-    if (SAVE_METHOD === 'share' && now.blob) {
-      const made = new File([now.blob], name, { type: now.blob.type });
-      openShare(made, () => setShareFile(made));
-      return;
-    }
-    if (SAVE_METHOD === 'data-url' && now.blob) {
-      await download(now.blob, name, 'data-url');
-      return;
-    }
-    let job = now.job;
-    try {
-      if (Date.now() - now.fetchedAt > URL_FRESH_MS) {
-        job = await getJob(job.id);
-        setMaking({ ...now, job, fetchedAt: Date.now() });
-      }
-      if (job.downloadUrl) openDownloadUrl(job.downloadUrl);
-    } catch (error) {
-      setSaveError(messageOf(error));
-    }
+    media.make(request);
   }
 
   if (!file || !videoUrl) {
@@ -557,11 +362,7 @@ export function GifTool({ initialFile }: { initialFile: File | null }) {
                 {formatBytes(up.sent)} / {formatBytes(up.total)}
               </span>
             </p>
-            <button
-              type="button"
-              className={styles.textButton}
-              onClick={() => abortUpload.current?.()}
-            >
+            <button type="button" className={styles.textButton} onClick={media.cancelUpload}>
               업로드 취소
             </button>
             <div
@@ -587,11 +388,7 @@ export function GifTool({ initialFile }: { initialFile: File | null }) {
             <p className={styles.uploadError} role="alert">
               {up.message}
             </p>
-            <button
-              type="button"
-              className={styles.textButton}
-              onClick={() => setAttempt((a) => a + 1)}
-            >
+            <button type="button" className={styles.textButton} onClick={media.retryUpload}>
               다시 올리기
             </button>
           </>
@@ -844,7 +641,7 @@ export function GifTool({ initialFile }: { initialFile: File | null }) {
               type="button"
               className={styles.primary}
               disabled={!info || !!problem || busy}
-              onClick={() => (now?.phase === 'done' ? void save() : make())}
+              onClick={() => (now?.phase === 'done' ? void media.save() : make())}
             >
               {primaryLabel}
             </button>
@@ -859,7 +656,7 @@ export function GifTool({ initialFile }: { initialFile: File | null }) {
             )}
           </div>
           {now?.phase === 'done' && (
-            <button type="button" className={styles.secondary} onClick={() => setMaking(null)}>
+            <button type="button" className={styles.secondary} onClick={media.clearResult}>
               다른 설정으로 또 만들기
             </button>
           )}

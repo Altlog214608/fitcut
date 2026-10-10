@@ -53,6 +53,49 @@ describe('parseCreateJob', () => {
     });
   });
 
+  it('음성 옵션: 기본값, 범위, 아이폰 벨소리 30초', () => {
+    const r = parseCreateJob({ ...ok, kind: 'mp3', start: 0, end: 20 });
+    expect(r.ok && r.value.audio).toEqual({
+      fadeIn: 0,
+      fadeOut: 0,
+      normalize: false,
+      channels: 2,
+      bitrate: 192,
+    });
+    const set = parseCreateJob({
+      ...ok,
+      kind: 'm4a',
+      start: 0,
+      end: 20,
+      audio: { fadeIn: 1.5, fadeOut: 2, normalize: true, channels: 1, bitrate: 128 },
+    });
+    expect(set.ok && set.value.audio).toEqual({
+      fadeIn: 1.5,
+      fadeOut: 2,
+      normalize: true,
+      channels: 1,
+      bitrate: 128,
+    });
+    const code = (body: unknown) => {
+      const x = parseCreateJob(body);
+      return x.ok ? null : x.error.code;
+    };
+    expect(code({ ...ok, kind: 'mp3', start: 0, end: 3, audio: { fadeIn: 2, fadeOut: 2 } })).toBe(
+      'bad_fade',
+    );
+    expect(code({ ...ok, kind: 'mp3', start: 0, end: 30, audio: { bitrate: 500 } })).toBe(
+      'bad_bitrate',
+    );
+    expect(code({ ...ok, kind: 'mp3', start: 0, end: 30, audio: { channels: 6 } })).toBe(
+      'bad_channels',
+    );
+    const ringtone = parseCreateJob({ ...ok, kind: 'm4r', start: 0, end: 31 });
+    expect(ringtone.ok ? '' : ringtone.error.message).toBe(
+      '아이폰 벨소리는 30초까지예요. 구간을 30초 이하로 골라 주세요.',
+    );
+    expect(parseCreateJob({ ...ok, kind: 'mp3', start: 0, end: 600 }).ok).toBe(true);
+  });
+
   it('MP4는 3분까지', () => {
     expect(parseCreateJob({ ...ok, kind: 'mp4', start: 0, end: 180 }).ok).toBe(true);
     expect(parseCreateJob({ ...ok, kind: 'mp4', start: 0, end: 181 }).ok).toBe(false);

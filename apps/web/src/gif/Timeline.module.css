@@ -111,3 +111,13 @@
   flex: 1;
   accent-color: var(--color-accent);
 }
+
+/* 음성 도구의 파형 */
+.wave {
+  position: absolute;
+  top: 0;
+  height: 100%;
+  fill: var(--color-accent);
+  opacity: 0.7;
+  pointer-events: none;
+}

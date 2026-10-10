@@ -176,7 +176,7 @@ export function makeHandler(deps: Deps) {
       await pipeline(obj.Body as Readable, createWriteStream(input));
 
       const probe = await deps.exec(env.FFPROBE_PATH, ffprobeArgs(input), 60_000).catch(() => null);
-      const problem = checkInput(probe ? parseProbe(probe.stdout) : null, job.params);
+      const problem = checkInput(probe ? parseProbe(probe.stdout) : null, job.params, job.kind);
       if (problem) throw new InputError(problem);
 
       // Lambda가 끝나기 20초 전에는 멈춰서 실패를 기록할 시간을 남긴다

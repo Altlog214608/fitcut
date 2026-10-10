@@ -27,6 +27,16 @@ export type JobRequest = {
   width: number;
   /** 정하면 가로×세로에 꽉 차게 가운데를 자른다 (워치 화면) */
   height?: number;
+  /** 음성 형식만 (F14) */
+  audio?: AudioOptions;
+};
+
+export type AudioOptions = {
+  fadeIn: number;
+  fadeOut: number;
+  normalize: boolean;
+  channels: 1 | 2;
+  bitrate: number;
 };
 
 /** 화면에 그대로 보여줄 문구를 담은 오류 */
@@ -69,6 +79,9 @@ const EXT_TYPES: Record<string, string> = {
   m4v: 'video/mp4',
   mov: 'video/quicktime',
   webm: 'video/webm',
+  mp3: 'audio/mpeg',
+  m4a: 'audio/mp4',
+  wav: 'audio/wav',
 };
 
 /** 서버가 받는 영상 형식. 브라우저가 형식을 모르면(Windows의 .mov 등) 확장자로 정한다 */
@@ -131,6 +144,9 @@ export async function getJob(id: string): Promise<Job> {
 /** 저장할 파일 이름. 서버가 첨부 파일로 줄 때와 같다 (services/api downloadName) */
 export function resultName(job: Pick<Job, 'id' | 'kind' | 'params'>): string {
   const { width, height } = job.params;
+  if (job.kind === 'mp3' || job.kind === 'm4a' || job.kind === 'wav' || job.kind === 'm4r') {
+    return `fitcut_${job.kind === 'm4r' ? 'ringtone' : 'audio'}_${job.id.slice(0, 8)}.${job.kind}`;
+  }
   const size = height ? `${width}x${height}` : `${width}`;
   return `fitcut_${job.kind}_${size}_${job.id.slice(0, 8)}.${job.kind}`;
 }

@@ -1,5 +1,6 @@
 /** POST /api/uploads · POST /api/jobs 입력 검사 (순수 함수). 오류 문구는 화면에 그대로 보여준다 (docs/UI.md 문구 규칙). */
 import { isUuid } from './jobs';
+import { isAudioKind } from '@fitcut/shared';
 import { JOB_KINDS, LIMITS, type JobKind } from './limits';
 
 export type CreateUpload = {
@@ -18,6 +19,16 @@ export type CreateJob = {
   width: number;
   /** 정하면 가로×세로에 꽉 차게 가운데를 잘라 맞춘다 */
   height?: number;
+  /** 음성 형식만 (F14) */
+  audio?: AudioOptions;
+};
+
+export type AudioOptions = {
+  fadeIn: number;
+  fadeOut: number;
+  normalize: boolean;
+  channels: 1 | 2;
+  bitrate: number;
 };
 
 export type Invalid = { code: string; message: string };
@@ -79,7 +90,12 @@ export function parseCreateJob(body: unknown): Result<CreateJob> {
   }
   const max = LIMITS.maxSeconds[k];
   if (end - start > max) {
-    return fail('too_long', `구간이 너무 길어요. ${max}초 이하로 골라 주세요.`);
+    return fail(
+      'too_long',
+      k === 'm4r'
+        ? `아이폰 벨소리는 ${max}초까지예요. 구간을 ${max}초 이하로 골라 주세요.`
+        : `구간이 너무 길어요. ${max}초 이하로 골라 주세요.`,
+    );
   }
 
   const fps = intIn(body.fps, LIMITS.fps.min, LIMITS.fps.max, LIMITS.fps.default);
@@ -105,8 +121,40 @@ export function parseCreateJob(body: unknown): Result<CreateJob> {
     height = h;
   }
 
+  let audio: AudioOptions | undefined;
+  if (isAudioKind(k)) {
+    const a = isObj(body.audio) ? body.audio : {};
+    const fade = (v: unknown) =>
+      v === undefined ? 0 : isNum(v) && v >= 0 && v <= LIMITS.audio.fadeMax ? v : null;
+    const fadeIn = fade(a.fadeIn);
+    const fadeOut = fade(a.fadeOut);
+    if (fadeIn === null || fadeOut === null || fadeIn + fadeOut > end - start) {
+      return fail(
+        'bad_fade',
+        `페이드는 ${LIMITS.audio.fadeMax}초 이하로, 구간 길이 안에서 골라 주세요.`,
+      );
+    }
+    const { min, max: top, default: def } = LIMITS.audio.bitrate;
+    const bitrate = intIn(a.bitrate, min, top, def);
+    if (bitrate === null) return fail('bad_bitrate', `음질은 ${min}~${top}kbps로 골라 주세요.`);
+    const channels = a.channels === undefined ? 2 : a.channels;
+    if (channels !== 1 && channels !== 2) {
+      return fail('bad_channels', '모노나 스테레오 중에서 골라 주세요.');
+    }
+    audio = { fadeIn, fadeOut, normalize: a.normalize === true, channels, bitrate };
+  }
+
   return {
     ok: true,
-    value: { uploadId, kind: k, start, end, fps, width, ...(height ? { height } : {}) },
+    value: {
+      uploadId,
+      kind: k,
+      start,
+      end,
+      fps,
+      width,
+      ...(height ? { height } : {}),
+      ...(audio ? { audio } : {}),
+    },
   };
 }
