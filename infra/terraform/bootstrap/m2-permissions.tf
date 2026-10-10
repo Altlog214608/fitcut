@@ -249,6 +249,13 @@ data "aws_iam_policy_document" "deploy_m2" {
     resources = ["*"]
   }
 
+  # API를 CloudFront /api/* 뒤에 두면서 쓰는 오리진 요청 정책 (CloudFront-Viewer-Address 전달)
+  statement {
+    sid       = "CloudFrontOriginRequestPolicies"
+    actions   = ["cloudfront:CreateOriginRequestPolicy", "cloudfront:UpdateOriginRequestPolicy", "cloudfront:DeleteOriginRequestPolicy"]
+    resources = ["*"]
+  }
+
   statement {
     sid       = "EventRules"
     actions   = ["events:PutRule", "events:DeleteRule", "events:PutTargets", "events:RemoveTargets", "events:TagResource", "events:UntagResource", "events:EnableRule", "events:DisableRule"]
