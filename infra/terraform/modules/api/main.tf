@@ -314,6 +314,9 @@ resource "aws_apigatewayv2_stage" "default" {
     throttling_rate_limit  = var.events_throttle_rate
     throttling_burst_limit = var.events_throttle_rate * 2
   }
+
+  # 경로별 설정은 그 경로가 먼저 있어야 한다 (없으면 UpdateStage가 404)
+  depends_on = [aws_apigatewayv2_route.api]
 }
 
 resource "aws_lambda_permission" "api" {
