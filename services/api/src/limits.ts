@@ -10,6 +10,8 @@ export const LIMITS = {
   contentTypes: ['video/mp4', 'video/quicktime', 'video/webm'],
   /** 업로드 주소 유효 시간(초) */
   uploadUrlSeconds: 15 * 60,
+  /** 결과 내려받기 주소 유효 시간(초). 상태를 다시 조회하면 새 주소를 준다 */
+  downloadUrlSeconds: 10 * 60,
   /** 잡 기록 보관(초). DynamoDB TTL은 바로 지워지지 않으므로 조회할 때도 확인한다 */
   jobTtlSeconds: 2 * 24 * 60 * 60,
 } as const;

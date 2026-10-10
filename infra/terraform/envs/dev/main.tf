@@ -31,3 +31,22 @@ module "api" {
   workload_boundary_arn = local.workload_boundary_arn
   site_origin           = "https://${module.web.domain_name}"
 }
+
+variable "worker_image_tag" {
+  description = "워커 이미지 태그. CI: scripts/worker-image-tag.sh (services/worker와 잠금 파일 내용으로 정해진다)"
+  type        = string
+}
+
+module "worker" {
+  source = "../../modules/worker"
+
+  name_prefix           = "fitcut-dev"
+  image_tag             = var.worker_image_tag
+  workload_boundary_arn = local.workload_boundary_arn
+  table_name            = module.api.table_name
+  table_arn             = module.api.table_arn
+  uploads_bucket        = module.api.uploads_bucket
+  uploads_bucket_arn    = module.api.uploads_bucket_arn
+  outputs_bucket        = module.api.outputs_bucket
+  outputs_bucket_arn    = module.api.outputs_bucket_arn
+}

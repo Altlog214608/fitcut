@@ -18,6 +18,9 @@ export type JobItem = {
   /** 초 단위 만료 시각 (DynamoDB TTL) */
   ttl: number;
   error?: string;
+  /** 워커가 채운다 (status done) */
+  outputKey?: string;
+  outputBytes?: number;
 };
 
 export const jobKey = (id: string) => ({ PK: `JOB#${id}`, SK: 'META' as const });
@@ -50,7 +53,14 @@ export function publicJob(item: JobItem | undefined, now: Date) {
     params: item.params,
     createdAt: item.createdAt,
     ...(item.error ? { error: item.error } : {}),
+    ...(item.status === 'done' && item.outputBytes ? { outputBytes: item.outputBytes } : {}),
   };
+}
+
+/** 내려받을 때 쓸 파일 이름: fitcut_gif_480_0b8f4c56.gif */
+export function downloadName(item: JobItem): string {
+  const ext = item.outputKey?.split('.').at(-1) ?? item.kind;
+  return `fitcut_${item.kind}_${item.params.width}_${item.id.slice(0, 8)}.${ext}`;
 }
 
 /** 잡 ID 모양 검사 (UUID). 이상한 값으로 DynamoDB를 부르지 않는다 */

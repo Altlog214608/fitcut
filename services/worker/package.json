@@ -1,8 +1,8 @@
 {
-  "name": "@fitcut/api",
+  "name": "@fitcut/worker",
   "private": true,
   "type": "module",
-  "description": "잡 API: 잡 만들기·상태 조회, 업로드 주소 발급, IP 해시별 하루 할당량 (Lambda)",
+  "description": "ffmpeg 워커: 움짤(GIF·WebP)·MP4 만들기. Lambda 컨테이너 이미지와 Fargate 태스크가 같은 코드를 쓴다",
   "scripts": {
     "build": "esbuild src/handler.ts --bundle --platform=node --target=node24 --format=esm --minify --sourcemap --outfile=dist/index.mjs --banner:js=\"import { createRequire } from 'module'; const require = createRequire(import.meta.url);\"",
     "typecheck": "tsc -p tsconfig.json",
@@ -11,10 +11,7 @@
   "dependencies": {
     "@aws-sdk/client-dynamodb": "^3.1148.0",
     "@aws-sdk/client-s3": "^3.1148.0",
-    "@aws-sdk/client-ssm": "^3.1148.0",
-    "@aws-sdk/lib-dynamodb": "^3.1148.0",
-    "@aws-sdk/s3-presigned-post": "^3.1148.0",
-    "@aws-sdk/s3-request-presigner": "^3.1148.0"
+    "@aws-sdk/lib-dynamodb": "^3.1148.0"
   },
   "devDependencies": {
     "@types/aws-lambda": "^8.10.164",

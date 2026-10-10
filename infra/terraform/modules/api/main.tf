@@ -193,6 +193,13 @@ data "aws_iam_policy_document" "api" {
     resources = ["${aws_s3_bucket.files["uploads"].arn}/in/*"]
   }
 
+  # 결과 내려받기 서명 주소
+  statement {
+    sid       = "Downloads"
+    actions   = ["s3:GetObject"]
+    resources = ["${aws_s3_bucket.files["outputs"].arn}/out/*"]
+  }
+
   statement {
     sid       = "Secrets"
     actions   = ["ssm:GetParameters"]
@@ -228,6 +235,7 @@ resource "aws_lambda_function" "api" {
     variables = {
       TABLE_NAME      = aws_dynamodb_table.main.name
       UPLOADS_BUCKET  = aws_s3_bucket.files["uploads"].bucket
+      OUTPUTS_BUCKET  = aws_s3_bucket.files["outputs"].bucket
       SALT_PARAM      = aws_ssm_parameter.secret["ip-salt"].name
       ORIGIN_PARAM    = aws_ssm_parameter.secret["origin-verify"].name
       DAILY_JOB_LIMIT = tostring(var.daily_job_limit)

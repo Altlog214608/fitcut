@@ -30,6 +30,7 @@ function handler() {
     env: {
       TABLE_NAME: 'fitcut-dev-main',
       UPLOADS_BUCKET: 'fitcut-dev-uploads-x',
+      OUTPUTS_BUCKET: 'fitcut-dev-outputs-x',
       SALT_PARAM: '/fitcut/dev/ip-salt',
       ORIGIN_PARAM: '/fitcut/dev/origin-verify',
       DAILY_JOB_LIMIT: '20',
@@ -141,6 +142,34 @@ describe('잡 API', () => {
     const res = await handler()(event('GET /api/jobs/{id}', { pathParameters: { id: ID } }));
     expect(res.statusCode).toBe(200);
     expect(JSON.parse(res.body ?? '{}').job).toMatchObject({ id: ID, status: 'queued' });
+  });
+
+  it('끝난 잡은 결과 내려받기 주소(첨부 파일 이름 포함)를 준다', async () => {
+    ddbMock.on(GetCommand).resolves({
+      Item: {
+        PK: `JOB#${ID}`,
+        SK: 'META',
+        id: ID,
+        status: 'done',
+        kind: 'gif',
+        params: { start: 1, end: 6, fps: 15, width: 480 },
+        inputKey: `in/${ID}`,
+        outputKey: `out/${ID}.gif`,
+        outputBytes: 123456,
+        createdAt: NOW.toISOString(),
+        ttl: NOW.getTime() / 1000 + 3600,
+      },
+    });
+    const res = await handler()(event('GET /api/jobs/{id}', { pathParameters: { id: ID } }));
+    const job = JSON.parse(res.body ?? '{}').job;
+    expect(job).toMatchObject({ status: 'done', outputBytes: 123456 });
+    const url = new URL(job.downloadUrl);
+    expect(url.hostname).toContain('fitcut-dev-outputs-x');
+    expect(url.pathname).toBe(`/out/${ID}.gif`);
+    expect(url.searchParams.get('response-content-disposition')).toBe(
+      'attachment; filename="fitcut_gif_480_0b8f4c56.gif"',
+    );
+    expect(url.searchParams.get('X-Amz-Expires')).toBe('600');
   });
 
   it('없는 잡이나 이상한 ID는 404 (DynamoDB를 부르지 않는다)', async () => {

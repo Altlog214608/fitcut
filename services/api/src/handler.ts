@@ -11,19 +11,21 @@ import {
   PutCommand,
   UpdateCommand,
 } from '@aws-sdk/lib-dynamodb';
-import { S3Client } from '@aws-sdk/client-s3';
+import { GetObjectCommand, S3Client } from '@aws-sdk/client-s3';
+import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
 import { createPresignedPost } from '@aws-sdk/s3-presigned-post';
 import { GetParametersCommand, SSMClient } from '@aws-sdk/client-ssm';
 import type { APIGatewayProxyEventV2, APIGatewayProxyStructuredResultV2 } from 'aws-lambda';
 import { randomUUID, timingSafeEqual } from 'node:crypto';
 import { clientIp, ipHash, quotaExpiry, quotaKey } from './client';
-import { isJobId, jobKey, newJob, publicJob, type JobItem } from './jobs';
+import { downloadName, isJobId, jobKey, newJob, publicJob, type JobItem } from './jobs';
 import { LIMITS } from './limits';
 import { parseCreateJob } from './validate';
 
 export type Env = {
   TABLE_NAME: string;
   UPLOADS_BUCKET: string;
+  OUTPUTS_BUCKET: string;
   SALT_PARAM: string;
   ORIGIN_PARAM: string;
   DAILY_JOB_LIMIT: string;
@@ -142,8 +144,21 @@ export function makeHandler(deps: Deps) {
   async function getJob(id: string | undefined) {
     if (!isJobId(id)) return error(404, 'not_found', '작업을 찾을 수 없어요.');
     const r = await ddb.send(new GetCommand({ TableName: env.TABLE_NAME, Key: jobKey(id) }));
-    const job = publicJob(r.Item as JobItem | undefined, deps.now());
-    return job ? json(200, { job }) : error(404, 'not_found', '작업을 찾을 수 없어요.');
+    const item = r.Item as JobItem | undefined;
+    const job = publicJob(item, deps.now());
+    if (!job || !item) return error(404, 'not_found', '작업을 찾을 수 없어요.');
+    if (job.status !== 'done' || !item.outputKey) return json(200, { job });
+    // 결과는 outputs 버킷에서 짧은 서명 주소로 내려받는다 (버킷은 비공개, 1일 후 지워짐)
+    const downloadUrl = await getSignedUrl(
+      s3,
+      new GetObjectCommand({
+        Bucket: env.OUTPUTS_BUCKET,
+        Key: item.outputKey,
+        ResponseContentDisposition: `attachment; filename="${downloadName(item)}"`,
+      }),
+      { expiresIn: LIMITS.downloadUrlSeconds },
+    );
+    return json(200, { job: { ...job, downloadUrl } });
   }
 
   return async (event: APIGatewayProxyEventV2): Promise<APIGatewayProxyStructuredResultV2> => {
@@ -166,6 +181,7 @@ function env(): Env {
   const names = [
     'TABLE_NAME',
     'UPLOADS_BUCKET',
+    'OUTPUTS_BUCKET',
     'SALT_PARAM',
     'ORIGIN_PARAM',
     'DAILY_JOB_LIMIT',
