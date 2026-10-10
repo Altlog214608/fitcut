@@ -50,7 +50,7 @@ FitCut(가칭)은 사진·영상·음성을 기기와 용도에 딱 맞게 바�
 - **비밀값은 저장소에 두지 않는다.** SSM Parameter Store(SecureString)를 쓴다. 스트리머의 플랫폼 OAuth 토큰은 KMS로 암호화해 저장한다. IAM은 함수별 최소 권한. S3 퍼블릭 액세스는 차단.
 - **관리자 API는 Cognito 관리자 그룹 + MFA로만 접근한다.** 프론트에서 메뉴를 숨긴 것을 보호로 보지 않는다.
 - **인프라는 Terraform으로만 바꾼다.** 콘솔에서 수동으로 바꾸지 않는다.
-- **실제 AWS 적용(`terraform apply`, 배포)은 사용자가 요청할 때만** 한다. 평소에는 `terraform plan`까지만. 예외로, 인프라 변경이 없는 PR(CI의 dev plan이 "No changes")은 CI 통과 후 Claude가 머지해도 된다. 웹 배포만 일어나기 때문이다 (사용자 허락 2026-10-09, ADR-018). 인프라가 바뀌는 PR은 plan 요약을 보여주고 사용자가 머지한다.
+- **실제 AWS 적용(`terraform apply`, 배포)은 사용자가 요청할 때만** 한다. 평소에는 `terraform plan`까지만. 예외로, PR은 CI 통과 후 Claude가 머지하고 머지하면 CI가 적용한다 (사용자 허락: "No changes" PR 2026-10-09, 인프라 PR까지 2026-10-10, ADR-018). 인프라가 바뀌는 PR은 머지하면서 plan 요약을 알린다. 단, plan이 데이터가 든 리소스(DynamoDB 테이블, S3 버킷)를 삭제·교체하거나 무료 플랜 밖 비용·상시 과금 리소스를 만들면 머지 전에 사용자 확인을 받는다. 로컬 apply(bootstrap)는 사용자가 한다.
 
 ## 기술 스택
 
@@ -101,7 +101,7 @@ terraform -chdir=infra/terraform/envs/dev plan
 ```
 
 - `infra/terraform/bootstrap`은 상태 버킷·GitHub OIDC 역할·Budgets를 만드는 1회성 스택이다. 로컬에서만 적용하고 CI는 건드리지 않는다. 개인 값은 커밋하지 않는 `terraform.tfvars`에 둔다 (`terraform.tfvars.example` 참고).
-- `envs/dev`는 PR에서 plan, main 머지 시 GitHub Actions가 apply와 웹 배포를 한다 (ADR-018). plan이 "No changes"인 PR은 CI 통과 후 Claude가 `gh pr merge --merge --delete-branch`로 머지한다.
+- `envs/dev`는 PR에서 plan, main 머지 시 GitHub Actions가 apply와 웹 배포를 한다 (ADR-018). PR은 CI 통과 후 Claude가 `gh pr merge --merge --delete-branch`로 머지한다 (예외는 위 원칙).
 - 저장소는 공개다. 이메일·AWS 계정 ID 같은 개인 식별 값을 커밋하지 않는다.
 
 ## 코딩 규칙
