@@ -37,18 +37,53 @@ export function kakaoOpenExternal(url: string): string {
   return `kakaotalk://web/openExternal?url=${encodeURIComponent(url)}`;
 }
 
-/** 결과 파일을 저장하는 방법. unsupported면 다운로드 대신 다른 브라우저로 열라고 안내한다 */
-export type SaveMethod = 'blob' | 'data-url' | 'unsupported';
+/**
+ * 결과 파일을 저장하는 방법.
+ * - blob: 내려받기 (기본)
+ * - data-url: iOS 인앱 브라우저용 내려받기
+ * - share: 아이폰·아이패드 Safari. 내려받으면 '파일' 앱에 들어가서 배경화면으로 쓰기 어렵다.
+ *   공유 화면을 열어 '이미지 저장'으로 사진 앱에 넣게 한다 (Web Share, iOS 15부터)
+ * - unsupported: 안드로이드 인앱 브라우저. 다운로드 대신 다른 브라우저로 열라고 안내한다
+ */
+export type SaveMethod = 'blob' | 'data-url' | 'share' | 'unsupported';
 
-export function saveMethod(inApp: InApp | null): SaveMethod {
-  if (!inApp) return 'blob';
-  if (inApp.os === 'android') return 'unsupported';
-  if (inApp.os === 'ios') return 'data-url';
+export type SaveEnv = { inApp: InApp | null; ios: boolean; canShareFiles: boolean };
+
+export function saveMethod({ inApp, ios, canShareFiles }: SaveEnv): SaveMethod {
+  if (inApp) {
+    if (inApp.os === 'android') return 'unsupported';
+    if (inApp.os === 'ios') return 'data-url';
+    return 'blob';
+  }
+  if (ios && canShareFiles) return 'share';
   return 'blob';
+}
+
+/** 아이폰·아이패드. 아이패드 Safari는 맥처럼 보이게 알리므로 터치 지점 수로 가린다 */
+export function isIOS(userAgent: string, maxTouchPoints = 0): boolean {
+  return /iPhone|iPad|iPod/i.test(userAgent) || (/Macintosh/.test(userAgent) && maxTouchPoints > 1);
+}
+
+function canShareFiles(): boolean {
+  try {
+    if (typeof navigator.canShare !== 'function') return false;
+    return navigator.canShare({ files: [new File([''], 'test.png', { type: 'image/png' })] });
+  } catch {
+    return false;
+  }
 }
 
 export const IN_APP: InApp | null =
   typeof navigator === 'undefined' ? null : detectInApp(navigator.userAgent);
+
+export const SAVE_METHOD: SaveMethod =
+  typeof navigator === 'undefined'
+    ? 'blob'
+    : saveMethod({
+        inApp: IN_APP,
+        ios: isIOS(navigator.userAgent, navigator.maxTouchPoints),
+        canShareFiles: canShareFiles(),
+      });
 
 export function inAppLabel(app: InAppName): string {
   return app === 'kakaotalk' ? '카카오톡' : '앱';
