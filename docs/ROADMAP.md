@@ -55,7 +55,7 @@
 - [x] API: `POST /api/jobs`, `GET /api/jobs/{id}` (CloudFront /api/* → HTTP API + Lambda + DynamoDB, ADR-031). 2026-10-10 실제 주소로 확인: 잡 만들기·업로드·상태·잘못된 입력·API 주소로 바로 호출 403·원본 IP 미저장
 - [x] presigned POST 업로드 (크기·타입 제한, 다른 형식으로 올리면 403 확인)
 - [ ] dispatcher: 작업 크기에 따라 Lambda / Fargate Spot으로 분배
-- [ ] ffmpeg 워커: GIF(팔레트 2단계), WebP, MP4, 프레임 단위로 정확한 자르기 (ADR-032) — 코드·이미지·인프라 작성, 적용 대기
+- [x] ffmpeg 워커: GIF(팔레트 2단계), WebP, MP4, 프레임 단위로 정확한 자르기 (ADR-032). 2026-10-10 실제 주소로 확인: 업로드 → 이벤트 → 변환 → 내려받기, 세 형식 모두 크기·장면 수·길이가 요청대로, GIF 첫 장면이 원본 1.5초 장면과 일치. 처리 시간은 ADR-032 결과
 - [ ] 출력 프리셋 (갤럭시 워치 GIF, 애플워치용 짧은 MP4), 예상 용량 표시
 - [x] S3 수명 주기, IP 해시별 일일 할당량, API 속도 제한 (WAF는 월 고정비 때문에 보류, ADR-030)
 - [ ] 사용 이벤트 수집 기본: `POST /events` → Lambda → SQS → 배치 Lambda → S3 (무료 플랜이라 Firehose 대신, ADR-030. M1 사진 도구 이벤트도 연결)
