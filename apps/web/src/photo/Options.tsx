@@ -31,7 +31,6 @@ const MODES = [
 ] as const;
 
 const BACKGROUNDS = [
-  { value: 'texture', label: '자연스럽게' },
   { value: 'extend', label: '가장자리 늘이기' },
   { value: 'blur', label: '흐린 사진' },
   { value: 'mirror', label: '거울 반사' },
@@ -64,8 +63,7 @@ export function Options(props: Props) {
     if (kind === background.kind) return;
     if (kind === 'blur' || kind === 'extend' || kind === 'mirror') {
       props.onBackground({ kind, ...PHOTO_DEFAULTS[kind] });
-    } else if (kind === 'texture') props.onBackground({ kind: 'texture' });
-    else if (kind === 'edge') props.onBackground({ kind: 'edge' });
+    } else if (kind === 'edge') props.onBackground({ kind: 'edge' });
     else props.onBackground({ kind: 'solid', color: '#000000' });
   }
 
