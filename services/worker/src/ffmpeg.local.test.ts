@@ -77,7 +77,8 @@ function frames(file: string): number {
     'csv=p=0',
     file,
   ]).toString();
-  return Number(out.trim());
+  // 회전 정보가 있으면 "150,"처럼 빈 칸이 붙는다
+  return Number.parseInt(out.trim(), 10);
 }
 
 /** 애니메이션 WebP는 ffprobe가 크기를 못 읽는다. RIFF 머리의 VP8X 캔버스 크기와 ANMF 조각 수를 읽는다 */
@@ -239,5 +240,129 @@ describe.skipIf(!enabled)('실제 ffmpeg로 음성 만들기 (F14)', () => {
       stdio: 'ignore',
     });
     expect(Math.abs(duration(out) - 2.5)).toBeLessThanOrEqual(0.05);
+  });
+});
+
+describe.skipIf(!enabled)('실제 ffmpeg로 세로로 돌리기 (F21)', () => {
+  let land = '';
+  let phone = '';
+
+  beforeAll(() => {
+    land = join(dir, 'land.mp4');
+    // 1920x1080 30fps 3초, 소리 포함
+    execFileSync(FFMPEG, [
+      '-hide_banner',
+      '-loglevel',
+      'error',
+      '-y',
+      '-f',
+      'lavfi',
+      '-i',
+      'testsrc2=size=1920x1080:rate=30:duration=3',
+      '-f',
+      'lavfi',
+      '-i',
+      'sine=frequency=440:duration=3',
+      '-c:v',
+      'libx264',
+      '-pix_fmt',
+      'yuv420p',
+      '-c:a',
+      'aac',
+      '-shortest',
+      land,
+    ]);
+    // 폰으로 세로로 찍은 영상처럼: 저장은 1920x1080, 회전 정보로 세로(1080x1920)로 보인다
+    phone = join(dir, 'phone.mp4');
+    execFileSync(FFMPEG, [
+      '-hide_banner',
+      '-loglevel',
+      'error',
+      '-y',
+      '-display_rotation:v:0',
+      '-90',
+      '-i',
+      land,
+      '-c',
+      'copy',
+      phone,
+    ]);
+  });
+
+  const probe = (file: string) => parseProbe(execFileSync(FFPROBE, ffprobeArgs(file)).toString());
+  /** 화면에 보이는 크기 (회전 정보를 반영해 푼 첫 프레임) */
+  function shown(file: string): [number, number] {
+    const out = join(dir, `shown-${Math.random().toString(36).slice(2)}.png`);
+    execFileSync(FFMPEG, ['-v', 'error', '-y', '-i', file, '-frames:v', '1', out]);
+    const [w, h] = execFileSync(FFPROBE, [
+      '-v',
+      'error',
+      '-show_entries',
+      'stream=width,height',
+      '-of',
+      'csv=p=0',
+      out,
+    ])
+      .toString()
+      .trim()
+      .split(',')
+      .map(Number);
+    return [w ?? 0, h ?? 0];
+  }
+  function firstGray(file: string): Buffer {
+    return execFileSync(FFMPEG, [
+      '-v',
+      'error',
+      '-i',
+      file,
+      '-frames:v',
+      '1',
+      '-vf',
+      'scale=18:32,format=gray',
+      '-f',
+      'rawvideo',
+      '-',
+    ]);
+  }
+  const src = (file: string) => ({
+    rotation: probe(file)?.video?.rotation ?? 0,
+    audioCodec: probe(file)?.audio?.codec ?? null,
+  });
+  const p = { start: 0, end: 3, fps: 30, width: 480, rotate: 90 as const };
+
+  it('다시 압축: 1920x1080 → 1080x1920, 프레임 수·길이 그대로, 소리는 같은 코덱으로 복사', () => {
+    const out = join(dir, 'rot.mp4');
+    execFileSync(FFMPEG, ffmpegArgs('rotate', p, land, out, src(land)), { stdio: 'ignore' });
+    const got = probe(out);
+    expect([got?.video?.width, got?.video?.height]).toEqual([1080, 1920]);
+    expect(Math.abs(frames(out) - frames(land))).toBeLessThanOrEqual(1);
+    expect(Math.abs((got?.duration ?? 0) - (probe(land)?.duration ?? 0))).toBeLessThan(0.05);
+    expect(got?.audio?.codec).toBe('aac');
+    expect(got?.video?.rotation).toBe(0);
+  });
+
+  it('빠르게(회전 정보만): 다시 압축하지 않고 화면에는 1080x1920으로 보인다', () => {
+    const out = join(dir, 'rot-fast.mp4');
+    execFileSync(FFMPEG, ffmpegArgs('rotate-fast', p, land, out, src(land)), { stdio: 'ignore' });
+    const got = probe(out);
+    expect([got?.video?.width, got?.video?.height]).toEqual([1920, 1080]); // 저장된 그림은 그대로
+    expect(shown(out)).toEqual([1080, 1920]);
+    expect(frames(out)).toBe(frames(land));
+  });
+
+  it('회전 정보가 있는 폰 영상도 화면에 보이는 방향 기준으로 돈다 (두 방식 결과가 같다)', () => {
+    expect(shown(phone)).toEqual([1080, 1920]); // 원래 세로로 보인다
+    const enc = join(dir, 'phone-rot.mp4');
+    const fast = join(dir, 'phone-rot-fast.mp4');
+    execFileSync(FFMPEG, ffmpegArgs('rotate', p, phone, enc, src(phone)), { stdio: 'ignore' });
+    execFileSync(FFMPEG, ffmpegArgs('rotate-fast', p, phone, fast, src(phone)), {
+      stdio: 'ignore',
+    });
+    expect(shown(enc)).toEqual([1920, 1080]);
+    expect(shown(fast)).toEqual([1920, 1080]);
+    const a = firstGray(enc);
+    const b = firstGray(fast);
+    const d = a.reduce((sum, v, i) => sum + Math.abs(v - (b[i] ?? 0)), 0) / a.length;
+    expect(d).toBeLessThan(8);
   });
 });

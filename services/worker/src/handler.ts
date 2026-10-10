@@ -176,13 +176,18 @@ export function makeHandler(deps: Deps) {
       await pipeline(obj.Body as Readable, createWriteStream(input));
 
       const probe = await deps.exec(env.FFPROBE_PATH, ffprobeArgs(input), 60_000).catch(() => null);
-      const problem = checkInput(probe ? parseProbe(probe.stdout) : null, job.params, job.kind);
+      const parsed = probe ? parseProbe(probe.stdout) : null;
+      const problem = checkInput(parsed, job.params, job.kind);
       if (problem) throw new InputError(problem);
+      const src = {
+        rotation: parsed?.video?.rotation ?? 0,
+        audioCodec: parsed?.audio?.codec ?? null,
+      };
 
       // Lambda가 끝나기 20초 전에는 멈춰서 실패를 기록할 시간을 남긴다
       const made = await deps.exec(
         env.FFMPEG_PATH,
-        ffmpegArgs(job.kind, job.params, input, output),
+        ffmpegArgs(job.kind, job.params, input, output, src),
         Math.max(10_000, remainingMs() - 20_000),
       );
       const { size } = await stat(output);

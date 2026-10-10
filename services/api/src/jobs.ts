@@ -35,6 +35,8 @@ export type JobItem = {
     normalize?: boolean;
     channels?: 1 | 2;
     bitrate?: number;
+    rotate?: 90 | 180 | 270;
+    flip?: boolean;
   };
   uploadId: string;
   inputKey: string;
@@ -86,6 +88,7 @@ export function newJob(id: string, input: CreateJob, upload: UploadItem, now: Da
       width: input.width,
       ...(input.height ? { height: input.height } : {}),
       ...(input.audio ?? {}),
+      ...(input.rotate ? { rotate: input.rotate, flip: input.flip ?? false } : {}),
     },
     uploadId: upload.id,
     inputKey: upload.inputKey,
@@ -113,6 +116,9 @@ export function publicJob(item: JobItem | undefined, now: Date) {
 export function downloadName(item: JobItem): string {
   const ext = item.outputKey?.split('.').at(-1) ?? item.kind;
   const { width, height } = item.params;
+  if (item.kind === 'rotate' || item.kind === 'rotate-fast') {
+    return `fitcut_rotated_${item.id.slice(0, 8)}.${ext}`;
+  }
   if (['mp3', 'm4a', 'wav', 'm4r'].includes(item.kind)) {
     return `fitcut_${item.kind === 'm4r' ? 'ringtone' : 'audio'}_${item.id.slice(0, 8)}.${ext}`;
   }
