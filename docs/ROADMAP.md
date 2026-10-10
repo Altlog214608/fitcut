@@ -52,14 +52,14 @@
 
 - [ ] 타임라인: 썸네일 스트립, 핸들, 확대, 키보드, 시간 입력, 구간 반복
 - [ ] 업로드와 미리보기를 동시에 진행 (Object URL)
-- [ ] API: `POST /jobs`, `GET /jobs/{id}` (HTTP API + Lambda + DynamoDB)
+- [ ] API: `POST /api/jobs`, `GET /api/jobs/{id}` (CloudFront /api/* → HTTP API + Lambda + DynamoDB, ADR-031) — 코드·인프라 작성, 적용 대기
 - [ ] presigned POST 업로드 (크기·타입 제한)
 - [ ] dispatcher: 작업 크기에 따라 Lambda / Fargate Spot으로 분배
 - [ ] ffmpeg 워커: GIF(팔레트 2단계), WebP, MP4, 프레임 단위로 정확한 자르기
 - [ ] 출력 프리셋 (갤럭시 워치 GIF, 애플워치용 짧은 MP4), 예상 용량 표시
 - [ ] S3 수명 주기, IP 해시별 일일 할당량, API 속도 제한 (WAF는 월 고정비 때문에 보류, ADR-030)
 - [ ] 사용 이벤트 수집 기본: `POST /events` → Lambda → SQS → 배치 Lambda → S3 (무료 플랜이라 Firehose 대신, ADR-030. M1 사진 도구 이벤트도 연결)
-- [ ] CI 역할 권한 넓히기 (bootstrap, 권한 경계 포함) — 사용자가 로컬에서 적용
+- [x] CI 역할 권한 넓히기 (bootstrap, 권한 경계 포함) — 사용자가 로컬에서 적용 (2026-10-10)
 - [ ] Lambda 메모리별 실행 시간·비용 측정 (Lambda Power Tuning) → DECISIONS의 ADR-002 확정
 
 완료 기준: 1분 영상에서 5초 구간을 GIF로 만든다. 처리 시간과 잡당 비용이 README에 기록되어 있다. 사진·움짤 사용 이벤트가 S3에 쌓인다.

@@ -294,6 +294,19 @@
   - CI 배포 역할이 Lambda·Fargate용 IAM 역할을 만들 수 있게 되면서, 그 역할에는 권한 경계(`fitcut-dev-workload-boundary`)를 꼭 붙이게 했다. 경계 밖 권한을 붙여도 쓸 수 없어서 CI가 권한을 키우는 길이 막힌다.
 - 대안: 유료 플랜으로 전환 (남은 크레딧이 사라지고 사용자가 원하지 않음), 이벤트마다 S3에 바로 쓰기 (작은 객체가 많아져 Athena가 느리고 PUT 요청이 늘어난다).
 
+## ADR-031 잡 API는 CloudFront /api/* 뒤에 둔다
+
+- 상태: 확정 (2026-10-10, M2)
+- 맥락: 웹은 CloudFront 주소에서 열린다. API를 API Gateway 기본 주소로 부르면 CORS 설정이 필요하고, 요청한 사람의 IP(하루 할당량용)를 믿을 수 있게 받는 방법도 정해야 한다. 사용자 도메인은 아직 없다.
+- 결정:
+  - CloudFront 배포에 `/api/*` 경로를 추가해 HTTP API로 보낸다. 같은 주소라 CORS가 필요 없다. 캐시하지 않는다(Managed-CachingDisabled).
+  - 오리진 요청 정책으로 `CloudFront-Viewer-Address`(요청한 사람 IP:포트), `Content-Type`, `Accept`, 쿼리 문자열만 보낸다. Host는 보내지 않는다.
+  - CloudFront가 비밀값 헤더(`x-origin-verify`)를 붙여 보내고, Lambda는 이 값이 맞지 않으면 403으로 거절한다. API Gateway 기본 주소로 바로 와서 IP 헤더를 속이는 요청을 막는다. 기본 주소를 끄려면 사용자 도메인이 필요해서 이 방법을 쓴다.
+  - IP는 SSM SecureString 솔트로 HMAC-SHA256 해시해서만 쓴다. 하루 할당량은 서울 자정 기준이고, 할당량 기록은 그날이 끝나고 하루 뒤 TTL로 지운다.
+  - 업로드는 presigned POST로 받는다. 크기 1B~500MB, Content-Type은 잡을 만들 때 고른 값과 같아야 한다. 주소는 15분 동안 쓸 수 있다.
+  - Lambda zip은 CI에서 esbuild로 묶고 Terraform `archive_file`로 올린다. 다시 빌드해도 zip 해시가 같아서(파일 시각이 바뀌어도 같음을 확인) 코드가 그대로면 plan이 "No changes"다.
+- 대안: API Gateway 기본 주소 + CORS (IP를 믿을 근거가 약하다), Lambda 함수 URL (요청 속도 제한이 없다).
+
 ---
 
 ## 템플릿

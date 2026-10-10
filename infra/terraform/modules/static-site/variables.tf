@@ -14,3 +14,16 @@ variable "price_class" {
   type        = string
   default     = "PriceClass_200"
 }
+
+variable "api" {
+  description = <<-EOT
+    /api/* 요청을 보낼 HTTP API (같은 주소로 부르므로 CORS가 필요 없다).
+    origin_verify는 CloudFront가 붙여 보내는 오리진 확인 헤더 값이다. API는 이 값이 없으면 거절한다.
+  EOT
+  type = object({
+    domain        = string
+    origin_verify = string
+  })
+  default   = null
+  sensitive = true
+}

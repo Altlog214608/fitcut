@@ -9,3 +9,11 @@ output "web_distribution_id" {
 output "web_url" {
   value = "https://${module.web.domain_name}"
 }
+
+output "api_function_name" {
+  value = module.api.function_name
+}
+
+output "table_name" {
+  value = module.api.table_name
+}

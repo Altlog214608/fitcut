@@ -2,3 +2,7 @@ packages:
   - apps/*
   - packages/*
   - services/*
+
+# 설치 스크립트를 실행해도 되는 의존성 (pnpm 11+). esbuild는 플랫폼별 바이너리를 확인한다
+allowBuilds:
+  esbuild: true

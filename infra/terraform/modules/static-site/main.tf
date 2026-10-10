@@ -152,6 +152,32 @@ data "aws_cloudfront_response_headers_policy" "security_headers" {
   name = "Managed-SecurityHeadersPolicy"
 }
 
+data "aws_cloudfront_cache_policy" "caching_disabled" {
+  name = "Managed-CachingDisabled"
+}
+
+# API로 보낼 것: 요청한 사람 주소(IP 해시 할당량용), 본문 형식, 쿼리 문자열. Host는 보내지 않는다(API Gateway 주소를 써야 함)
+resource "aws_cloudfront_origin_request_policy" "api" {
+  count   = var.api == null ? 0 : 1
+  name    = "${var.name_prefix}-api"
+  comment = "Forward viewer address and content type to the HTTP API"
+
+  cookies_config {
+    cookie_behavior = "none"
+  }
+
+  headers_config {
+    header_behavior = "whitelist"
+    headers {
+      items = ["CloudFront-Viewer-Address", "Content-Type", "Accept"]
+    }
+  }
+
+  query_strings_config {
+    query_string_behavior = "all"
+  }
+}
+
 resource "aws_cloudfront_distribution" "web" {
   enabled             = true
   comment             = "${var.name_prefix} web"
@@ -165,6 +191,41 @@ resource "aws_cloudfront_distribution" "web" {
     origin_id                = "web"
     domain_name              = aws_s3_bucket.web.bucket_regional_domain_name
     origin_access_control_id = aws_cloudfront_origin_access_control.web.id
+  }
+
+  dynamic "origin" {
+    for_each = var.api == null ? [] : [var.api]
+    content {
+      origin_id   = "api"
+      domain_name = origin.value.domain
+
+      custom_origin_config {
+        http_port              = 80
+        https_port             = 443
+        origin_protocol_policy = "https-only"
+        origin_ssl_protocols   = ["TLSv1.2"]
+      }
+
+      custom_header {
+        name  = "x-origin-verify"
+        value = origin.value.origin_verify
+      }
+    }
+  }
+
+  # /api/*는 캐시하지 않고 API로 보낸다. SPA 경로 바꾸기 함수는 붙이지 않는다
+  dynamic "ordered_cache_behavior" {
+    for_each = var.api == null ? [] : [1]
+    content {
+      path_pattern             = "/api/*"
+      target_origin_id         = "api"
+      viewer_protocol_policy   = "https-only"
+      allowed_methods          = ["GET", "HEAD", "OPTIONS", "PUT", "POST", "PATCH", "DELETE"]
+      cached_methods           = ["GET", "HEAD"]
+      compress                 = true
+      cache_policy_id          = data.aws_cloudfront_cache_policy.caching_disabled.id
+      origin_request_policy_id = aws_cloudfront_origin_request_policy.api[0].id
+    }
   }
 
   # 캐시 기간은 객체의 Cache-Control을 따른다: 해시가 붙은 assets/는 1년, index.html은 no-cache (deploy.yml)

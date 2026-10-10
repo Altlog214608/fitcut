@@ -39,3 +39,6 @@ Thumbs.db
 .idea/
 .vscode/*
 !.vscode/extensions.json
+
+# Terraform이 Lambda 코드를 묶은 zip
+infra/terraform/**/.build/
