@@ -336,3 +336,26 @@ test('목표 용량을 정하면 그 이하로 저장하고, 맞출 수 없으�
   await save(page);
   await expect(page.getByRole('alert')).toContainText('200KB 이하로 줄일 수 없어요');
 });
+
+test('잠금화면 시계·카메라 자리를 켜고 끌 수 있고, 가이드가 없는 기기는 버튼이 없다', async ({
+  page,
+}) => {
+  await page.goto('/photo');
+  await page.getByLabel(/사진을 끌어오세요/).setInputFiles({
+    name: 'a.jpg',
+    mimeType: 'image/jpeg',
+    buffer: await makeImage(page, 1200, 2400),
+  });
+  await chooseDevice(page, '17 프로', 'iPhone 17 Pro');
+  const toggle = page.getByLabel('잠금화면 시계·카메라 자리 보기');
+  await expect(page.getByTestId('lock-guide')).toHaveCount(0);
+  await toggle.check();
+  await expect(page.getByTestId('lock-guide')).toHaveCount(3);
+  await expect(page.getByText('대략적인 위치예요')).toBeVisible();
+  // 저장 파일에는 가이드가 들어가지 않는다 (화면에만 겹쳐 보인다)
+  await toggle.uncheck();
+  await expect(page.getByTestId('lock-guide')).toHaveCount(0);
+
+  await chooseDevice(page, '워치9', 'Galaxy Watch9 44mm');
+  await expect(page.getByLabel('잠금화면 시계·카메라 자리 보기')).toHaveCount(0);
+});

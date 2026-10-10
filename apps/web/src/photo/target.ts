@@ -1,4 +1,10 @@
-import type { DevicePreset, ScreenRole, ScreenShape } from '@fitcut/presets';
+import {
+  overlaysFor,
+  type DevicePreset,
+  type OverlayGuide,
+  type ScreenRole,
+  type ScreenShape,
+} from '@fitcut/presets';
 import type { Size } from './layout';
 
 /** 사진을 맞출 대상: 기기 프리셋의 화면 하나, 또는 직접 입력한 크기 */
@@ -13,6 +19,8 @@ export type ResolvedTarget = {
   /** 파일 이름·화면에 쓰는 이름 */
   label: string | null;
   preset: DevicePreset | null;
+  /** 잠금화면 가이드 (F7). 없으면 가이드 버튼을 보이지 않는다 */
+  guide: OverlayGuide | null;
 };
 
 export const MAX_CUSTOM_SIDE = 8000;
@@ -36,6 +44,7 @@ export function resolveTarget(
       cornerRadiusRatio: null,
       label: null,
       preset: null,
+      guide: null,
     };
   }
   const preset = presets.find((p) => p.id === target.presetId);
@@ -48,6 +57,7 @@ export function resolveTarget(
     cornerRadiusRatio: screen.cornerRadiusRatio ?? null,
     label: `${preset.name}${roleSuffix}`,
     preset,
+    guide: overlaysFor(preset, screen.role),
   };
 }
 
