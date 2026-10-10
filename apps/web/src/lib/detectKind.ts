@@ -1,5 +1,5 @@
 export type FileKind =
-  { kind: 'image' | 'video' | 'audio' } | { kind: 'unsupported'; reason: 'heic' | 'unknown' };
+  { kind: 'image' | 'video' | 'audio' } | { kind: 'unsupported'; reason: 'unknown' };
 
 type FileLike = Pick<File, 'name' | 'type'>;
 
@@ -36,7 +36,8 @@ export function detectKind(file: FileLike): FileKind {
   const type = file.type.toLowerCase();
   const ext = extensionOf(file.name);
 
-  if (HEIC_TYPES.has(type) || HEIC_EXTS.has(ext)) return { kind: 'unsupported', reason: 'heic' };
+  // HEIC는 사진 도구가 브라우저 안에서 푼다 (F10, photo/heic.ts)
+  if (HEIC_TYPES.has(type) || HEIC_EXTS.has(ext)) return { kind: 'image' };
   if (IMAGE_TYPES.has(type) || (type === '' && IMAGE_EXTS.has(ext))) return { kind: 'image' };
   if (VIDEO_TYPES.has(type) || VIDEO_EXTS.has(ext)) return { kind: 'video' };
   if (AUDIO_TYPES.has(type) || AUDIO_EXTS.has(ext)) return { kind: 'audio' };

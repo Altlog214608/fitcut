@@ -16,15 +16,9 @@ describe('detectKind', () => {
     expect(detectKind({ name, type })).toEqual({ kind });
   });
 
-  it('HEIC는 아직 지원하지 않는다고 알려준다', () => {
-    expect(detectKind({ name: 'IMG_0001.HEIC', type: '' })).toEqual({
-      kind: 'unsupported',
-      reason: 'heic',
-    });
-    expect(detectKind({ name: 'a.jpg', type: 'image/heic' })).toEqual({
-      kind: 'unsupported',
-      reason: 'heic',
-    });
+  it('HEIC는 사진으로 연다 (F10)', () => {
+    expect(detectKind({ name: 'IMG_0001.HEIC', type: '' })).toEqual({ kind: 'image' });
+    expect(detectKind({ name: 'a.jpg', type: 'image/heic' })).toEqual({ kind: 'image' });
   });
 
   it('알 수 없는 파일은 unknown', () => {
