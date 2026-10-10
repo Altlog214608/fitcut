@@ -58,7 +58,8 @@
 
 ```
 브라우저: 링크 → 영상 ID 추출 → YouTube IFrame Player로 재생 → 타임라인으로 구간 선택
-  → POST /links (링크·구간만) → Lambda(api) → DynamoDB
+  → POST /api/links (영상 ID·구간만) → Lambda(api) → DynamoDB (LINK#<8자 ID>, 12개월)
+  → 구간 반복 페이지 /r/<id>: GET /api/links/{id} → 공식 플레이어로 그 구간만 반복
 구간 반복 페이지 /v/{id}: GET /links/{id} → 공식 플레이어 임베드 + 구간 반복
 ```
 

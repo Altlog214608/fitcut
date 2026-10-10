@@ -46,6 +46,7 @@ export const CLIENT_EVENTS = {
     elapsedMs: num(0, 3.6e6),
   },
   error_shown: { tool: oneOf(...TOOLS), code: str(40) },
+  link_embed_blocked: { platform: oneOf('youtube'), videoId: str(11) },
 } as const satisfies Record<string, Record<string, Field>>;
 
 export type ClientEventName = keyof typeof CLIENT_EVENTS;

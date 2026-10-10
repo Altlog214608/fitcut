@@ -42,6 +42,7 @@ function handler() {
       ORIGIN_PARAM: '/fitcut/dev/origin-verify',
       DAILY_JOB_LIMIT: '20',
       DAILY_UPLOAD_LIMIT: '20',
+      DAILY_LINK_LIMIT: '50',
     },
     ddb,
     s3,
@@ -49,6 +50,7 @@ function handler() {
     ssm,
     now: () => NOW,
     newId: () => ID,
+    newLinkId: () => 'Ab3dEf9Z',
   });
 }
 
@@ -319,5 +321,69 @@ describe('사용 이벤트', () => {
     expect(bad.statusCode).toBe(400);
     const big = await handler()(event('POST /api/events', { body: 'x'.repeat(20000) }));
     expect(big.statusCode).toBe(413);
+  });
+});
+
+describe('링크 구간', () => {
+  const VIDEO = 'dQw4w9WgXcQ';
+
+  it('영상 ID와 구간만 저장하고 짧은 ID를 준다 (link_saved 이벤트)', async () => {
+    ddbMock.on(UpdateCommand).resolves({});
+    ddbMock.on(PutCommand).resolves({});
+    sqsMock.on(SendMessageCommand).resolves({});
+    const res = await handler()(
+      event('POST /api/links', {
+        body: JSON.stringify({ videoId: VIDEO, start: 12.3456, end: 20 }),
+      }),
+    );
+    expect(res.statusCode).toBe(201);
+    expect(JSON.parse(res.body ?? '{}').link).toEqual({
+      id: 'Ab3dEf9Z',
+      platform: 'youtube',
+      videoId: VIDEO,
+      start: 12.346,
+      end: 20,
+    });
+    expect(ddbMock.commandCalls(PutCommand)[0]?.args[0].input.Item).toMatchObject({
+      PK: 'LINK#Ab3dEf9Z',
+      videoId: VIDEO,
+    });
+    expect(
+      ddbMock.commandCalls(UpdateCommand)[0]?.args[0].input.ExpressionAttributeNames,
+    ).toMatchObject({ '#c': 'links' });
+    const sent = JSON.parse(
+      sqsMock.commandCalls(SendMessageCommand)[0]?.args[0].input.MessageBody ?? '{}',
+    );
+    expect(sent.events[0]).toMatchObject({ name: 'link_saved', videoId: VIDEO, source: 'server' });
+  });
+
+  it('유튜브 ID가 아니면 400 (할당량을 쓰지 않음)', async () => {
+    const res = await handler()(
+      event('POST /api/links', { body: JSON.stringify({ videoId: '../x', start: 0, end: 1 }) }),
+    );
+    expect(res.statusCode).toBe(400);
+    expect(ddbMock.calls()).toHaveLength(0);
+  });
+
+  it('저장한 구간을 돌려주고, 없거나 만료되면 404', async () => {
+    ddbMock.on(GetCommand).resolves({
+      Item: {
+        PK: 'LINK#Ab3dEf9Z',
+        SK: 'META',
+        id: 'Ab3dEf9Z',
+        platform: 'youtube',
+        videoId: VIDEO,
+        start: 1,
+        end: 5,
+        createdAt: NOW.toISOString(),
+        ttl: NOW.getTime() / 1000 + 100,
+      },
+    });
+    const ok = await handler()(
+      event('GET /api/links/{id}', { pathParameters: { id: 'Ab3dEf9Z' } }),
+    );
+    expect(JSON.parse(ok.body ?? '{}').link).toMatchObject({ videoId: VIDEO, start: 1, end: 5 });
+    const bad = await handler()(event('GET /api/links/{id}', { pathParameters: { id: 'x' } }));
+    expect(bad.statusCode).toBe(404);
   });
 });

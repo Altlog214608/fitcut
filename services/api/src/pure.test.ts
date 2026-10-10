@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { clientIp, ipHash, quotaExpiry, quotaKey, seoulDay } from './client';
 import { isUuid, newJob, newUpload, publicJob } from './jobs';
+import { newLinkId, parseCreateLink } from './links';
 import { parseCreateJob, parseCreateUpload } from './validate';
 
 const UPLOAD_ID = '7d2e9a41-5b6c-4f8d-8e1a-3c9b0f2d4e6a';
@@ -186,5 +187,21 @@ describe('업로드·잡 기록', () => {
     expect(isUuid(id)).toBe(true);
     expect(isUuid('../../etc')).toBe(false);
     expect(isUuid(undefined)).toBe(false);
+  });
+});
+
+describe('링크 구간 검사', () => {
+  it('ID는 8자 영문·숫자', () => {
+    expect(newLinkId(new Uint8Array([0, 1, 2, 61, 62, 255, 10, 35]))).toMatch(/^[A-Za-z0-9]{8}$/);
+  });
+
+  it.each([
+    [{ videoId: 'dQw4w9WgXcQ', start: 0, end: 10 }, null],
+    [{ videoId: 'short', start: 0, end: 10 }, 'bad_video'],
+    [{ videoId: 'dQw4w9WgXcQ', start: 5, end: 5 }, 'bad_range'],
+    [{ videoId: 'dQw4w9WgXcQ', start: 0, end: 3 * 3600 + 1 }, 'too_long'],
+  ])('%j → %s', (body, code) => {
+    const r = parseCreateLink(body);
+    expect(r.ok ? null : r.code).toBe(code);
   });
 });

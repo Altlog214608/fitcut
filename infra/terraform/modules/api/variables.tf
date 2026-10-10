@@ -79,3 +79,9 @@ variable "events_throttle_rate" {
   type        = number
   default     = 5
 }
+
+variable "daily_link_limit" {
+  description = "IP 해시별 하루 링크 구간 저장 수 (F15)"
+  type        = number
+  default     = 50
+}
