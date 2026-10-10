@@ -92,3 +92,24 @@
     height: min(64vh, 600px);
   }
 }
+
+/* 잠금화면 가이드: 시계·위젯·카메라 자리를 반투명으로 (대략적인 위치, F7) */
+.guide {
+  position: absolute;
+  display: grid;
+  place-items: center;
+  border: 1.5px dashed rgb(255 255 255 / 0.9);
+  border-radius: 12px;
+  background: rgb(16 18 21 / 0.28);
+  color: #fff;
+  font-size: var(--text-small);
+  font-weight: 650;
+  text-shadow: 0 1px 2px rgb(0 0 0 / 0.5);
+  pointer-events: none;
+}
+
+.guide[data-kind='camera'] {
+  border-style: solid;
+  border-radius: 999px;
+  background: rgb(0 0 0 / 0.85);
+}

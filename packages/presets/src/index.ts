@@ -11,6 +11,7 @@ export type {
 } from './schema';
 export { validatePreset, validatePresets } from './schema';
 export { normalizeQuery, searchPresets } from './search';
+export { overlaysFor, type OverlayGuide } from './overlays';
 
 // 프리셋은 코드가 아니라 데이터다. data/에 JSON을 추가하면 자동으로 들어온다 (docs/PRESETS.md).
 // 스키마 검사는 테스트에서 한다 (presets.test.ts).

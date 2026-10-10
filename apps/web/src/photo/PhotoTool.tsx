@@ -116,6 +116,7 @@ export function PhotoTool({ initialFile }: { initialFile: File | null }) {
   const [format, setFormat] = useState<OutputFormat>('jpeg');
   const [quality, setQuality] = useState(0.92);
   const [targetKb, setTargetKb] = useState(0);
+  const [showGuide, setShowGuide] = useState(false);
   const [circleOutside, setCircleOutside] = useState<'black' | 'transparent'>('black');
   const [soft, setSoft] = useState(true);
 
@@ -476,6 +477,7 @@ export function PhotoTool({ initialFile }: { initialFile: File | null }) {
               circleOutside={circleOutside}
               position={placed}
               onPositionChange={setPosition}
+              showGuide={showGuide && resolved.guide !== null}
             />
           ) : current && imageUrl && !resolved && !fileError ? (
             // 기기를 고르기 전에도 고른 사진을 먼저 보여준다 (2026-10-10 사용자 요청)
@@ -499,6 +501,17 @@ export function PhotoTool({ initialFile }: { initialFile: File | null }) {
 
           {layout && resolved && (
             <div className={styles.notices}>
+              {resolved.guide && (
+                <label className={styles.guideToggle}>
+                  <input
+                    type="checkbox"
+                    checked={showGuide}
+                    onChange={(e) => setShowGuide(e.currentTarget.checked)}
+                  />
+                  잠금화면 시계·카메라 자리 보기
+                  {showGuide && <span className={styles.hint}> 대략적인 위치예요</span>}
+                </label>
+              )}
               {mode === 'cover' && fit !== 'match' && (
                 <p className={styles.notice}>
                   {fit === 'sides-cropped'

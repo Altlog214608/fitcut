@@ -25,7 +25,11 @@ type Props = {
   circleOutside: 'black' | 'transparent';
   position: Position;
   onPositionChange: (position: Position) => void;
+  /** 잠금화면 가이드를 겹쳐 보여준다 (F7) */
+  showGuide?: boolean;
 };
+
+const GUIDE_LABELS = { clock: '시계', camera: '카메라', widgets: '위젯' } as const;
 
 const makeCanvas: CanvasFactory = (width, height) => {
   const canvas = document.createElement('canvas');
@@ -70,6 +74,7 @@ export function Preview({
   circleOutside,
   position,
   onPositionChange,
+  showGuide = false,
 }: Props) {
   const { size, shape } = target;
   const screenRef = useRef<HTMLDivElement>(null);
@@ -209,6 +214,23 @@ export function Preview({
           onKeyDown={onKeyDown}
         >
           <canvas ref={canvasRef} className={styles.canvas} aria-hidden="true" />
+          {showGuide &&
+            target.guide?.overlays.map((o, i) => (
+              <div
+                key={i}
+                className={styles.guide}
+                data-kind={o.kind}
+                data-testid="lock-guide"
+                style={{
+                  left: `${o.x * 100}%`,
+                  top: `${o.y * 100}%`,
+                  width: `${o.w * 100}%`,
+                  height: `${o.h * 100}%`,
+                }}
+              >
+                {o.kind !== 'camera' && <span>{GUIDE_LABELS[o.kind]}</span>}
+              </div>
+            ))}
         </div>
       </div>
     </div>

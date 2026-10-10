@@ -234,3 +234,19 @@
   color: var(--color-accent-ink);
   flex: none;
 }
+
+.guideToggle {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  font-size: var(--text-caption);
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.guideToggle input {
+  width: 18px;
+  height: 18px;
+  accent-color: var(--color-accent);
+}
