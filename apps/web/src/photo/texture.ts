@@ -6,6 +6,8 @@
  * 1) 밝기·색: 경계 근처는 사진 가장자리 색, 멀어질수록 가로로 넓게 뭉갠 색으로 바뀐다
  * 2) 결: 경계 쪽 사진 띠의 잔무늬를 무작위 조각으로 이어 붙여 더한다. 가는 선(타일 줄눈)과
  *    빛 반사처럼 튀는 조각, 가로로 길게 뻗은 밝기 변화는 빼서 반복 무늬가 드러나지 않게 한다
+ *    결은 밝기로만 더한다. 색까지 옮기면 띠 안의 다른 물건 테두리나 어두운 사진의 색 잡음이
+ *    베이지 벽 위에 초록·파랑 얼룩으로 번진다 (2026-10-10 사용자 제보)
  * 크기 관련 값은 가로 1440px 기준이고 실제 가로에 비례해서 쓴다.
  */
 export type Rgba = { data: Uint8ClampedArray; width: number; height: number };
@@ -108,8 +110,17 @@ function std(values: Float32Array[]): number {
 
 type Candidate = { y: number; x: number; energy: number; line: number };
 
-/** 결 층: 사진 띠의 잔무늬를 조각으로 이어 붙인 rows x w (부호 있는 값) */
-function quiltDetail(strip: Rgba, rows: number, s: number, seed: number): Planes | null {
+/** 밝기 (BT.601) */
+function lumaOf(img: Rgba, rowStart: number, rows: number): Float32Array {
+  const [r, g, b] = planesOf(img, rowStart, rows);
+  return r.map((v, i) => 0.299 * v + 0.587 * (g[i] ?? 0) + 0.114 * (b[i] ?? 0));
+}
+
+/** 겹쳐 평균 내서 줄어든 대비를 되돌릴 때 이보다 키우지 않는다 (잡음이 커지지 않게) */
+const MAX_GAIN = 1.5;
+
+/** 결 층: 사진 띠 밝기의 잔무늬를 조각으로 이어 붙인 rows x w (부호 있는 값) */
+function quiltDetail(strip: Rgba, rows: number, s: number, seed: number): Float32Array | null {
   const w = strip.width;
   const bandTop = Math.round(24 * s);
   const bandH = Math.min(Math.round(260 * s), strip.height - bandTop);
@@ -119,23 +130,17 @@ function quiltDetail(strip: Rgba, rows: number, s: number, seed: number): Planes
   if (bandH < P + 2 || w < P + 2) return null;
 
   // 잔무늬 = 띠 - 흐린 띠, 그다음 가로로 길게 뻗은 밝기 변화(빛 띠 경계 등)를 뺀다
-  const band = planesOf(strip, bandTop, bandH);
+  const band = lumaOf(strip, bandTop, bandH);
   // 상자 흐림 세 번은 반지름 r이 표준편차 약 r인 가우시안과 비슷하다 (시험값: 18, 64)
   const r = Math.max(1, Math.round(18 * s));
   const rx = Math.max(1, Math.round(64 * s));
-  const detail = band.map((p) => {
-    const blurred = blurY(blurX(p, w, bandH, r), w, bandH, r);
-    const d = p.map((v, i) => v - (blurred[i] ?? 0));
-    const wide = blurX(d, w, bandH, rx);
-    return d.map((v, i) => v - (wide[i] ?? 0));
-  }) as Planes;
+  const blurred = blurY(blurX(band, w, bandH, r), w, bandH, r);
+  const high = band.map((v, i) => v - (blurred[i] ?? 0));
+  const wide = blurX(high, w, bandH, rx);
+  const detail = high.map((v, i) => v - (wide[i] ?? 0));
 
   // 조각 고르기: 에너지(평균 세기)와 선 점수(한 줄 평균이 튀는 정도)로 거른다
-  const mag = new Float32Array(w * bandH);
-  for (let i = 0; i < mag.length; i++) {
-    mag[i] =
-      (Math.abs(detail[0][i] ?? 0) + Math.abs(detail[1][i] ?? 0) + Math.abs(detail[2][i] ?? 0)) / 3;
-  }
+  const mag = detail.map(Math.abs);
   const rowPrefix = new Float32Array((w + 1) * bandH);
   const colPrefix = new Float32Array(w * (bandH + 1));
   for (let y = 0; y < bandH; y++) {
@@ -184,11 +189,7 @@ function quiltDetail(strip: Rgba, rows: number, s: number, seed: number): Planes
     ramp[i] = v;
     ramp[P - 1 - i] = v;
   }
-  const out: Planes = [
-    new Float32Array(w * rows),
-    new Float32Array(w * rows),
-    new Float32Array(w * rows),
-  ];
+  const out = new Float32Array(w * rows);
   const weight = new Float32Array(w * rows);
   const rand = random(seed);
   for (let y = 0; y < rows; y += step) {
@@ -206,26 +207,19 @@ function quiltDetail(strip: Rgba, rows: number, s: number, seed: number): Planes
           const k = wy * (ramp[dx] ?? 1);
           const si = (c.y + dy) * w + c.x + dx;
           const ti = ty * w + tx;
-          out[0][ti] = (out[0][ti] ?? 0) + (detail[0][si] ?? 0) * k;
-          out[1][ti] = (out[1][ti] ?? 0) + (detail[1][si] ?? 0) * k;
-          out[2][ti] = (out[2][ti] ?? 0) + (detail[2][si] ?? 0) * k;
+          out[ti] = (out[ti] ?? 0) + (detail[si] ?? 0) * k;
           weight[ti] = (weight[ti] ?? 0) + k;
         }
       }
     }
   }
-  for (let i = 0; i < weight.length; i++) {
-    const k = Math.max(1e-6, weight[i] ?? 0);
-    out[0][i] = (out[0][i] ?? 0) / k;
-    out[1][i] = (out[1][i] ?? 0) / k;
-    out[2][i] = (out[2][i] ?? 0) / k;
-  }
-  // 겹쳐서 평균 내면 대비가 줄어든다. 사진 띠의 대비에 맞춘다
-  const target = std(detail);
-  const got = std(out);
+  for (let i = 0; i < weight.length; i++) out[i] = (out[i] ?? 0) / Math.max(1e-6, weight[i] ?? 0);
+  // 겹쳐서 평균 내면 대비가 줄어든다. 사진 띠의 대비에 맞추되 너무 키우지 않는다
+  const target = std([detail]);
+  const got = std([out]);
   if (got > 1e-6) {
-    const gain = target / got;
-    for (const p of out) for (let i = 0; i < p.length; i++) p[i] = (p[i] ?? 0) * gain;
+    const gain = Math.min(MAX_GAIN, target / got);
+    for (let i = 0; i < out.length; i++) out[i] = (out[i] ?? 0) * gain;
   }
   return out;
 }
@@ -260,6 +254,7 @@ export function textureFill(strip: Rgba, fill: number, overlap: number, seed = 7
   // 2) 결
   const detail = quiltDetail(strip, rows, s, seed);
 
+  const base = [0, 0, 0];
   for (let y = 0; y < rows; y++) {
     const d = Math.max(0, fill - y);
     const k = Math.exp(-d / decay);
@@ -267,9 +262,12 @@ export function textureFill(strip: Rgba, fill: number, overlap: number, seed = 7
       const o = (y * w + x) * 4;
       for (let c = 0; c < 3; c++) {
         const f = far[c]?.[x] ?? 0;
-        const n = near[c]?.[x] ?? 0;
-        out[o + c] = f + (n - f) * k + (detail?.[c]?.[y * w + x] ?? 0);
+        base[c] = f + ((near[c]?.[x] ?? 0) - f) * k;
       }
+      // 밝기 결을 색 비율대로 나눠 더한다: 색(색상·채도)은 바탕색 그대로 두고 밝기만 흔든다
+      const luma = 0.299 * (base[0] ?? 0) + 0.587 * (base[1] ?? 0) + 0.114 * (base[2] ?? 0);
+      const grain = detail ? (detail[y * w + x] ?? 0) / Math.max(16, luma) : 0;
+      for (let c = 0; c < 3; c++) out[o + c] = (base[c] ?? 0) * (1 + grain);
       out[o + 3] = 255;
     }
   }
