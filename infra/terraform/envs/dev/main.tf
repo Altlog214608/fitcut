@@ -51,4 +51,7 @@ module "worker" {
   uploads_bucket_arn    = module.api.uploads_bucket_arn
   outputs_bucket        = module.api.outputs_bucket
   outputs_bucket_arn    = module.api.outputs_bucket_arn
+
+  # 2026-10-10 메모리별 측정 (2048은 본 함수). 측정 후 비운다
+  bench_memory_mb = [1024, 1769, 3008]
 }

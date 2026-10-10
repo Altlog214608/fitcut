@@ -76,9 +76,12 @@ resource "aws_iam_role" "worker" {
 
 data "aws_iam_policy_document" "worker" {
   statement {
-    sid       = "Logs"
-    actions   = ["logs:CreateLogStream", "logs:PutLogEvents"]
-    resources = ["${aws_cloudwatch_log_group.worker.arn}:*"]
+    sid     = "Logs"
+    actions = ["logs:CreateLogStream", "logs:PutLogEvents"]
+    resources = concat(
+      ["${aws_cloudwatch_log_group.worker.arn}:*"],
+      [for g in aws_cloudwatch_log_group.bench : "${g.arn}:*"],
+    )
   }
 
   statement {
@@ -154,4 +157,41 @@ resource "aws_lambda_event_source_mapping" "jobs" {
   scaling_config {
     maximum_concurrency = var.max_concurrency
   }
+}
+
+# ---------- 메모리별 측정 (잠깐만 둔다) ----------
+# 같은 이미지·역할로 메모리만 다른 함수. 큐에 연결하지 않고 측정 스크립트가 직접 부른다.
+# 쓰지 않을 때 비용은 0이고, 측정이 끝나면 bench_memory_mb를 비워 지운다 (ADR-002)
+
+resource "aws_cloudwatch_log_group" "bench" {
+  for_each          = toset([for m in var.bench_memory_mb : tostring(m)])
+  name              = "/aws/lambda/${local.fn}-bench-${each.key}"
+  retention_in_days = 3
+  tags              = local.tags
+}
+
+resource "aws_lambda_function" "bench" {
+  for_each      = toset([for m in var.bench_memory_mb : tostring(m)])
+  function_name = "${local.fn}-bench-${each.key}"
+  role          = aws_iam_role.worker.arn
+  package_type  = "Image"
+  image_uri     = "${aws_ecr_repository.worker.repository_url}:${var.image_tag}"
+  architectures = ["arm64"]
+  memory_size   = tonumber(each.key)
+  timeout       = var.timeout_seconds
+  tags          = local.tags
+
+  ephemeral_storage {
+    size = 2048
+  }
+
+  environment {
+    variables = {
+      TABLE_NAME     = var.table_name
+      UPLOADS_BUCKET = var.uploads_bucket
+      OUTPUTS_BUCKET = var.outputs_bucket
+    }
+  }
+
+  depends_on = [aws_iam_role_policy.worker, aws_cloudwatch_log_group.bench]
 }
