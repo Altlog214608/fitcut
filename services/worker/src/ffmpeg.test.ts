@@ -31,6 +31,13 @@ describe('ffmpegArgs', () => {
     expect(args[args.indexOf('-vf') + 1]).toBe("fps=15,scale='min(480,iw)':-2:flags=lanczos");
   });
 
+  it('세로까지 정하면 꽉 차게 맞춘 뒤 가운데를 잘라 정확한 크기로 (워치 화면)', () => {
+    const args = ffmpegArgs('gif', { ...p, width: 480, height: 480 }, 'in.mp4', 'out.gif');
+    expect(args[args.indexOf('-filter_complex') + 1]).toContain(
+      'scale=480:480:force_original_aspect_ratio=increase:flags=lanczos,crop=480:480',
+    );
+  });
+
   it('WebP는 libwebp_anim, MP4는 H.264 yuv420p + faststart', () => {
     expect(ffmpegArgs('webp', p, 'i', 'o')).toEqual(expect.arrayContaining(['libwebp_anim']));
     expect(ffmpegArgs('mp4', p, 'i', 'o')).toEqual(

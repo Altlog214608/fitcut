@@ -23,7 +23,7 @@ export type JobItem = {
   id: string;
   status: JobStatus;
   kind: CreateJob['kind'];
-  params: { start: number; end: number; fps: number; width: number };
+  params: { start: number; end: number; fps: number; width: number; height?: number };
   uploadId: string;
   inputKey: string;
   /** 원본 크기. Lambda·Fargate 분배 기준에 쓴다 (ADR-002) */
@@ -67,7 +67,13 @@ export function newJob(id: string, input: CreateJob, upload: UploadItem, now: Da
     id,
     status: 'queued',
     kind: input.kind,
-    params: { start: input.start, end: input.end, fps: input.fps, width: input.width },
+    params: {
+      start: input.start,
+      end: input.end,
+      fps: input.fps,
+      width: input.width,
+      ...(input.height ? { height: input.height } : {}),
+    },
     uploadId: upload.id,
     inputKey: upload.inputKey,
     fileSize: upload.fileSize,
@@ -90,10 +96,12 @@ export function publicJob(item: JobItem | undefined, now: Date) {
   };
 }
 
-/** 내려받을 때 쓸 파일 이름: fitcut_gif_480_0b8f4c56.gif */
+/** 내려받을 때 쓸 파일 이름: fitcut_gif_480_0b8f4c56.gif, 크기를 정했으면 fitcut_gif_480x480_… */
 export function downloadName(item: JobItem): string {
   const ext = item.outputKey?.split('.').at(-1) ?? item.kind;
-  return `fitcut_${item.kind}_${item.params.width}_${item.id.slice(0, 8)}.${ext}`;
+  const { width, height } = item.params;
+  const size = height ? `${width}x${height}` : `${width}`;
+  return `fitcut_${item.kind}_${size}_${item.id.slice(0, 8)}.${ext}`;
 }
 
 /** 업로드·잡 ID 모양 검사 (UUID). 이상한 값으로 DynamoDB를 부르지 않는다 */

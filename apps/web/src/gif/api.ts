@@ -11,7 +11,7 @@ export type Job = {
   id: string;
   status: JobStatus;
   kind: JobKind;
-  params: { start: number; end: number; fps: number; width: number };
+  params: { start: number; end: number; fps: number; width: number; height?: number };
   error?: string;
   outputBytes?: number;
   /** done일 때만. 10분 동안 쓸 수 있다 */
@@ -25,6 +25,8 @@ export type JobRequest = {
   end: number;
   fps: number;
   width: number;
+  /** 정하면 가로×세로에 꽉 차게 가운데를 자른다 (워치 화면) */
+  height?: number;
 };
 
 /** 화면에 그대로 보여줄 문구를 담은 오류 */
@@ -128,7 +130,9 @@ export async function getJob(id: string): Promise<Job> {
 
 /** 저장할 파일 이름. 서버가 첨부 파일로 줄 때와 같다 (services/api downloadName) */
 export function resultName(job: Pick<Job, 'id' | 'kind' | 'params'>): string {
-  return `fitcut_${job.kind}_${job.params.width}_${job.id.slice(0, 8)}.${job.kind}`;
+  const { width, height } = job.params;
+  const size = height ? `${width}x${height}` : `${width}`;
+  return `fitcut_${job.kind}_${size}_${job.id.slice(0, 8)}.${job.kind}`;
 }
 
 /** 상태 조회 간격: 처음엔 자주, 길어지면 천천히 (ARCHITECTURE 5단계) */

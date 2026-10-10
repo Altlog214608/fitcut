@@ -2,11 +2,12 @@
  * ffmpeg·ffprobe 인자 만들기 (순수 함수). 실행은 run.ts가 한다.
  * - 구간은 재인코딩으로 자른다: -ss를 입력 앞에 두면 빠르게 찾아가고, 재인코딩할 때는 정확히 그 시각부터
  *   시작한다(accurate_seek 기본값). 키프레임 위치에 밀리지 않는다 (FEATURES F3 수용 기준).
- * - 가로 폭만 정하고 세로는 비율대로, 짝수로 맞춘다(-2). 원본보다 크게 키우지 않는다.
+ * - 보통은 가로 폭만 정하고 세로는 비율대로, 짝수로 맞춘다(-2). 원본보다 크게 키우지 않는다.
+ * - 세로까지 정하면(워치 화면 등) 그 크기에 꽉 차게 키우거나 줄인 뒤 가운데를 잘라 정확히 맞춘다.
  */
 export type OutputKind = 'gif' | 'webp' | 'mp4';
 
-export type Params = { start: number; end: number; fps: number; width: number };
+export type Params = { start: number; end: number; fps: number; width: number; height?: number };
 
 export const EXTENSION: Record<OutputKind, string> = { gif: 'gif', webp: 'webp', mp4: 'mp4' };
 export const MIME: Record<OutputKind, string> = {
@@ -20,8 +21,11 @@ export function seconds(value: number): string {
   return (Math.round(value * 1000) / 1000).toFixed(3);
 }
 
-/** 원본보다 키우지 않고 가로를 맞춘다. 세로는 비율대로 짝수 */
-function scale(width: number): string {
+/** 원본보다 키우지 않고 가로를 맞춘다. 세로는 비율대로 짝수. 세로를 정하면 꽉 차게 맞춰 가운데를 자른다 */
+function scale(width: number, height?: number): string {
+  if (height) {
+    return `scale=${width}:${height}:force_original_aspect_ratio=increase:flags=lanczos,crop=${width}:${height}`;
+  }
   return `scale='min(${width},iw)':-2:flags=lanczos`;
 }
 
@@ -40,7 +44,7 @@ export function ffmpegArgs(kind: OutputKind, p: Params, input: string, output: s
     '-map_metadata',
     '-1',
   ];
-  const base = `fps=${p.fps},${scale(p.width)}`;
+  const base = `fps=${p.fps},${scale(p.width, p.height)}`;
   switch (kind) {
     case 'gif':
       // 팔레트 2단계: 구간에서 색을 뽑아 쓰면 기본 팔레트보다 훨씬 깨끗하다

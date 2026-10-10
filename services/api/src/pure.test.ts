@@ -38,10 +38,19 @@ describe('parseCreateJob', () => {
     [{ ...ok, start: 0, end: 30.5 }, 'too_long'],
     [{ ...ok, fps: 60 }, 'bad_fps'],
     [{ ...ok, width: 2000 }, 'bad_width'],
+    [{ ...ok, height: 50 }, 'bad_height'],
+    [{ ...ok, height: 480.5 }, 'bad_height'],
     ['nope', 'bad_body'],
   ])('%j → %s', (body, code) => {
     const r = parseCreateJob(body);
     expect(r.ok ? null : r.error.code).toBe(code);
+  });
+
+  it('세로를 정하면 그대로 넘긴다 (워치 화면처럼 정확한 크기)', () => {
+    expect(parseCreateJob({ ...ok, width: 480, height: 480 })).toEqual({
+      ok: true,
+      value: { ...ok, fps: 15, width: 480, height: 480 },
+    });
   });
 
   it('MP4는 3분까지', () => {
