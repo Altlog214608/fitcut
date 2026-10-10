@@ -1,0 +1,34 @@
+.stage {
+  display: grid;
+  place-items: center;
+  padding: var(--space-2);
+  border-radius: var(--radius-panel);
+  background: var(--color-paper);
+}
+
+/* 돌린 뒤 비율의 상자. 안의 영상은 원래 비율로 두고 가운데에서 돌린다 */
+.frame {
+  position: relative;
+  width: min(100%, calc(min(56vh, 520px) * var(--aspect, 16 / 9)));
+  aspect-ratio: var(--aspect, 16 / 9);
+  overflow: hidden;
+  border-radius: var(--radius-control);
+  background: #000;
+}
+
+.video {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: var(--inner-w, 100%);
+  height: var(--inner-h, 100%);
+  translate: -50% -50%;
+  object-fit: contain;
+  transition: transform var(--motion-fast) ease;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .video {
+    transition: none;
+  }
+}

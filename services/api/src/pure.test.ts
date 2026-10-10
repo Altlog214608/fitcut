@@ -97,6 +97,21 @@ describe('parseCreateJob', () => {
     expect(parseCreateJob({ ...ok, kind: 'mp3', start: 0, end: 600 }).ok).toBe(true);
   });
 
+  it('세로로 돌리기: 방향은 필수, 반전은 다시 압축할 때만, 길이 3분·10분', () => {
+    const r = parseCreateJob({ ...ok, kind: 'rotate', start: 0, end: 60, rotate: 90, flip: true });
+    expect(r.ok && r.value).toMatchObject({ kind: 'rotate', rotate: 90, flip: true });
+    const code = (body: unknown) => {
+      const x = parseCreateJob(body);
+      return x.ok ? null : x.error.code;
+    };
+    expect(code({ ...ok, kind: 'rotate', start: 0, end: 60, rotate: 45 })).toBe('bad_rotate');
+    expect(code({ ...ok, kind: 'rotate-fast', start: 0, end: 60, rotate: 90, flip: true })).toBe(
+      'bad_flip',
+    );
+    expect(code({ ...ok, kind: 'rotate', start: 0, end: 181, rotate: 90 })).toBe('too_long');
+    expect(code({ ...ok, kind: 'rotate-fast', start: 0, end: 600, rotate: 270 })).toBeNull();
+  });
+
   it('MP4는 3분까지', () => {
     expect(parseCreateJob({ ...ok, kind: 'mp4', start: 0, end: 180 }).ok).toBe(true);
     expect(parseCreateJob({ ...ok, kind: 'mp4', start: 0, end: 181 }).ok).toBe(false);

@@ -29,6 +29,8 @@ const KIND_LABEL: Record<JobKind, string> = {
   m4a: 'M4A',
   wav: 'WAV',
   m4r: '벨소리',
+  rotate: '영상',
+  'rotate-fast': '영상',
 };
 const KIND_HINT: Partial<Record<JobKind, string>> = {
   gif: '어디서나 열리지만 용량이 커요.',

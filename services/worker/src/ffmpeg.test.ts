@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { audioFilter, checkInput, ffmpegArgs, parseProbe, seconds } from './ffmpeg';
+import { audioFilter, checkInput, ffmpegArgs, nextRotation, parseProbe, seconds } from './ffmpeg';
 
 const p = { start: 1.5, end: 4, fps: 15, width: 480 };
 
@@ -119,5 +119,59 @@ describe('음성 (F14)', () => {
     });
     expect(checkInput(parseProbe(silent), a, 'm4a')).toContain('소리가 없어요');
     expect(checkInput(parseProbe(mp3), a, 'gif')).toContain('영상을 읽을 수 없어요');
+  });
+});
+
+describe('세로로 돌리기 (F21)', () => {
+  const r = { start: 0, end: 10, fps: 30, width: 480 };
+
+  it('회전 정보: 보이는 방향에서 시계 방향으로 더 돈다 (display_rotation은 반시계)', () => {
+    expect(nextRotation(0, 90)).toBe(-90);
+    expect(nextRotation(-90, 90)).toBe(180);
+    expect(nextRotation(-90, 270)).toBe(0);
+    expect(nextRotation(90, 180)).toBe(-90);
+  });
+
+  it('다시 압축: 돌리고(반전) 프레임 시각 그대로, 고품질 H.264, 소리는 복사하거나 AAC로', () => {
+    const args = ffmpegArgs('rotate', { ...r, rotate: 90, flip: true }, 'in', 'out', {
+      rotation: 0,
+      audioCodec: 'pcm_s16le',
+    });
+    expect(args[args.indexOf('-vf') + 1]).toBe('transpose=1,hflip');
+    expect(args).toEqual(expect.arrayContaining(['passthrough', '-crf', '18', 'aac']));
+    expect(args).not.toContain('-ss');
+    const left = ffmpegArgs('rotate', { ...r, rotate: 270 }, 'in', 'out', {
+      rotation: 0,
+      audioCodec: 'aac',
+    });
+    expect(left[left.indexOf('-vf') + 1]).toBe('transpose=2');
+    expect(left[left.indexOf('-c:a') + 1]).toBe('copy');
+  });
+
+  it('빠르게: 다시 압축하지 않고 회전 정보만', () => {
+    const args = ffmpegArgs('rotate-fast', { ...r, rotate: 90 }, 'in', 'out', {
+      rotation: -90,
+      audioCodec: null,
+    });
+    expect(args.slice(3, 5)).toEqual(['-display_rotation:v:0', '180']);
+    expect(args[args.indexOf('-c:v') + 1]).toBe('copy');
+    expect(args).not.toContain('-c:a');
+  });
+
+  it('너무 길거나 크면 이유와 다른 방법을 알려준다', () => {
+    const probe = (duration: number, width = 1920, height = 1080, fps = '30/1') =>
+      parseProbe(
+        JSON.stringify({
+          format: { format_name: 'mov,mp4,m4a,3gp,3g2,mj2', duration: String(duration) },
+          streams: [
+            { codec_type: 'video', codec_name: 'h264', width, height, avg_frame_rate: fps },
+          ],
+        }),
+      );
+    expect(checkInput(probe(170), r, 'rotate')).toBeNull();
+    expect(checkInput(probe(200), r, 'rotate')).toContain('3분까지');
+    expect(checkInput(probe(120, 3840, 2160, '60/1'), r, 'rotate')).toContain('빠르게');
+    expect(checkInput(probe(500), r, 'rotate-fast')).toBeNull();
+    expect(checkInput(probe(700), r, 'rotate-fast')).toContain('10분');
   });
 });

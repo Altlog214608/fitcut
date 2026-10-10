@@ -30,7 +30,7 @@ const URL_FRESH_MS = 9 * 60 * 1000;
 const NEEDS_BLOB = SAVE_METHOD === 'share' || SAVE_METHOD === 'data-url';
 
 export type MediaRequest = Omit<JobRequest, 'uploadId'>;
-export type Tool = 'gif' | 'audio';
+export type Tool = 'gif' | 'audio' | 'rotate';
 
 export type UploadView =
   | { state: 'starting' }

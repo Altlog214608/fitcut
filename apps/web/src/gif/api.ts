@@ -29,6 +29,9 @@ export type JobRequest = {
   height?: number;
   /** 음성 형식만 (F14) */
   audio?: AudioOptions;
+  /** 세로로 돌리기만 (F21): 시계 방향 각도, 좌우 반전 */
+  rotate?: 90 | 180 | 270;
+  flip?: boolean;
 };
 
 export type AudioOptions = {
@@ -144,6 +147,9 @@ export async function getJob(id: string): Promise<Job> {
 /** 저장할 파일 이름. 서버가 첨부 파일로 줄 때와 같다 (services/api downloadName) */
 export function resultName(job: Pick<Job, 'id' | 'kind' | 'params'>): string {
   const { width, height } = job.params;
+  if (job.kind === 'rotate' || job.kind === 'rotate-fast') {
+    return `fitcut_rotated_${job.id.slice(0, 8)}.mp4`;
+  }
   if (job.kind === 'mp3' || job.kind === 'm4a' || job.kind === 'wav' || job.kind === 'm4r') {
     return `fitcut_${job.kind === 'm4r' ? 'ringtone' : 'audio'}_${job.id.slice(0, 8)}.${job.kind}`;
   }

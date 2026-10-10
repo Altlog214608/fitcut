@@ -1,6 +1,6 @@
 /** POST /api/uploads · POST /api/jobs 입력 검사 (순수 함수). 오류 문구는 화면에 그대로 보여준다 (docs/UI.md 문구 규칙). */
 import { isUuid } from './jobs';
-import { isAudioKind } from '@fitcut/shared';
+import { isAudioKind, isRotateKind } from '@fitcut/shared';
 import { JOB_KINDS, LIMITS, type JobKind } from './limits';
 
 export type CreateUpload = {
@@ -21,6 +21,9 @@ export type CreateJob = {
   height?: number;
   /** 음성 형식만 (F14) */
   audio?: AudioOptions;
+  /** 세로로 돌리기만 (F21): 시계 방향 각도, 좌우 반전(다시 압축할 때만) */
+  rotate?: 90 | 180 | 270;
+  flip?: boolean;
 };
 
 export type AudioOptions = {
@@ -144,9 +147,22 @@ export function parseCreateJob(body: unknown): Result<CreateJob> {
     audio = { fadeIn, fadeOut, normalize: a.normalize === true, channels, bitrate };
   }
 
+  let rotation: { rotate: 90 | 180 | 270; flip: boolean } | undefined;
+  if (isRotateKind(k)) {
+    const r = body.rotate;
+    if (r !== 90 && r !== 180 && r !== 270) {
+      return fail('bad_rotate', '돌릴 방향을 골라 주세요.');
+    }
+    if (body.flip === true && k === 'rotate-fast') {
+      return fail('bad_flip', '좌우 반전은 다시 압축해서 돌릴 때만 할 수 있어요.');
+    }
+    rotation = { rotate: r, flip: body.flip === true };
+  }
+
   return {
     ok: true,
     value: {
+      ...(rotation ?? {}),
       uploadId,
       kind: k,
       start,
