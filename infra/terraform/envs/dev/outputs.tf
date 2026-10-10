@@ -17,3 +17,11 @@ output "api_function_name" {
 output "table_name" {
   value = module.api.table_name
 }
+
+output "worker_repository_url" {
+  value = module.worker.repository_url
+}
+
+output "worker_function_name" {
+  value = module.worker.function_name
+}

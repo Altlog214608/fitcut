@@ -43,13 +43,12 @@
                       → DynamoDB에 잡 생성, IP별 일일 할당량 확인
                       ← S3 presigned POST (크기·타입 제한 정책 포함)
      2. 브라우저 → S3(uploads) 직접 업로드
-     3. 업로드 완료 이벤트 → EventBridge → Lambda(dispatcher)
-          ├─ 작은 작업: SQS → Lambda(worker, ffmpeg)
-          └─ 큰 작업: ECS RunTask (Fargate Spot, 같은 worker 코드)
+     3. 업로드 완료 이벤트 → EventBridge → SQS → Lambda(worker, ffmpeg 컨테이너 이미지)  (ADR-032)
+          └─ (예정) 큰 작업은 분배기가 ECS RunTask (Fargate Spot, 같은 worker 코드)로 보낸다 (ADR-002)
      4. 결과 → S3(outputs), DynamoDB 상태 갱신
         보관 동의 시: 원본·결과를 S3(retained)로 복사
      5. 브라우저: GET /api/jobs/{id} 폴링 (지수 백오프)
-          → 완료 시 CloudFront 서명 URL로 다운로드
+          → 완료 시 S3 서명 주소(10분, 첨부 파일 이름)로 다운로드 (ADR-032)
 ```
 
 ## 링크 구간 흐름

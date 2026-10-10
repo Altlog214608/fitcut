@@ -24,3 +24,15 @@ output "outputs_bucket" {
 output "function_name" {
   value = aws_lambda_function.api.function_name
 }
+
+output "table_arn" {
+  value = aws_dynamodb_table.main.arn
+}
+
+output "uploads_bucket_arn" {
+  value = aws_s3_bucket.files["uploads"].arn
+}
+
+output "outputs_bucket_arn" {
+  value = aws_s3_bucket.files["outputs"].arn
+}

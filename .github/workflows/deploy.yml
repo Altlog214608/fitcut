@@ -31,6 +31,7 @@ jobs:
       - run: pnpm install --frozen-lockfile
       - run: pnpm --filter @fitcut/web build
       - run: pnpm --filter @fitcut/api build
+      - run: pnpm --filter @fitcut/worker build
 
       - uses: hashicorp/setup-terraform@dfe3c3f87815947d99a8997f908cb6525fc44e9e # v4.0.1
         with:
@@ -42,12 +43,36 @@ jobs:
           aws-region: ${{ env.AWS_REGION }}
           mask-aws-account-id: true
 
+      # 워커 이미지: 저장소를 먼저 만들고(처음 한 번), 같은 태그 이미지가 없을 때만 arm64로 빌드해 올린다.
+      # 태그는 services/worker와 잠금 파일 내용으로 정해져서, 워커를 바꾸지 않으면 다시 만들지 않는다.
+      - name: 워커 이미지
+        id: image
+        working-directory: infra/terraform/envs/dev
+        run: |
+          tag=$(sh ../../../../scripts/worker-image-tag.sh)
+          echo "tag=$tag" >> "$GITHUB_OUTPUT"
+          terraform init -input=false
+          terraform apply -input=false -lock-timeout=5m -auto-approve -no-color \
+            -target=module.worker.aws_ecr_repository.worker -var "worker_image_tag=$tag"
+          repo=$(terraform output -raw worker_repository_url 2>/dev/null || true)
+          if [ -z "$repo" ]; then
+            repo=$(aws ecr describe-repositories --repository-names fitcut-dev-worker --query 'repositories[0].repositoryUri' --output text)
+          fi
+          if aws ecr describe-images --repository-name fitcut-dev-worker --image-ids "imageTag=$tag" >/dev/null 2>&1; then
+            echo "이미지 $tag 이미 있음"
+            exit 0
+          fi
+          aws ecr get-login-password | docker login --username AWS --password-stdin "${repo%%/*}"
+          docker run --privileged --rm tonistiigi/binfmt@sha256:400a4873b838d1b89194d982c45e5fb3cda4593fbfd7e08a02e76b03b21166f0 --install arm64
+          docker buildx build --platform linux/arm64 --provenance=false -t "$repo:$tag" --push ../../../../services/worker
+
       - name: terraform apply (dev)
         id: tf
         working-directory: infra/terraform/envs/dev
+        env:
+          TAG: ${{ steps.image.outputs.tag }}
         run: |
-          terraform init -input=false
-          terraform apply -input=false -lock-timeout=5m -auto-approve -no-color
+          terraform apply -input=false -lock-timeout=5m -auto-approve -no-color -var "worker_image_tag=$TAG"
           echo "bucket=$(terraform output -raw web_bucket_name)" >> "$GITHUB_OUTPUT"
           echo "distribution_id=$(terraform output -raw web_distribution_id)" >> "$GITHUB_OUTPUT"
           echo "url=$(terraform output -raw web_url)" >> "$GITHUB_OUTPUT"

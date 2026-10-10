@@ -307,6 +307,22 @@
   - Lambda zip은 CI에서 esbuild로 묶고 Terraform `archive_file`로 올린다. 다시 빌드해도 zip 해시가 같아서(파일 시각이 바뀌어도 같음을 확인) 코드가 그대로면 plan이 "No changes"다.
 - 대안: API Gateway 기본 주소 + CORS (IP를 믿을 근거가 약하다), Lambda 함수 URL (요청 속도 제한이 없다).
 
+## ADR-032 ffmpeg 워커: Lambda 컨테이너 이미지, 고정한 GPL 정적 빌드, 업로드 이벤트 → SQS
+
+- 상태: 확정 (2026-10-10, M2). Fargate 분배기는 Lambda 측정 후 (ADR-002)
+- 맥락: 움짤(GIF·WebP)과 MP4를 서버에서 만든다. MP4(H.264)에는 libx264가 필요하고 libx264는 GPL이다. 저장소는 공개지만 이미지는 비공개 ECR에만 둔다.
+- 결정:
+  - ffmpeg·ffprobe는 BtbN/FFmpeg-Builds의 월말 빌드(2년 보관)를 버전과 SHA-256으로 고정해 이미지에 넣는다 (n9.0.2, GPL, linuxarm64). GPL 의무는 바이너리를 배포할 때 생기고, 이 서비스는 결과 파일만 주고 이미지·바이너리는 배포하지 않는다. 이미지에 ffmpeg 라이선스 파일(`/opt/FFMPEG-LICENSE.txt`)을 함께 넣는다.
+  - Lambda 기본 이미지(`public.ecr.aws/lambda/nodejs:24`) 위에 올리고 arm64로 돌린다. 원본(최대 500MB)을 /tmp에 두려고 임시 저장소를 2GB로 한다.
+  - 이미지 태그는 `services/worker` 폴더와 pnpm 잠금 파일의 git 해시로 만든다 (`scripts/worker-image-tag.sh`). 워커를 바꾸지 않은 PR은 태그가 같아 plan이 "No changes"이고, 배포 때 이미지를 다시 만들지 않는다. ECR은 태그 덮어쓰기를 막고 최근 3개만 남긴다.
+  - 업로드 완료 이벤트(S3 → EventBridge)를 SQS에 바로 넣고 워커가 받는다. 분배기 Lambda는 Fargate 경로가 생길 때 넣는다. 두 번 실패한 메시지는 DLQ로 간다.
+  - 같은 메시지가 두 번 와도 한 번만 만든다: 잡을 `processing`으로 바꾸는 조건부 쓰기로 잡는다. Lambda가 강제로 끝나 `processing`에 멈춘 잡은 20분 뒤 다시 잡을 수 있다.
+  - 입력 문제(영상이 아님, 형식, 구간이 길이를 넘음)는 다시 시도해도 같으므로 바로 `failed`와 이유를 남긴다.
+  - 결과는 API가 S3 서명 주소(10분, 첨부 파일 이름 지정)로 내려받게 한다. CloudFront 서명 URL은 키 쌍을 관리해야 해서, 지금은 S3 서명 주소로 충분하다 (ARCHITECTURE 5단계 변경).
+  - 계정 동시 실행 한도(10) 때문에 워커 동시 실행은 SQS 이벤트 소스 최대 동시 실행 2로 시작한다 (ADR-030).
+- 비용: 쓰지 않을 때 0에 가깝지만 ECR 이미지 저장은 GB당 월 $0.10이 계속 나간다 (최근 3개만 보관). 이미지 크기는 CI 요약에 남긴다.
+- 대안: ffmpeg를 직접 빌드해 필요한 코덱만 넣기 (이미지가 작아지지만 빌드가 길고 관리할 것이 많다), LGPL 빌드 (MP4 H.264를 못 만든다), Lambda 레이어 (250MB 한도).
+
 ---
 
 ## 템플릿
