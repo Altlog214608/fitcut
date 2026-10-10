@@ -233,3 +233,21 @@ test('배경 종류 비교 캡처', async ({ page }, testInfo) => {
     await page.goto('/');
   }
 });
+
+test('기기를 고르기 전에도 고른 사진을 먼저 보여준다', async ({ page }) => {
+  await page.goto('/photo');
+  await page.getByLabel(/사진을 끌어오세요/).setInputFiles({
+    name: 'a.jpg',
+    mimeType: 'image/jpeg',
+    buffer: await makeImage(page, 800, 600),
+  });
+  const original = page.getByAltText('고른 사진 원본');
+  await expect(original).toBeVisible();
+  expect(await original.evaluate((img: HTMLImageElement) => img.naturalWidth)).toBe(800);
+  await expect(
+    page.getByText('기기를 고르면 이 사진을 화면 모양대로 맞춰 보여드려요.'),
+  ).toBeVisible();
+
+  await chooseDevice(page, '17 프로', 'iPhone 17 Pro');
+  await expect(original).toBeHidden();
+});

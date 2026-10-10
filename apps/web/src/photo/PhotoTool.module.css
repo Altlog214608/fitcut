@@ -105,6 +105,31 @@
   text-align: center;
 }
 
+/* 기기를 고르기 전 원본 미리보기 */
+.original {
+  display: grid;
+  gap: 12px;
+  margin: 0;
+  padding: var(--space-2);
+  border-radius: var(--radius-panel);
+  background: var(--color-paper);
+}
+
+.original img {
+  display: block;
+  max-width: 100%;
+  max-height: min(60vh, 560px);
+  margin: 0 auto;
+  border-radius: var(--radius-control);
+  object-fit: contain;
+}
+
+.original figcaption {
+  font-size: var(--text-caption);
+  color: var(--color-slate);
+  text-align: center;
+}
+
 .notices {
   display: grid;
   gap: 8px;
