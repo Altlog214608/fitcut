@@ -1,0 +1,781 @@
+import { JOB_LIMITS, type JobKind } from '@fitcut/shared';
+import { CircleCheck, Film, Pause, Play, Repeat, ShieldCheck } from 'lucide-react';
+import { useEffect, useId, useRef, useState } from 'react';
+import { DropZone } from '../components/DropZone';
+import { Segmented } from '../components/Segmented';
+import { detectKind } from '../lib/detectKind';
+import { SAVE_METHOD } from '../lib/inApp';
+import { download, openDownloadUrl, openShare } from '../lib/save';
+import {
+  ApiError,
+  contentTypeOf,
+  createJob,
+  createUpload,
+  getJob,
+  pollDelay,
+  resultName,
+  sendFile,
+  type Job,
+  type Sending,
+} from './api';
+import { estimateBytes, formatBytes, outputSize, type Size } from './estimate';
+import { DEFAULT_FPS, fpsFromFrameTimes } from './frameRate';
+import styles from './GifTool.module.css';
+import { extractThumbnails } from './thumbnails';
+import { TimeField } from './TimeField';
+import { Timeline } from './Timeline';
+import { formatTime, initialRange, moveEnd, moveStart, rangeProblem, type Range } from './time';
+
+const VIDEO_ACCEPT = 'video/mp4,video/quicktime,video/webm,.mp4,.mov,.webm';
+const THUMB_COUNT = 12;
+const THUMB_HEIGHT = 96;
+/** 이보다 오래 걸리면 멈춘 것으로 보고 다시 만들게 한다 (워커 최대 10분 + 여유) */
+const POLL_LIMIT_MS = 15 * 60 * 1000;
+/** 내려받기 주소는 10분 동안 쓸 수 있다. 조금 일찍 새로 받는다 */
+const URL_FRESH_MS = 9 * 60 * 1000;
+
+const KIND_LABEL: Record<JobKind, string> = { gif: 'GIF', webp: 'WebP', mp4: 'MP4' };
+const KIND_HINT: Record<JobKind, string> = {
+  gif: '어디서나 열리지만 용량이 커요.',
+  webp: 'GIF보다 작아요. 일부 앱에서는 열리지 않을 수 있어요.',
+  mp4: '가장 작아요. 소리는 담지 않아요.',
+};
+const KINDS = (['gif', 'webp', 'mp4'] as const).map((value) => ({
+  value,
+  label: KIND_LABEL[value],
+}));
+
+type WidthChoice = '320' | '480' | '640' | 'source';
+const WIDTHS: readonly { value: WidthChoice; label: string }[] = [
+  { value: '320', label: '320' },
+  { value: '480', label: '480' },
+  { value: '640', label: '640' },
+  { value: 'source', label: '원본' },
+];
+
+type FpsChoice = '10' | '15' | '20' | '24' | '30';
+const FPS_OPTIONS: readonly { value: FpsChoice; label: string }[] = (
+  ['10', '15', '20', '24', '30'] as const
+).map((value) => ({ value, label: value }));
+
+type Picked = { file: File; url: string };
+type Meta = { file: File; duration: number; size: Size };
+
+type UploadView =
+  | { state: 'starting' }
+  | { state: 'sending'; sent: number; total: number }
+  | { state: 'done'; id: string }
+  | { state: 'failed'; message: string };
+type UploadState = UploadView & { file: File; attempt: number };
+
+type Request = { kind: JobKind; start: number; end: number; fps: number; width: number };
+type Making =
+  | { phase: 'pending'; key: string }
+  | { phase: 'creating'; key: string }
+  | { phase: 'running'; key: string; job: Job }
+  | { phase: 'done'; key: string; job: Job; fetchedAt: number; blob: Blob | null }
+  | { phase: 'failed'; key: string; message: string };
+
+const messageOf = (error: unknown) =>
+  error instanceof ApiError ? error.message : '잠시 후 다시 시도해 주세요.';
+const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
+
+/** 요청할 가로 폭. 서버는 원본보다 키우지 않으므로(ffmpeg min(W,iw)) 실제로 나올 폭을 보낸다 */
+function widthOf(choice: WidthChoice, video: Size | null): number {
+  const { min, max } = JOB_LIMITS.width;
+  const wanted = choice === 'source' ? max : Number(choice);
+  return Math.min(max, Math.max(min, Math.min(wanted, video?.width ?? wanted)));
+}
+
+/** 다른 출처의 결과를 미리 받아 둔다 (아이폰 공유 화면·인앱 저장은 누른 순간 파일이 있어야 한다) */
+const NEEDS_BLOB = SAVE_METHOD === 'share' || SAVE_METHOD === 'data-url';
+
+export function GifTool({ initialFile }: { initialFile: File | null }) {
+  const replaceId = useId();
+  const videoRef = useRef<HTMLVideoElement>(null);
+  const abortUpload = useRef<(() => void) | null>(null);
+  /** 올리는 중에 '만들기'를 누르면 여기 두었다가 올리기가 끝나면 만든다 */
+  const pending = useRef<{ key: string; request: Request } | null>(null);
+  /** 파일을 바꾸거나 다시 만들면 지난 조회를 멈춘다 */
+  const runToken = useRef(0);
+
+  const [picked, setPicked] = useState<Picked | null>(() =>
+    initialFile ? { file: initialFile, url: URL.createObjectURL(initialFile) } : null,
+  );
+  const [pickError, setPickError] = useState<string | null>(null);
+  const [meta, setMeta] = useState<Meta | null>(null);
+  const [videoError, setVideoError] = useState<File | null>(null);
+  const [range, setRange] = useState<Range>({ start: 0, end: 0 });
+  const [current, setCurrent] = useState(0);
+  const [playing, setPlaying] = useState(false);
+  const [loop, setLoop] = useState(true);
+  const [measured, setMeasured] = useState<{ file: File; fps: number } | null>(null);
+  const [thumbs, setThumbs] = useState<{ url: string; list: (string | undefined)[] }>({
+    url: '',
+    list: [],
+  });
+
+  const [attempt, setAttempt] = useState(0);
+  const [upload, setUpload] = useState<UploadState | null>(null);
+
+  const [kind, setKind] = useState<JobKind>('gif');
+  const [widthChoice, setWidthChoice] = useState<WidthChoice>('480');
+  const [fpsChoice, setFpsChoice] = useState<FpsChoice>(
+    String(JOB_LIMITS.fps.default) as FpsChoice,
+  );
+  const [making, setMaking] = useState<Making | null>(null);
+  const [elapsed, setElapsed] = useState(0);
+  const [shareFile, setShareFile] = useState<File | null>(null);
+  const [saveError, setSaveError] = useState<string | null>(null);
+
+  const file = picked?.file ?? null;
+  const videoUrl = picked?.url ?? null;
+  const info = meta && meta.file === file ? meta : null;
+  const duration = info?.duration ?? 0;
+  const fps = measured && measured.file === file ? measured.fps : DEFAULT_FPS;
+  const frame = 1 / fps;
+  const thumbList = thumbs.url === videoUrl ? thumbs.list : [];
+  const up: UploadView =
+    upload && upload.file === file && upload.attempt === attempt ? upload : { state: 'starting' };
+
+  const width = widthOf(widthChoice, info?.size ?? null);
+  const request: Request = {
+    kind,
+    start: range.start,
+    end: range.end,
+    fps: Number(fpsChoice),
+    width,
+  };
+  const key = JSON.stringify(request);
+  const problem = info ? rangeProblem(range, kind) : null;
+  const size = info ? outputSize(width, info.size) : null;
+  const estimate =
+    size && !problem ? estimateBytes(kind, size, request.fps, range.end - range.start) : null;
+  const now = making && making.key === key ? making : null;
+  const busy =
+    making?.phase === 'pending' || making?.phase === 'creating' || making?.phase === 'running';
+
+  // ---------- 업로드: 파일을 고르자마자 올린다 (ADR-033) ----------
+  useEffect(() => {
+    if (!file) return;
+    const type = contentTypeOf(file);
+    if (!type) return;
+    let cancelled = false;
+    let sending: Sending | null = null;
+    const set = (view: UploadView) => {
+      if (!cancelled) setUpload({ ...view, file, attempt });
+    };
+    abortUpload.current = () => sending?.abort();
+    void (async () => {
+      try {
+        const target = await createUpload(file.size, type);
+        if (cancelled) return;
+        sending = sendFile(target, file, (sent, total) => set({ state: 'sending', sent, total }));
+        set({ state: 'sending', sent: 0, total: file.size });
+        await sending.done;
+        set({ state: 'done', id: target.id });
+        const waiting = pending.current;
+        pending.current = null;
+        if (waiting && !cancelled) void run(target.id, waiting.key, waiting.request);
+      } catch (error) {
+        pending.current = null;
+        set({ state: 'failed', message: messageOf(error) });
+        if (!cancelled) {
+          setMaking((m) =>
+            m?.phase === 'pending'
+              ? { phase: 'failed', key: m.key, message: '영상을 다시 올린 뒤 만들어 주세요.' }
+              : m,
+          );
+        }
+      }
+    })();
+    return () => {
+      cancelled = true;
+      sending?.abort();
+    };
+    // run은 매번 새로 만들어지지만 안에서 쓰는 값은 모두 인자와 ref로 받는다
+  }, [file, attempt]);
+
+  // ---------- 썸네일 ----------
+  useEffect(() => {
+    if (!videoUrl || !duration) return;
+    const controller = new AbortController();
+    void extractThumbnails(
+      videoUrl,
+      duration,
+      THUMB_COUNT,
+      THUMB_HEIGHT,
+      controller.signal,
+      (index, url) =>
+        setThumbs((prev) => {
+          const list = prev.url === videoUrl ? [...prev.list] : [];
+          list[index] = url;
+          return { url: videoUrl, list };
+        }),
+    );
+    return () => controller.abort();
+  }, [videoUrl, duration]);
+
+  // ---------- 재생 위치와 구간 반복 ----------
+  useEffect(() => {
+    const video = videoRef.current;
+    if (!playing || !video) return;
+    let raf = 0;
+    const tick = () => {
+      if (loop && video.currentTime >= range.end) video.currentTime = range.start;
+      setCurrent(video.currentTime);
+      raf = requestAnimationFrame(tick);
+    };
+    raf = requestAnimationFrame(tick);
+    return () => cancelAnimationFrame(raf);
+  }, [playing, loop, range.start, range.end]);
+
+  // ---------- 프레임 간격 재기 (재생하는 동안, ADR-034) ----------
+  const fpsKnown = measured !== null && measured.file === file;
+  useEffect(() => {
+    const video = videoRef.current;
+    if (!playing || !video || !file || fpsKnown) return;
+    if (typeof video.requestVideoFrameCallback !== 'function') return;
+    const times: number[] = [];
+    let handle = 0;
+    const onFrame = (_now: number, frameInfo: VideoFrameCallbackMetadata) => {
+      times.push(frameInfo.mediaTime);
+      const found = times.length >= 15 ? fpsFromFrameTimes(times) : null;
+      if (found) setMeasured({ file, fps: found });
+      else handle = video.requestVideoFrameCallback(onFrame);
+    };
+    handle = video.requestVideoFrameCallback(onFrame);
+    return () => video.cancelVideoFrameCallback(handle);
+  }, [playing, file, fpsKnown]);
+
+  // ---------- 만드는 동안 걸린 시간 ----------
+  const runningSince = making?.phase === 'running' ? making.job.id : null;
+  useEffect(() => {
+    if (!runningSince) return;
+    const started = Date.now();
+    const timer = setInterval(() => setElapsed(Math.round((Date.now() - started) / 1000)), 1000);
+    return () => {
+      clearInterval(timer);
+      setElapsed(0);
+    };
+  }, [runningSince]);
+
+  // ---------- 키보드 (FEATURES F4) ----------
+  useEffect(() => {
+    if (!info) return;
+    const total = info.duration;
+    function onKey(e: KeyboardEvent) {
+      if (e.defaultPrevented || e.metaKey || e.ctrlKey || e.altKey) return;
+      const el = e.target instanceof HTMLElement ? e.target : null;
+      if (el?.closest('input, textarea, select, [contenteditable="true"]')) return;
+      // 한글 자판에서도 같은 키가 되도록 e.code를 본다
+      switch (e.code) {
+        case 'ArrowLeft':
+        case 'ArrowRight': {
+          e.preventDefault();
+          const step = e.shiftKey ? 1 : frame;
+          seek(current + (e.code === 'ArrowLeft' ? -step : step));
+          break;
+        }
+        case 'KeyI':
+          setRange((r) => moveStart(r, current, frame));
+          break;
+        case 'KeyO':
+          setRange((r) => moveEnd(r, current, frame, total));
+          break;
+        case 'Space':
+          if (el?.closest('button, summary, a')) return; // 버튼 누르기와 겹치지 않게
+          e.preventDefault();
+          togglePlay();
+          break;
+        case 'KeyL':
+          setLoop((on) => !on);
+          break;
+      }
+    }
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  });
+
+  function pickFile(next: File) {
+    if (detectKind(next).kind !== 'video' || !contentTypeOf(next)) {
+      setPickError('영상 파일이 아니에요. MP4 · MOV · WebM 영상을 골라 주세요.');
+      return;
+    }
+    if (next.size > JOB_LIMITS.maxUploadBytes) {
+      setPickError(
+        `영상이 너무 커요. ${JOB_LIMITS.maxUploadBytes / 1024 / 1024}MB 이하로 골라 주세요.`,
+      );
+      return;
+    }
+    if (picked) URL.revokeObjectURL(picked.url);
+    runToken.current += 1;
+    pending.current = null;
+    setPickError(null);
+    setPicked({ file: next, url: URL.createObjectURL(next) });
+    setMaking(null);
+    setShareFile(null);
+    setSaveError(null);
+    setPlaying(false);
+    setCurrent(0);
+  }
+
+  function seek(t: number) {
+    const video = videoRef.current;
+    if (!video || !info) return;
+    const next = Math.min(info.duration, Math.max(0, t));
+    video.currentTime = next;
+    setCurrent(next);
+  }
+
+  function togglePlay() {
+    const video = videoRef.current;
+    if (!video) return;
+    if (!video.paused) {
+      video.pause();
+      return;
+    }
+    if (loop && (video.currentTime < range.start || video.currentTime >= range.end - 0.01)) {
+      video.currentTime = range.start;
+    }
+    void video.play().catch(() => undefined);
+  }
+
+  function changeRange(next: Range) {
+    setRange(next);
+    // 핸들을 옮기면 그 장면을 보여준다
+    if (next.start !== range.start) seek(next.start);
+    else if (next.end !== range.end) seek(next.end);
+  }
+
+  async function run(uploadId: string, runKey: string, req: Request) {
+    const token = ++runToken.current;
+    const live = () => runToken.current === token;
+    setMaking({ phase: 'creating', key: runKey });
+    try {
+      let job = await createJob({ uploadId, ...req });
+      const started = Date.now();
+      let misses = 0;
+      for (let i = 0; job.status === 'queued' || job.status === 'processing'; i += 1) {
+        if (!live()) return;
+        setMaking({ phase: 'running', key: runKey, job });
+        if (Date.now() - started > POLL_LIMIT_MS) {
+          throw new ApiError('시간이 너무 오래 걸려요. 다시 만들어 주세요.', 'timeout', 0);
+        }
+        await sleep(pollDelay(i));
+        try {
+          job = await getJob(job.id);
+          misses = 0;
+        } catch (error) {
+          // 잠깐 끊긴 연결은 몇 번 더 기다린다
+          if (!(error instanceof ApiError) || error.code !== 'network' || ++misses > 3) throw error;
+        }
+      }
+      if (!live()) return;
+      if (job.status === 'failed') {
+        setMaking({
+          phase: 'failed',
+          key: runKey,
+          message: job.error ?? '변환하지 못했어요. 잠시 후 다시 시도해 주세요.',
+        });
+        return;
+      }
+      setMaking({ phase: 'done', key: runKey, job, fetchedAt: Date.now(), blob: null });
+      if (NEEDS_BLOB && job.downloadUrl) {
+        const blob = await fetch(job.downloadUrl)
+          .then((r) => (r.ok ? r.blob() : null))
+          .catch(() => null);
+        if (blob && live()) {
+          setMaking((m) => (m?.phase === 'done' && m.job.id === job.id ? { ...m, blob } : m));
+        }
+      }
+    } catch (error) {
+      if (live()) setMaking({ phase: 'failed', key: runKey, message: messageOf(error) });
+    }
+  }
+
+  function make() {
+    if (!info || problem) return;
+    setShareFile(null);
+    setSaveError(null);
+    if (up.state === 'done') {
+      void run(up.id, key, request);
+    } else if (up.state === 'failed') {
+      setMaking({ phase: 'failed', key, message: '영상을 다시 올린 뒤 만들어 주세요.' });
+    } else {
+      pending.current = { key, request };
+      setMaking({ phase: 'pending', key });
+    }
+  }
+
+  async function save() {
+    if (now?.phase !== 'done') return;
+    const name = resultName(now.job);
+    setSaveError(null);
+    if (SAVE_METHOD === 'share' && now.blob) {
+      const made = new File([now.blob], name, { type: now.blob.type });
+      openShare(made, () => setShareFile(made));
+      return;
+    }
+    if (SAVE_METHOD === 'data-url' && now.blob) {
+      await download(now.blob, name, 'data-url');
+      return;
+    }
+    let job = now.job;
+    try {
+      if (Date.now() - now.fetchedAt > URL_FRESH_MS) {
+        job = await getJob(job.id);
+        setMaking({ ...now, job, fetchedAt: Date.now() });
+      }
+      if (job.downloadUrl) openDownloadUrl(job.downloadUrl);
+    } catch (error) {
+      setSaveError(messageOf(error));
+    }
+  }
+
+  if (!file || !videoUrl) {
+    return (
+      <div className={styles.empty}>
+        <h1 className={styles.title}>움짤</h1>
+        <p className={styles.lead}>영상에서 구간을 골라 GIF · WebP · MP4로 만들어요.</p>
+        <DropZone title="영상을 끌어오세요" accept={VIDEO_ACCEPT} onFile={pickFile} />
+        {pickError && (
+          <p className={styles.error} role="alert">
+            {pickError}
+          </p>
+        )}
+        <p className={styles.trust}>
+          <ShieldCheck size={18} strokeWidth={1.75} />
+          영상을 고르면 바로 올라가기 시작해요. 올린 파일은 보통 1~2일 안에 자동으로 삭제돼요
+        </p>
+      </div>
+    );
+  }
+
+  const primaryLabel =
+    now?.phase === 'done'
+      ? `${KIND_LABEL[now.job.kind]} 저장`
+      : making?.phase === 'pending'
+        ? '올리기가 끝나면 바로 만들어요'
+        : busy
+          ? '만드는 중…'
+          : `${KIND_LABEL[kind]} 만들기`;
+  const resultSize =
+    now?.phase === 'done' && info ? outputSize(now.job.params.width, info.size) : null;
+  const percent =
+    up.state === 'sending' && up.total > 0 ? Math.round((up.sent / up.total) * 100) : 0;
+
+  return (
+    <div className={styles.tool}>
+      <header className={styles.head}>
+        <div className={styles.headText}>
+          <h1 className={styles.title}>움짤</h1>
+          <p className={styles.fileInfo}>
+            <span className={styles.fileName}>{file.name}</span>
+            <span className={styles.num}>{formatBytes(file.size)}</span>
+            {info && (
+              <span className={styles.num}>
+                {info.size.width} × {info.size.height} · {formatTime(info.duration)}
+              </span>
+            )}
+          </p>
+        </div>
+        <label htmlFor={replaceId} className={styles.replace}>
+          <Film size={18} strokeWidth={1.75} />
+          다른 영상
+        </label>
+        <input
+          id={replaceId}
+          type="file"
+          accept={VIDEO_ACCEPT}
+          className="visually-hidden"
+          onChange={(e) => {
+            const next = e.currentTarget.files?.[0];
+            if (next) pickFile(next);
+            e.currentTarget.value = '';
+          }}
+        />
+      </header>
+      {pickError && (
+        <p className={styles.error} role="alert">
+          {pickError}
+        </p>
+      )}
+
+      <div className={styles.upload} aria-live="polite">
+        {up.state === 'starting' && <p className={styles.uploadText}>올릴 준비를 하고 있어요…</p>}
+        {up.state === 'sending' && (
+          <>
+            <p className={styles.uploadText}>
+              올리는 중 <b className={styles.num}>{percent}%</b>
+              <span className={styles.num}>
+                {formatBytes(up.sent)} / {formatBytes(up.total)}
+              </span>
+            </p>
+            <button
+              type="button"
+              className={styles.textButton}
+              onClick={() => abortUpload.current?.()}
+            >
+              업로드 취소
+            </button>
+            <div
+              className={styles.bar}
+              role="progressbar"
+              aria-label="업로드"
+              aria-valuemin={0}
+              aria-valuemax={100}
+              aria-valuenow={percent}
+            >
+              <span style={{ width: `${percent}%` }} />
+            </div>
+          </>
+        )}
+        {up.state === 'done' && (
+          <p className={styles.uploadText}>
+            <CircleCheck size={18} strokeWidth={1.75} className={styles.ok} />
+            올리기 완료
+          </p>
+        )}
+        {up.state === 'failed' && (
+          <>
+            <p className={styles.uploadError} role="alert">
+              {up.message}
+            </p>
+            <button
+              type="button"
+              className={styles.textButton}
+              onClick={() => setAttempt((a) => a + 1)}
+            >
+              다시 올리기
+            </button>
+          </>
+        )}
+      </div>
+
+      <div className={styles.main}>
+        <div className={styles.editCol}>
+          <div className={styles.player}>
+            <video
+              ref={videoRef}
+              className={styles.video}
+              src={videoUrl}
+              playsInline
+              muted
+              preload="auto"
+              onLoadedMetadata={(e) => {
+                const v = e.currentTarget;
+                if (!Number.isFinite(v.duration) || v.videoWidth === 0) return;
+                setMeta({
+                  file,
+                  duration: v.duration,
+                  size: { width: v.videoWidth, height: v.videoHeight },
+                });
+                setRange(initialRange(v.duration));
+                setCurrent(0);
+              }}
+              onError={() => setVideoError(file)}
+              onPlay={() => setPlaying(true)}
+              onPause={() => setPlaying(false)}
+              onSeeked={(e) => setCurrent(e.currentTarget.currentTime)}
+            />
+          </div>
+
+          {info ? (
+            <>
+              <div className={styles.controls}>
+                <button
+                  type="button"
+                  className={styles.playButton}
+                  aria-label={playing ? '일시 정지' : '재생'}
+                  onClick={togglePlay}
+                >
+                  {playing ? (
+                    <Pause size={20} strokeWidth={1.75} />
+                  ) : (
+                    <Play size={20} strokeWidth={1.75} />
+                  )}
+                </button>
+                <button
+                  type="button"
+                  className={styles.toggle}
+                  aria-pressed={loop}
+                  onClick={() => setLoop((on) => !on)}
+                >
+                  <Repeat size={18} strokeWidth={1.75} />
+                  구간 반복
+                </button>
+                <span className={`${styles.clock} ${styles.num}`}>{formatTime(current)}</span>
+              </div>
+
+              <Timeline
+                duration={info.duration}
+                range={range}
+                current={current}
+                frame={frame}
+                thumbnails={thumbList}
+                onRange={changeRange}
+                onSeek={seek}
+              />
+
+              <div className={styles.times}>
+                <TimeField
+                  label="시작"
+                  value={range.start}
+                  step={frame}
+                  onChange={(t) => changeRange(moveStart(range, t, frame))}
+                />
+                <TimeField
+                  label="끝"
+                  value={range.end}
+                  step={frame}
+                  onChange={(t) => changeRange(moveEnd(range, t, frame, info.duration))}
+                />
+                <p className={styles.length}>
+                  길이 <b className={styles.num}>{(range.end - range.start).toFixed(2)}초</b>
+                </p>
+              </div>
+
+              <div className={styles.marks}>
+                <button
+                  type="button"
+                  className={styles.chip}
+                  onClick={() => changeRange(moveStart(range, current, frame))}
+                >
+                  지금 위치를 시작으로
+                </button>
+                <button
+                  type="button"
+                  className={styles.chip}
+                  onClick={() => changeRange(moveEnd(range, current, frame, info.duration))}
+                >
+                  지금 위치를 끝으로
+                </button>
+              </div>
+              <p className={styles.keys}>
+                키보드: ←/→ 1프레임 · Shift+←/→ 1초 · I/O 시작·끝 지정 · Space 재생 · L 구간 반복
+              </p>
+            </>
+          ) : videoError === file ? (
+            <p className={styles.error} role="alert">
+              이 브라우저에서는 이 영상을 미리 볼 수 없어요. 크롬이나 사파리 최신 버전에서 열어
+              주세요.
+            </p>
+          ) : (
+            <p className={styles.hint}>영상을 여는 중이에요…</p>
+          )}
+        </div>
+
+        <div className={styles.panel}>
+          <Segmented label="형식" value={kind} options={KINDS} onChange={setKind} />
+          <p className={styles.hint}>{KIND_HINT[kind]}</p>
+          <Segmented
+            label="가로 크기"
+            value={widthChoice}
+            options={WIDTHS}
+            onChange={setWidthChoice}
+          />
+          <details className={styles.advanced}>
+            <summary>고급</summary>
+            <Segmented
+              label="초당 장면 수"
+              value={fpsChoice}
+              options={FPS_OPTIONS}
+              onChange={setFpsChoice}
+            />
+          </details>
+
+          {problem ? (
+            <p className={styles.error} role="alert">
+              {problem}
+            </p>
+          ) : (
+            size && (
+              <p className={styles.estimate}>
+                <span className={styles.num}>
+                  {size.width} × {size.height}
+                </span>{' '}
+                · 예상 용량 약 <b className={styles.num}>{formatBytes(estimate ?? 0)}</b>
+              </p>
+            )
+          )}
+
+          {making?.phase === 'running' && (
+            <p className={styles.status} role="status">
+              {making.job.status === 'queued'
+                ? '차례를 기다리고 있어요'
+                : `만드는 중이에요 · ${elapsed}초`}
+              <span className={styles.hint}>보통 10~30초 걸려요.</span>
+            </p>
+          )}
+          {/* 미리 받기(fetch)와 같은 CORS 요청으로 불러야 캐시된 응답을 같이 쓸 수 있다 */}
+          {now?.phase === 'done' && now.job.downloadUrl && (
+            <figure className={styles.result}>
+              {now.job.kind === 'mp4' ? (
+                <video
+                  src={now.job.downloadUrl}
+                  crossOrigin="anonymous"
+                  autoPlay
+                  loop
+                  muted
+                  playsInline
+                />
+              ) : (
+                <img src={now.job.downloadUrl} crossOrigin="anonymous" alt="만든 결과" />
+              )}
+              <figcaption className={styles.num} role="status">
+                만들었어요 · {resultSize ? `${resultSize.width} × ${resultSize.height} · ` : ''}
+                {formatBytes(now.job.outputBytes ?? 0)}
+              </figcaption>
+            </figure>
+          )}
+          {making?.phase === 'failed' && making.key === key && (
+            <p className={styles.error} role="alert">
+              {making.message}
+            </p>
+          )}
+          {/* 고정 막대에는 버튼만 둔다. 폰에서 옵션을 가리지 않게 */}
+          <div className={styles.saveBar}>
+            <button
+              type="button"
+              className={styles.primary}
+              disabled={!info || !!problem || busy}
+              onClick={() => (now?.phase === 'done' ? void save() : make())}
+            >
+              {primaryLabel}
+            </button>
+            {now?.phase === 'done' && shareFile && (
+              <button
+                type="button"
+                className={styles.secondary}
+                onClick={() => openShare(shareFile, () => undefined)}
+              >
+                사진 앱에 저장
+              </button>
+            )}
+          </div>
+          {now?.phase === 'done' && (
+            <button type="button" className={styles.secondary} onClick={() => setMaking(null)}>
+              다른 설정으로 또 만들기
+            </button>
+          )}
+          {now?.phase === 'done' && SAVE_METHOD === 'share' && (
+            <p className={styles.hint}>
+              공유 화면에서 &lsquo;이미지 저장&rsquo; 또는 &lsquo;비디오 저장&rsquo;을 누르면 사진
+              앱에 들어가요.
+            </p>
+          )}
+          {saveError && (
+            <p className={styles.error} role="alert">
+              {saveError}
+            </p>
+          )}
+          <p className={styles.trust}>
+            <ShieldCheck size={18} strokeWidth={1.75} />
+            올린 파일은 보통 1~2일 안에 자동으로 삭제돼요
+          </p>
+        </div>
+      </div>
+    </div>
+  );
+}

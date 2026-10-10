@@ -3,8 +3,9 @@ import { ImageUp, ShieldCheck } from 'lucide-react';
 import { useEffect, useId, useMemo, useState } from 'react';
 import { DropZone } from '../components/DropZone';
 import { detectKind } from '../lib/detectKind';
-import { IN_APP, inAppLabel, SAVE_METHOD, type SaveMethod } from '../lib/inApp';
+import { IN_APP, inAppLabel, SAVE_METHOD } from '../lib/inApp';
 import { readJson, writeJson } from '../lib/storage';
+import { download, openShare } from '../lib/save';
 import { DevicePicker } from './DevicePicker';
 import { outputFileName, type OutputFormat } from './fileName';
 import { computeLayout, fillAxis, maxZoom, ratioFit, type FitMode, type Position } from './layout';
@@ -65,43 +66,6 @@ type Saved = {
 function formatBytes(bytes: number): string {
   if (bytes < 1024 * 1024) return `${Math.max(1, Math.round(bytes / 1024))}KB`;
   return `${(bytes / 1024 / 1024).toFixed(1)}MB`;
-}
-
-function readAsDataUrl(blob: Blob): Promise<string> {
-  return new Promise((resolve, reject) => {
-    const reader = new FileReader();
-    reader.onload = () => resolve(String(reader.result));
-    reader.onerror = () => reject(new Error('이미지를 저장하지 못했어요.'));
-    reader.readAsDataURL(blob);
-  });
-}
-
-/**
- * 파일을 기기에 저장한다. 보통은 blob 주소로 내려받는다.
- * iOS 인앱 브라우저(카카오톡 등)는 blob 다운로드를 못 해서 data URL로 내려받는다 (lib/inApp.ts).
- */
-async function download(blob: Blob, name: string, method: SaveMethod): Promise<void> {
-  const url = method === 'data-url' ? await readAsDataUrl(blob) : URL.createObjectURL(blob);
-  const a = document.createElement('a');
-  a.href = url;
-  a.download = name;
-  document.body.append(a);
-  a.click();
-  a.remove();
-  if (method === 'blob') setTimeout(() => URL.revokeObjectURL(url), 30_000);
-}
-
-/**
- * 아이폰 공유 화면을 연다. 결과를 기다리지 않는다: iOS 15에서 '이미지 저장'을 고르면 끝났다는 신호가
- * 오지 않는 버그가 있었다 (WebKit 231995). 버튼을 누른 직후가 아니어서 막히면 onBlocked로 다시 누르게 한다.
- */
-function openShare(file: File, onBlocked: () => void): void {
-  navigator.share({ files: [file] }).catch((error: unknown) => {
-    const name = error instanceof DOMException ? error.name : '';
-    if (name === 'AbortError') return; // 사용자가 닫았다
-    if (name === 'NotAllowedError') onBlocked();
-    else void download(file, file.name, 'blob');
-  });
 }
 
 export function PhotoTool({ initialFile }: { initialFile: File | null }) {

@@ -1,0 +1,113 @@
+.timeline {
+  display: grid;
+  gap: 12px;
+}
+
+/* 손가락으로 잡기 쉽게 높이를 넉넉히 두고, 핸들은 보이는 것보다 넓게 잡힌다 */
+.track {
+  position: relative;
+  height: 64px;
+  border-radius: var(--radius-control);
+  background: var(--color-paper);
+  overflow: hidden;
+  touch-action: none;
+  user-select: none;
+  cursor: pointer;
+}
+
+.thumbs {
+  position: absolute;
+  inset: 0;
+}
+
+.thumb {
+  position: absolute;
+  top: 0;
+  height: 100%;
+  object-fit: cover;
+  pointer-events: none;
+}
+
+.dim {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  background: rgb(16 18 21 / 0.55);
+  pointer-events: none;
+}
+
+.selection {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  border-top: 3px solid var(--color-accent);
+  border-bottom: 3px solid var(--color-accent);
+  pointer-events: none;
+}
+
+.playhead {
+  position: absolute;
+  top: -2px;
+  bottom: -2px;
+  width: 2px;
+  margin-left: -1px;
+  background: #fff;
+  box-shadow: 0 0 0 1px rgb(0 0 0 / 0.35);
+  pointer-events: none;
+}
+
+.handle {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 44px;
+  margin-left: -22px;
+  padding: 0;
+  border: 0;
+  background: none;
+  cursor: ew-resize;
+  touch-action: none;
+}
+
+/* 보이는 손잡이: 구간 안쪽으로 붙은 굵은 막대 */
+.handle::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 14px;
+  background: var(--color-accent);
+}
+
+.startHandle::after {
+  right: 8px;
+  border-radius: 10px 0 0 10px;
+}
+
+.endHandle::after {
+  left: 8px;
+  border-radius: 0 10px 10px 0;
+}
+
+.handle:focus-visible {
+  outline: none;
+}
+
+.handle:focus-visible::after {
+  box-shadow:
+    0 0 0 2px var(--color-bg),
+    0 0 0 4px var(--color-accent-ink);
+}
+
+.zoom {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  font-size: var(--text-caption);
+  color: var(--color-slate);
+}
+
+.zoom input {
+  flex: 1;
+  accent-color: var(--color-accent);
+}

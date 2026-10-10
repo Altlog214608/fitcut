@@ -1,0 +1,15 @@
+{
+  "name": "@fitcut/shared",
+  "private": true,
+  "type": "module",
+  "description": "웹과 서버가 함께 쓰는 값 (잡 입력 제한 등)",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "typecheck": "tsc -p tsconfig.json"
+  },
+  "devDependencies": {
+    "typescript": "~6.0.3"
+  }
+}

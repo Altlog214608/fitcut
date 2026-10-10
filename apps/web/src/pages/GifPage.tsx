@@ -1,11 +1,9 @@
-import { ToolPlaceholder } from '../components/ToolPlaceholder';
+import { GifTool } from '../gif/GifTool';
+import { detectKind } from '../lib/detectKind';
+import { getSelectedFile } from '../lib/selectedFile';
 
 export function GifPage() {
-  return (
-    <ToolPlaceholder
-      title="움짤"
-      summary="영상에서 구간을 프레임 단위로 골라 GIF · WebP · MP4로 만들어요."
-      accepts={['video']}
-    />
-  );
+  const selected = getSelectedFile();
+  const initialFile = selected && detectKind(selected).kind === 'video' ? selected : null;
+  return <GifTool initialFile={initialFile} />;
 }
