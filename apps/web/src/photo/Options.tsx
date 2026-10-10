@@ -2,6 +2,7 @@ import { Segmented } from '../components/Segmented';
 import type { OutputFormat } from './fileName';
 import type { FitMode } from './layout';
 import styles from './Options.module.css';
+import { TARGET_SIZES_KB, targetLabel } from './targetSize';
 import type { Background } from './render';
 
 type Props = {
@@ -13,6 +14,9 @@ type Props = {
   onFormat: (format: OutputFormat) => void;
   quality: number;
   onQuality: (quality: number) => void;
+  /** 목표 용량(KB), 0 = 끄기 (F9) */
+  targetKb: number;
+  onTargetKb: (kb: number) => void;
   isCircle: boolean;
   circleOutside: 'black' | 'transparent';
   onCircleOutside: (value: 'black' | 'transparent') => void;
@@ -50,6 +54,11 @@ const FORMATS = [
   { value: 'png', label: 'PNG' },
   { value: 'webp', label: 'WebP' },
 ] as const;
+
+const TARGETS = TARGET_SIZES_KB.map((kb) => ({
+  value: String(kb),
+  label: kb === 0 ? '끄기' : targetLabel(kb * 1000),
+}));
 
 const SWATCHES = [
   { color: '#000000', label: '검정' },
@@ -193,6 +202,15 @@ export function Options(props: Props) {
             onChange={(e) => props.onQuality(Number(e.currentTarget.value))}
           />
         </label>
+      )}
+      {format !== 'png' && (
+        <Segmented
+          label="목표 용량 (이하로 맞추기)"
+          value={String(props.targetKb)}
+          options={TARGETS}
+          onChange={(v) => props.onTargetKb(Number(v))}
+          wrap
+        />
       )}
     </div>
   );

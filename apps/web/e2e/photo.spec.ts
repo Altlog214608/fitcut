@@ -1,7 +1,15 @@
 import { expect, test, type Page } from '@playwright/test';
 import { unzipSync } from 'fflate';
 import { readFile } from 'node:fs/promises';
-import { hasExif, imageSize, makeCutPortrait, makeImage, makeScene, withExif } from './images';
+import {
+  hasExif,
+  imageSize,
+  makeCutPortrait,
+  makeImage,
+  makeNoise,
+  makeScene,
+  withExif,
+} from './images';
 
 /** 사진 작업 중 업로드 요청이 없는지 본다 (F1 수용 기준, M1 완료 기준) */
 function watchUploads(page: Page): string[] {
@@ -301,4 +309,30 @@ test('내 기기 3개를 ZIP 하나로 저장한다 (기기 이름이 든 파일
     height: 480,
   });
   await expect(page.getByText(/3개를 ZIP 하나로 저장했어요/)).toBeVisible();
+});
+
+test('목표 용량을 정하면 그 이하로 저장하고, 맞출 수 없으면 가능한 최소 용량과 이유를 보여준다', async ({
+  page,
+}) => {
+  await page.goto('/photo');
+  await page.getByLabel(/사진을 끌어오세요/).setInputFiles({
+    name: 'scene.png',
+    mimeType: 'image/png',
+    buffer: await makeScene(page, 1600, 2400),
+  });
+  await chooseDevice(page, '17 프로', 'iPhone 17 Pro');
+  await page.getByRole('radio', { name: '200KB' }).click();
+  const { file } = await save(page);
+  expect(file.length).toBeLessThanOrEqual(200_000);
+  expect(imageSize(file)).toMatchObject({ width: 1206, height: 2622, type: 'jpeg' });
+  await expect(page.getByText(/목표 200KB 이하 \(화질 \d+\)/)).toBeVisible();
+
+  // 무작위 점 사진은 가장 낮은 화질로도 200KB를 넘는다
+  await page.getByLabel(/다른 사진/).setInputFiles({
+    name: 'noise.png',
+    mimeType: 'image/png',
+    buffer: await makeNoise(page, 1206, 2622),
+  });
+  await save(page);
+  await expect(page.getByRole('alert')).toContainText('200KB 이하로 줄일 수 없어요');
 });

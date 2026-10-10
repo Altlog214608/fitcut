@@ -195,3 +195,29 @@ export async function makeScene(page: Page, width: number, height: number): Prom
   );
   return Buffer.from(dataUrl.split(',')[1] ?? '', 'base64');
 }
+
+/** 무작위 점 사진 (PNG). 압축이 거의 안 돼서 용량 맞추기 시험에 쓴다 */
+export async function makeNoise(page: Page, width: number, height: number): Promise<Buffer> {
+  const dataUrl = await page.evaluate(
+    ({ width, height }) => {
+      const canvas = document.createElement('canvas');
+      canvas.width = width;
+      canvas.height = height;
+      const ctx = canvas.getContext('2d');
+      if (!ctx) throw new Error('no canvas');
+      const img = ctx.createImageData(width, height);
+      let seed = 1;
+      for (let i = 0; i < img.data.length; i += 4) {
+        seed = (seed * 48271) % 2147483647;
+        img.data[i] = seed & 255;
+        img.data[i + 1] = (seed >> 8) & 255;
+        img.data[i + 2] = (seed >> 16) & 255;
+        img.data[i + 3] = 255;
+      }
+      ctx.putImageData(img, 0, 0);
+      return canvas.toDataURL('image/png');
+    },
+    { width, height },
+  );
+  return Buffer.from(dataUrl.split(',')[1] ?? '', 'base64');
+}

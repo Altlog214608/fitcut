@@ -3,6 +3,7 @@
  * 캔버스로 다시 인코딩하므로 EXIF·위치정보 같은 메타데이터는 결과에 남지 않는다.
  * Web Worker(OffscreenCanvas)와 메인 스레드(HTMLCanvasElement) 양쪽에서 같은 코드를 쓴다.
  */
+import { fitToSize } from './targetSize';
 import { fadeStops, featherStops, fillExtent, type FillExtent, type Stop } from './blend';
 import { edgeColors, toCss } from './colors';
 import type { OutputFormat } from './fileName';
@@ -36,12 +37,16 @@ export type RenderOptions = {
   circleOutside?: 'black' | 'transparent';
   /** 배경 채우기에서 사진 경계를 섞는 길이. 사진 길이 대비 비율 (0 = 섞지 않음) */
   feather?: number;
+  /** 목표 용량(바이트). JPEG·WebP만, 화질을 낮춰 맞춘다 (F9) */
+  maxBytes?: number;
 };
 
 export type RenderResult = {
   blob: Blob;
   /** 브라우저가 요청한 형식을 못 만들면 PNG 등으로 대신 만든다 (예: 일부 브라우저의 WebP) */
   format: OutputFormat;
+  /** 목표 용량을 썼을 때: 실제로 쓴 화질과 목표를 맞췄는지 */
+  fitted?: { quality: number; fits: boolean };
 };
 
 type AnyCanvas = OffscreenCanvas | HTMLCanvasElement;
@@ -381,5 +386,14 @@ export async function renderPhotoWith(
   const source = resample && size ? await resample(image, size.width, size.height) : image;
   drawPhoto(context(canvas), source, options, make);
   const blob = await encode(canvas, options.format, options.quality);
-  return { blob, format: formatOf(blob.type) };
+  const format = formatOf(blob.type);
+  // PNG는 화질이 없어 줄일 수 없다 (WebP를 못 만들어 PNG로 대신한 경우도)
+  if (!options.maxBytes || format === 'png') return { blob, format };
+  const fitted = await fitToSize(
+    (quality) =>
+      quality === options.quality ? Promise.resolve(blob) : encode(canvas, options.format, quality),
+    options.maxBytes,
+    options.quality,
+  );
+  return { blob: fitted.blob, format, fitted: { quality: fitted.quality, fits: fitted.fits } };
 }

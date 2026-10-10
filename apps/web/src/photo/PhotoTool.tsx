@@ -9,6 +9,7 @@ import { track } from '../lib/analytics';
 import { sizeBucket } from '@fitcut/shared';
 import { canShareAll, download, openShare } from '../lib/save';
 import { targetKey, uniqueNames, zipFiles, zipName } from './batch';
+import { targetLabel } from './targetSize';
 import { DevicePicker } from './DevicePicker';
 import { outputFileName, type OutputFormat } from './fileName';
 import { computeLayout, fillAxis, maxZoom, ratioFit, type FitMode, type Position } from './layout';
@@ -68,6 +69,9 @@ type Saved = {
   fellBack: boolean;
   /** 공유 화면으로 넘겼다 (아이폰) */
   shared: boolean;
+  /** 목표 용량을 썼을 때 (F9) */
+  maxBytes?: number;
+  fitted?: { quality: number; fits: boolean };
 };
 
 function formatBytes(bytes: number): string {
@@ -111,6 +115,7 @@ export function PhotoTool({ initialFile }: { initialFile: File | null }) {
   });
   const [format, setFormat] = useState<OutputFormat>('jpeg');
   const [quality, setQuality] = useState(0.92);
+  const [targetKb, setTargetKb] = useState(0);
   const [circleOutside, setCircleOutside] = useState<'black' | 'transparent'>('black');
   const [soft, setSoft] = useState(true);
 
@@ -179,6 +184,7 @@ export function PhotoTool({ initialFile }: { initialFile: File | null }) {
     background,
     format,
     quality,
+    targetKb,
     circleOutside,
     soft,
   ]);
@@ -205,6 +211,8 @@ export function PhotoTool({ initialFile }: { initialFile: File | null }) {
   const transparentCircle = isCircle && circleOutside === 'transparent';
   const feather = contain && soft ? FEATHER : 0;
   const effectiveFormat: OutputFormat = transparentCircle && format === 'jpeg' ? 'png' : format;
+  // 목표 용량은 JPEG·WebP에서만 (PNG는 화질을 낮출 수 없다)
+  const maxBytes = targetKb > 0 ? targetKb * 1000 : 0;
 
   function pickFile(next: File) {
     const kind = detectKind(next);
@@ -249,6 +257,7 @@ export function PhotoTool({ initialFile }: { initialFile: File | null }) {
     background,
     format,
     quality,
+    targetKb,
     circleOutside,
     soft,
   ]);
@@ -286,6 +295,7 @@ export function PhotoTool({ initialFile }: { initialFile: File | null }) {
           quality,
           feather,
           ...(circle ? { circleOutside } : {}),
+          ...(maxBytes ? { maxBytes } : {}),
         });
         made.push({
           name: outputFileName(file.name, r.label, r.size, result.format),
@@ -355,6 +365,7 @@ export function PhotoTool({ initialFile }: { initialFile: File | null }) {
         quality,
         feather,
         ...(isCircle ? { circleOutside } : {}),
+        ...(maxBytes ? { maxBytes } : {}),
       });
       const name = outputFileName(file.name, resolved.label, resolved.size, result.format);
       setShareFile(null);
@@ -372,6 +383,8 @@ export function PhotoTool({ initialFile }: { initialFile: File | null }) {
         bytes: result.blob.size,
         fellBack: result.format !== effectiveFormat,
         shared: SAVE_METHOD === 'share',
+        ...(result.fitted ? { fitted: result.fitted } : {}),
+        ...(maxBytes ? { maxBytes } : {}),
       });
       track('export_done', {
         tool: 'photo',
@@ -532,6 +545,8 @@ export function PhotoTool({ initialFile }: { initialFile: File | null }) {
             onFormat={setFormat}
             quality={quality}
             onQuality={setQuality}
+            targetKb={targetKb}
+            onTargetKb={setTargetKb}
             isCircle={isCircle}
             circleOutside={circleOutside}
             onCircleOutside={setCircleOutside}
@@ -597,6 +612,13 @@ export function PhotoTool({ initialFile }: { initialFile: File | null }) {
                 </span>{' '}
                 · {formatBytes(savedNow.bytes)}
                 {savedNow.fellBack && <> · 이 브라우저는 WebP를 만들 수 없어서 PNG로 저장했어요</>}
+                {savedNow.fitted?.fits && (
+                  <>
+                    {' '}
+                    · 목표 {targetLabel(savedNow.maxBytes ?? 0)} 이하 (화질{' '}
+                    {Math.round(savedNow.fitted.quality * 100)})
+                  </>
+                )}
               </p>
             )}
             {savedNow && shareFile && (
@@ -611,6 +633,19 @@ export function PhotoTool({ initialFile }: { initialFile: File | null }) {
             {SAVE_METHOD === 'share' && (
               <p className={styles.hint}>
                 공유 화면에서 &lsquo;이미지 저장&rsquo;을 누르면 사진 앱에 들어가요.
+              </p>
+            )}
+            {savedNow?.fitted && !savedNow.fitted.fits && (
+              <p className={styles.error} role="alert">
+                가장 낮은 화질로도 {formatBytes(savedNow.bytes)}예요. 화면 크기(
+                {savedNow.width} × {savedNow.height})를 그대로 두면{' '}
+                {targetLabel(savedNow.maxBytes ?? 0)} 이하로 줄일 수 없어요. 더 작은 기기나 크기를
+                골라 주세요.
+              </p>
+            )}
+            {targetKb > 0 && effectiveFormat === 'png' && (
+              <p className={styles.hint}>
+                PNG는 화질을 낮출 수 없어서 목표 용량은 JPG · WebP에서만 맞춰요.
               </p>
             )}
             {saveError && (
