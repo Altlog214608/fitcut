@@ -30,6 +30,8 @@ module "api" {
   lambda_zip_hash       = data.archive_file.api.output_base64sha256
   workload_boundary_arn = local.workload_boundary_arn
   site_origin           = "https://${module.web.domain_name}"
+  queue_url             = module.worker.queue_url
+  queue_arn             = module.worker.queue_arn
 }
 
 variable "worker_image_tag" {

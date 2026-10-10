@@ -1,6 +1,6 @@
 /**
  * 워커 Lambda (컨테이너 이미지). SQS 메시지 하나 = 잡 하나.
- * S3 업로드 완료 → EventBridge → SQS({ key, size }) → 이 함수.
+ * 잡 API(POST /api/jobs)가 업로드를 확인하고 SQS({ jobId })에 넣는다 → 이 함수 (ADR-033).
  * 1) 잡을 processing으로 바꾼다 (이미 처리 중이거나 끝났으면 건너뛴다)
  * 2) 원본을 /tmp로 받아 ffprobe로 확인 (확장자를 믿지 않는다)
  * 3) ffmpeg로 만들고 결과를 outputs 버킷에 올린다
@@ -55,12 +55,14 @@ export type Deps = {
   exec: typeof run;
 };
 
-/** EventBridge가 넣은 메시지에서 잡 ID를 꺼낸다 (키는 in/<uuid>) */
+/** 잡 API가 넣은 메시지에서 잡 ID를 꺼낸다 ({ "jobId": "<uuid>" }) */
 export function jobIdFromMessage(body: string): string | null {
   try {
-    const key = (JSON.parse(body) as { key?: unknown }).key;
-    const m = typeof key === 'string' ? /^in\/([0-9a-f-]{36})$/.exec(key) : null;
-    return m?.[1] ?? null;
+    const id = (JSON.parse(body) as { jobId?: unknown }).jobId;
+    return typeof id === 'string' &&
+      /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/.test(id)
+      ? id
+      : null;
   } catch {
     return null;
   }
@@ -79,12 +81,10 @@ export function makeHandler(deps: Deps) {
           UpdateExpression: 'SET #s = :processing, startedAt = :now',
           // 처리 중에 Lambda가 강제로 끝나면 processing에 멈춘다. 오래된 processing은 다시 잡는다
           ConditionExpression:
-            'attribute_exists(PK) AND (#s IN (:created, :uploaded, :queued) OR (#s = :processing AND startedAt < :stale))',
+            'attribute_exists(PK) AND (#s = :queued OR (#s = :processing AND startedAt < :stale))',
           ExpressionAttributeNames: { '#s': 'status' },
           ExpressionAttributeValues: {
             ':processing': 'processing',
-            ':created': 'created',
-            ':uploaded': 'uploaded',
             ':queued': 'queued',
             ':now': new Date().toISOString(),
             ':stale': new Date(Date.now() - STALE_MS).toISOString(),
@@ -183,7 +183,7 @@ export function makeHandler(deps: Deps) {
     const failures: SQSBatchResponse['batchItemFailures'] = [];
     for (const record of event.Records) {
       const id = jobIdFromMessage(record.body);
-      if (!id) continue; // 우리가 만든 키가 아니면 버린다
+      if (!id) continue; // 우리가 만든 메시지가 아니면 버린다
       try {
         await process(id);
       } catch (e) {

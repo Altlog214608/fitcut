@@ -39,12 +39,15 @@
  ├─ 정적 파일: CloudFront → S3(web)
  ├─ 사진 작업: 브라우저 안에서 끝 (서버 호출 없음)
  └─ 영상·음성 작업
-     1. POST /api/jobs → CloudFront(/api/*, 오리진 확인 헤더) → API Gateway(HTTP API) → Lambda(api)
-                      → DynamoDB에 잡 생성, IP별 일일 할당량 확인
+     1. 파일을 고르자마자: POST /api/uploads → CloudFront(/api/*, 오리진 확인 헤더) → API Gateway(HTTP API) → Lambda(api)
+                      → IP별 일일 업로드 할당량, DynamoDB에 업로드 기록
                       ← S3 presigned POST (크기·타입 제한 정책 포함)
-     2. 브라우저 → S3(uploads) 직접 업로드
-     3. 업로드 완료 이벤트 → EventBridge → SQS → Lambda(worker, ffmpeg 컨테이너 이미지)  (ADR-032)
-          └─ (예정) 큰 작업은 분배기가 ECS RunTask (Fargate Spot, 같은 worker 코드)로 보낸다 (ADR-002)
+     2. 브라우저 → S3(uploads) 직접 업로드. 그동안 브라우저에서 미리보기하며 구간을 고른다 (ADR-033)
+     3. 업로드가 끝나고 "만들기": POST /api/jobs (uploadId, 형식, 구간)
+                      → 업로드 완료 확인(HeadObject), IP별 일일 잡 할당량, DynamoDB에 잡 생성
+                      → SQS → Lambda(worker, ffmpeg 컨테이너 이미지)  (ADR-032, ADR-033)
+          └─ (예정) 큰 작업은 API가 큐에 넣을 때 ECS RunTask (Fargate Spot, 같은 worker 코드)로 보낸다 (ADR-002)
+          └─ 같은 업로드로 형식을 바꿔 잡을 더 만들 수 있다 (다시 올리지 않음)
      4. 결과 → S3(outputs), DynamoDB 상태 갱신
         보관 동의 시: 원본·결과를 S3(retained)로 복사
      5. 브라우저: GET /api/jobs/{id} 폴링 (지수 백오프)
@@ -96,12 +99,13 @@
 
 | PK | SK | 주요 속성 |
 | --- | --- | --- |
-| `JOB#<id>` | `META` | type(gif·webp·mp4·audio·rotate·subtitle·audiogram·clip), status(created·uploaded·queued·processing·done·failed), params, inputKey, outputKeys, retain, retainUntil, deleteTokenHash, error, createdAt, ttl |
+| `UPLOAD#<id>` | `META` | inputKey(`in/<id>`), contentType, fileSize, createdAt, ttl(1일, 원본 수명 주기와 같게) |
+| `JOB#<id>` | `META` | type(gif·webp·mp4·audio·rotate·subtitle·audiogram·clip), status(queued·processing·done·failed), params, uploadId, inputKey, fileSize, outputKey, outputBytes, ffmpegMs, retain, retainUntil, deleteTokenHash, error, createdAt, ttl |
 | `LINK#<id>` | `META` | platform, videoId, start, end, createdAt |
 | `CONN#<플랫폼>#<채널ID>` | `META` | encryptedTokens(KMS), scopes, connectedAt, status |
 | `BCAST#<id>` | `META` | platform, channelId, startedAt, endedAt, collector(task·webhook), eventCount, analysisStatus |
 | `BCAST#<id>` | `CAND#<순번>` | start, end, score, signals, title |
-| `QUOTA#<IP해시>#<yyyymmdd>` | `COUNT` | count (원자적 증가), ttl |
+| `QUOTA#<IP해시>#<yyyymmdd>` | `COUNT` | count(잡), uploads(업로드) (원자적 증가, 조건부), ttl |
 | `AUDIT#<yyyymm>` | `<시각>#<관리자>` | action(view·download·delete), target |
 
 - GSI1: `GSI1PK = DAY#<yyyymmdd>`, `GSI1SK = <시각>#<PK>` → 관리자 화면의 날짜별 목록

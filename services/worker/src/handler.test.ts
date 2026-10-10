@@ -19,7 +19,7 @@ const job = {
   status: 'processing',
   kind: 'gif',
   params: { start: 0.5, end: 3, fps: 15, width: 480 },
-  inputKey: `in/${ID}`,
+  inputKey: 'in/7d2e9a41-5b6c-4f8d-8e1a-3c9b0f2d4e6a',
 };
 const mp4Probe = JSON.stringify({
   format: { format_name: 'mov,mp4,m4a,3gp,3g2,mj2', duration: '4.0' },
@@ -27,6 +27,8 @@ const mp4Probe = JSON.stringify({
     { codec_type: 'video', codec_name: 'h264', width: 640, height: 360, avg_frame_rate: '30/1' },
   ],
 });
+
+const message = JSON.stringify({ jobId: ID });
 
 function event(body: string): SQSEvent {
   return { Records: [{ messageId: 'm1', body } as SQSEvent['Records'][number]] };
@@ -67,9 +69,10 @@ beforeEach(() => {
 });
 
 describe('jobIdFromMessage', () => {
-  it('in/<uuid> 키에서만 잡 ID를 꺼낸다', () => {
-    expect(jobIdFromMessage(JSON.stringify({ key: `in/${ID}`, size: 10 }))).toBe(ID);
-    expect(jobIdFromMessage(JSON.stringify({ key: `other/${ID}` }))).toBeNull();
+  it('UUID 모양의 잡 ID만 꺼낸다', () => {
+    expect(jobIdFromMessage(JSON.stringify({ jobId: ID }))).toBe(ID);
+    expect(jobIdFromMessage(JSON.stringify({ jobId: '../x' }))).toBeNull();
+    expect(jobIdFromMessage(JSON.stringify({ key: `in/${ID}` }))).toBeNull();
     expect(jobIdFromMessage('nope')).toBeNull();
   });
 });
@@ -77,7 +80,7 @@ describe('jobIdFromMessage', () => {
 describe('워커', () => {
   it('받아서 만들고 결과를 올린 뒤 done으로 바꾼다', async () => {
     ddbMock.on(UpdateCommand).resolvesOnce({ Attributes: job }).resolves({});
-    const res = await handler(fakeExec(mp4Probe))(event(JSON.stringify({ key: `in/${ID}` })));
+    const res = await handler(fakeExec(mp4Probe))(event(message));
     expect(res.batchItemFailures).toEqual([]);
     const put = s3Mock.commandCalls(PutObjectCommand)[0]?.args[0].input;
     expect(put).toMatchObject({ Bucket: 'out', Key: `out/${ID}.gif`, ContentType: 'image/gif' });
@@ -91,14 +94,14 @@ describe('워커', () => {
     const err = Object.assign(new Error('cond'), { name: 'ConditionalCheckFailedException' });
     ddbMock.on(UpdateCommand).rejects(err);
     const exec = vi.fn(fakeExec(mp4Probe));
-    const res = await handler(exec)(event(JSON.stringify({ key: `in/${ID}` })));
+    const res = await handler(exec)(event(message));
     expect(res.batchItemFailures).toEqual([]);
     expect(exec).not.toHaveBeenCalled();
   });
 
   it('영상이 아니면 다시 시도하지 않고 이유와 함께 failed', async () => {
     ddbMock.on(UpdateCommand).resolvesOnce({ Attributes: job }).resolves({});
-    const res = await handler(fakeExec('{}'))(event(JSON.stringify({ key: `in/${ID}` })));
+    const res = await handler(fakeExec('{}'))(event(message));
     expect(res.batchItemFailures).toEqual([]);
     expect(updates().at(-1)?.ExpressionAttributeValues).toEqual(
       expect.objectContaining({
@@ -115,7 +118,7 @@ describe('워커', () => {
       if (bin === 'ffprobe') return { stdout: mp4Probe, ms: 5 };
       throw new Error('ffmpeg exit 1');
     };
-    await handler(exec)(event(JSON.stringify({ key: `in/${ID}` })));
+    await handler(exec)(event(message));
     expect(updates().at(-1)?.ExpressionAttributeValues).toEqual(
       expect.objectContaining({
         ':v0': 'failed',
@@ -126,7 +129,7 @@ describe('워커', () => {
 
   it('잡을 잡는 단계에서 DynamoDB 오류면 SQS가 다시 보내게 실패로 돌려준다', async () => {
     ddbMock.on(UpdateCommand).rejects(new Error('throttled'));
-    const res = await handler(fakeExec(mp4Probe))(event(JSON.stringify({ key: `in/${ID}` })));
+    const res = await handler(fakeExec(mp4Probe))(event(message));
     expect(res.batchItemFailures).toEqual([{ itemIdentifier: 'm1' }]);
   });
 });
