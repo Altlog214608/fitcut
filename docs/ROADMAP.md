@@ -52,7 +52,7 @@
 
 - [ ] 타임라인: 썸네일 스트립, 핸들, 확대, 키보드, 시간 입력, 구간 반복
 - [ ] 업로드와 미리보기를 동시에 진행 (Object URL)
-- [ ] API: `POST /jobs`, `GET /jobs/{id}` (HTTP API + Lambda + DynamoDB)
+- [ ] API: `POST /api/jobs`, `GET /api/jobs/{id}` (CloudFront /api/* → HTTP API + Lambda + DynamoDB, ADR-031) — 코드·인프라 작성, 적용 대기
 - [ ] presigned POST 업로드 (크기·타입 제한)
 - [ ] dispatcher: 작업 크기에 따라 Lambda / Fargate Spot으로 분배
 - [ ] ffmpeg 워커: GIF(팔레트 2단계), WebP, MP4, 프레임 단위로 정확한 자르기

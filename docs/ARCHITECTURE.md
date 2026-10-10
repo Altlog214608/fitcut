@@ -39,7 +39,7 @@
  ├─ 정적 파일: CloudFront → S3(web)
  ├─ 사진 작업: 브라우저 안에서 끝 (서버 호출 없음)
  └─ 영상·음성 작업
-     1. POST /jobs → API Gateway(HTTP API) → Lambda(api)
+     1. POST /api/jobs → CloudFront(/api/*, 오리진 확인 헤더) → API Gateway(HTTP API) → Lambda(api)
                       → DynamoDB에 잡 생성, IP별 일일 할당량 확인
                       ← S3 presigned POST (크기·타입 제한 정책 포함)
      2. 브라우저 → S3(uploads) 직접 업로드
@@ -48,7 +48,7 @@
           └─ 큰 작업: ECS RunTask (Fargate Spot, 같은 worker 코드)
      4. 결과 → S3(outputs), DynamoDB 상태 갱신
         보관 동의 시: 원본·결과를 S3(retained)로 복사
-     5. 브라우저: GET /jobs/{id} 폴링 (지수 백오프)
+     5. 브라우저: GET /api/jobs/{id} 폴링 (지수 백오프)
           → 완료 시 CloudFront 서명 URL로 다운로드
 ```
 
