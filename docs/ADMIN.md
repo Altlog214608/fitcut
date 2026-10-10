@@ -42,8 +42,8 @@
 ```
 브라우저 sendBeacon ─→ POST /events (여러 개를 묶어서) → Lambda(events)
                          허용된 이벤트·필드만 통과 (스키마 검증)
-서버 잡 이벤트 ──────────→ 같은 Firehose
-   → Data Firehose (버퍼링, JSON → Parquet 변환)
+서버 잡 이벤트 ──────────→ 같은 SQS
+   → SQS → 배치 Lambda (최대 5분씩 모아 gzip JSON Lines, ADR-030)
    → S3 analytics/dt=YYYY-MM-DD/
    → Glue Data Catalog 테이블 → Athena
 매일 새벽: EventBridge Scheduler → Lambda(aggregate)
@@ -78,7 +78,7 @@
 
 - Athena: 워크그룹에 쿼리당 스캔 한도, 파티션으로 날짜 범위 제한, 결과 버킷 7일 후 삭제
 - 집계는 하루 한 번만 돌리고 화면은 집계를 읽는다
-- Data Firehose 버퍼를 크게 잡아 S3 객체 수를 줄인다
+- 배치 Lambda의 배치 창을 크게 잡아 S3 객체 수를 줄인다
 - Cost Explorer API는 요청마다 요금이 붙으므로 하루 한 번만 호출한다
 - 목표: 분석 파이프라인 월 비용을 README에 따로 기록한다
 
