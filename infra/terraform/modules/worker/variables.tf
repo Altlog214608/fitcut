@@ -57,6 +57,12 @@ variable "max_concurrency" {
   default     = 2
 }
 
+variable "bench_memory_mb" {
+  description = "메모리별 시간·비용 측정용 함수 (같은 이미지, 큐 연결 없음). 측정이 끝나면 비운다 (ADR-002)"
+  type        = list(number)
+  default     = []
+}
+
 variable "log_retention_days" {
   type    = number
   default = 14
