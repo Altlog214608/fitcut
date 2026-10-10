@@ -327,6 +327,12 @@ export function PhotoTool({ initialFile }: { initialFile: File | null }) {
               position={placed}
               onPositionChange={setPosition}
             />
+          ) : current && imageUrl && !resolved && !fileError ? (
+            // 기기를 고르기 전에도 고른 사진을 먼저 보여준다 (2026-10-10 사용자 요청)
+            <figure className={styles.original}>
+              <img src={imageUrl} alt="고른 사진 원본" />
+              <figcaption>기기를 고르면 이 사진을 화면 모양대로 맞춰 보여드려요.</figcaption>
+            </figure>
           ) : (
             <div className={styles.placeholder}>
               {fileError ? (
