@@ -38,6 +38,34 @@ function rowStd(img: Rgba, y: number): number {
 }
 
 describe('textureFill', () => {
+  it('결은 밝기로만 더한다: 베이지 벽의 색 잡음·다른 물건 색이 초록·파랑 얼룩으로 번지지 않는다', () => {
+    // 2026-10-10 사용자 제보: 베이지 사진인데 채운 곳이 초록·파랑으로 덮였다
+    let n = 7;
+    const rand = () => {
+      n = (n * 48271) % 2147483647;
+      return n / 2147483647;
+    };
+    const beige = [200, 180, 150];
+    const band = strip(720, 400, (x, y) => {
+      // 띠 안쪽의 파란 물건
+      if (y > 120 && y < 220 && x > 300 && x < 420) return [40, 70, 160];
+      // 어두운 실내 사진처럼 채널마다 따로 튀는 색 잡음
+      return beige.map((v) => v + (rand() - 0.5) * 40);
+    });
+    const out = textureFill(band, 300, 0);
+    // 채운 곳의 색(빨강 대비 초록·파랑 차이)이 베이지에서 벗어난 정도의 평균
+    let drift = 0;
+    let count = 0;
+    for (let y = 0; y < 300; y += 3) {
+      for (let x = 0; x < 720; x += 3) {
+        const [r = 0, g = 0, b = 0] = pixel(out, x, y);
+        drift += Math.abs(g - r - (180 - 200)) + Math.abs(b - r - (150 - 200));
+        count += 1;
+      }
+    }
+    expect(drift / count).toBeLessThan(8);
+  });
+
   it('크기는 가로 x (채울 줄 + 겹칠 줄)', () => {
     const out = textureFill(
       strip(360, 120, () => [200, 190, 170]),
