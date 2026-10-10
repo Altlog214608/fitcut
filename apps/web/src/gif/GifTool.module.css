@@ -1,0 +1,432 @@
+.empty {
+  display: grid;
+  gap: var(--space-3);
+  max-width: var(--content-max);
+  width: 100%;
+  margin: 0 auto;
+}
+
+.tool {
+  display: grid;
+  gap: var(--space-2);
+}
+
+.title {
+  font-size: var(--text-title);
+  line-height: 1.35;
+  font-weight: 740;
+  letter-spacing: -0.02em;
+}
+
+.lead {
+  color: var(--color-slate);
+}
+
+.head {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.headText {
+  display: grid;
+  flex: 1;
+  min-width: 0;
+}
+
+.fileInfo {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 10px;
+  font-size: var(--text-small);
+  color: var(--color-slate);
+}
+
+.fileName {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  max-width: 100%;
+}
+
+.num {
+  font-variant-numeric: tabular-nums;
+}
+
+.replace {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 40px;
+  padding: 0 14px;
+  border: 1px solid var(--color-line);
+  border-radius: var(--radius-control);
+  font-size: var(--text-caption);
+  font-weight: 600;
+  cursor: pointer;
+  flex: none;
+}
+
+.replace:has(+ input:focus-visible) {
+  outline: 2px solid var(--color-accent-ink);
+  outline-offset: 3px;
+}
+
+/* ---------- 업로드 상태 ---------- */
+
+.upload {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 12px;
+  min-height: 24px;
+  font-size: var(--text-caption);
+}
+
+.uploadText {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  flex: 1;
+  color: var(--color-slate);
+}
+
+.uploadText b {
+  color: var(--color-ink);
+}
+
+.ok {
+  color: var(--color-accent-ink);
+}
+
+.uploadError {
+  flex: 1;
+  color: var(--color-danger);
+}
+
+.bar {
+  flex-basis: 100%;
+  height: 4px;
+  border-radius: 2px;
+  background: var(--color-line);
+  overflow: hidden;
+}
+
+.bar span {
+  display: block;
+  height: 100%;
+  background: var(--color-accent);
+  transition: width var(--motion-fast) linear;
+}
+
+.textButton {
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--color-accent-ink);
+  font-size: var(--text-caption);
+  font-weight: 650;
+  cursor: pointer;
+}
+
+/* ---------- 편집 ---------- */
+
+.main {
+  display: grid;
+  gap: var(--space-3);
+  align-items: start;
+}
+
+@media (min-width: 920px) {
+  .main {
+    grid-template-columns: minmax(0, 1fr) 380px;
+  }
+
+  .panel {
+    position: sticky;
+    top: var(--space-2);
+  }
+}
+
+.editCol {
+  display: grid;
+  gap: var(--space-2);
+  min-width: 0;
+}
+
+.player {
+  display: grid;
+  place-items: center;
+  border-radius: var(--radius-panel);
+  background: #000;
+  overflow: hidden;
+}
+
+.video {
+  display: block;
+  width: 100%;
+  max-height: min(60vh, 560px);
+  object-fit: contain;
+}
+
+.controls {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.playButton {
+  display: grid;
+  place-items: center;
+  width: 44px;
+  height: 44px;
+  border: 0;
+  border-radius: 50%;
+  background: var(--color-accent);
+  color: var(--color-on-accent);
+  cursor: pointer;
+}
+
+.toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 40px;
+  padding: 0 14px;
+  border: 1px solid var(--color-line);
+  border-radius: var(--radius-control);
+  background: none;
+  color: var(--color-slate);
+  font-size: var(--text-caption);
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.toggle[aria-pressed='true'] {
+  border-color: var(--color-accent);
+  background: var(--color-accent-soft);
+  color: var(--color-accent-ink);
+}
+
+.clock {
+  margin-left: auto;
+  font-size: var(--text-body);
+  font-weight: 650;
+}
+
+.times {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: 12px 16px;
+}
+
+.timeField {
+  display: grid;
+  gap: 6px;
+}
+
+.timeLabel {
+  font-size: var(--text-small);
+  font-weight: 600;
+  color: var(--color-slate);
+}
+
+.timeRow {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.stepButton {
+  display: grid;
+  place-items: center;
+  width: 44px;
+  height: 44px;
+  border: 1px solid var(--color-line);
+  border-radius: var(--radius-control);
+  background: none;
+  color: var(--color-ink);
+  cursor: pointer;
+}
+
+.timeInput {
+  width: 104px;
+  height: 44px;
+  padding: 0 8px;
+  border: 1px solid var(--color-line);
+  border-radius: var(--radius-control);
+  background: var(--color-paper);
+  color: var(--color-ink);
+  font: inherit;
+  font-size: var(--text-body);
+  font-weight: 650;
+  font-variant-numeric: tabular-nums;
+  text-align: center;
+}
+
+.timeInput[aria-invalid='true'] {
+  border-color: var(--color-danger);
+}
+
+.length {
+  padding-bottom: 10px;
+  font-size: var(--text-caption);
+  color: var(--color-slate);
+}
+
+.length b {
+  color: var(--color-ink);
+}
+
+.marks {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.chip {
+  height: 40px;
+  padding: 0 14px;
+  border: 1px solid var(--color-line);
+  border-radius: var(--radius-control);
+  background: none;
+  color: var(--color-ink);
+  font-size: var(--text-caption);
+  font-weight: 600;
+  cursor: pointer;
+}
+
+/* 키보드 안내는 마우스가 있는 화면에서만 */
+.keys {
+  display: none;
+  font-size: var(--text-small);
+  color: var(--color-slate);
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .keys {
+    display: block;
+  }
+}
+
+/* ---------- 옵션과 만들기 ---------- */
+
+.panel {
+  display: grid;
+  gap: var(--space-2);
+}
+
+.hint {
+  font-size: var(--text-small);
+  color: var(--color-slate);
+}
+
+.advanced summary {
+  font-size: var(--text-caption);
+  font-weight: 600;
+  color: var(--color-slate);
+  cursor: pointer;
+}
+
+.advanced[open] summary {
+  margin-bottom: 12px;
+}
+
+.estimate {
+  font-size: var(--text-caption);
+  color: var(--color-slate);
+}
+
+.estimate b {
+  color: var(--color-ink);
+}
+
+.saveBar {
+  position: sticky;
+  bottom: 0;
+  display: grid;
+  gap: 10px;
+  padding: 12px 0 calc(12px + env(safe-area-inset-bottom, 0px));
+  background: var(--color-bg);
+}
+
+@media (min-width: 920px) {
+  .saveBar {
+    position: static;
+    padding-bottom: 0;
+  }
+}
+
+.status {
+  display: grid;
+  gap: 2px;
+  font-size: var(--text-caption);
+  font-weight: 600;
+}
+
+.result {
+  display: grid;
+  gap: 8px;
+  margin: 0;
+}
+
+.result img,
+.result video {
+  display: block;
+  max-width: 100%;
+  max-height: 280px;
+  margin: 0 auto;
+  border-radius: var(--radius-control);
+  background: var(--color-paper);
+}
+
+.result figcaption {
+  font-size: var(--text-caption);
+  text-align: center;
+}
+
+.primary {
+  height: var(--button-height);
+  border: 0;
+  border-radius: var(--radius-button);
+  background: var(--color-accent);
+  color: var(--color-on-accent);
+  font-size: var(--text-body);
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.primary:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.secondary {
+  height: 44px;
+  border: 1px solid var(--color-line);
+  border-radius: var(--radius-button);
+  background: none;
+  color: var(--color-ink);
+  font-size: var(--text-caption);
+  font-weight: 650;
+  cursor: pointer;
+}
+
+.error {
+  font-size: var(--text-caption);
+  color: var(--color-danger);
+}
+
+.trust {
+  display: flex;
+  align-items: center;
+  gap: var(--space-1);
+  font-size: var(--text-small);
+  color: var(--color-slate);
+}
+
+.trust svg {
+  color: var(--color-accent-ink);
+  flex: none;
+}

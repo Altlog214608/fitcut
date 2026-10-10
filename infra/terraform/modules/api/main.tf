@@ -137,6 +137,18 @@ resource "aws_s3_bucket_cors_configuration" "uploads" {
   }
 }
 
+# 결과는 서명 주소로 받는다. 아이폰 공유 화면과 인앱 브라우저 저장은 누르는 순간 파일이 있어야 해서
+# 화면이 결과를 미리 받아 둘 수 있게 화면 주소에서의 GET만 연다 (ADR-034)
+resource "aws_s3_bucket_cors_configuration" "outputs" {
+  bucket = aws_s3_bucket.files["outputs"].id
+
+  cors_rule {
+    allowed_methods = ["GET"]
+    allowed_origins = [var.site_origin]
+    max_age_seconds = 3600
+  }
+}
+
 # ---------- 비밀값 (SSM SecureString) ----------
 # IP 해시 솔트, CloudFront만 API를 부를 수 있게 하는 오리진 확인 값
 

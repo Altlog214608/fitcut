@@ -15,7 +15,8 @@
     "@aws-sdk/client-ssm": "^3.1148.0",
     "@aws-sdk/lib-dynamodb": "^3.1148.0",
     "@aws-sdk/s3-presigned-post": "^3.1148.0",
-    "@aws-sdk/s3-request-presigner": "^3.1148.0"
+    "@aws-sdk/s3-request-presigner": "^3.1148.0",
+    "@fitcut/shared": "workspace:*"
   },
   "devDependencies": {
     "@types/aws-lambda": "^8.10.164",
