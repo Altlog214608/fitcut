@@ -1,4 +1,5 @@
 import { expect, test, type Page } from '@playwright/test';
+import { unzipSync } from 'fflate';
 import { readFile } from 'node:fs/promises';
 import { hasExif, imageSize, makeCutPortrait, makeImage, makeScene, withExif } from './images';
 
@@ -249,4 +250,55 @@ test('기기를 고르기 전에도 고른 사진을 먼저 보여준다', async
 
   await chooseDevice(page, '17 프로', 'iPhone 17 Pro');
   await expect(original).toBeHidden();
+});
+
+test('내 기기 3개를 ZIP 하나로 저장한다 (기기 이름이 든 파일, 기기마다 사진 크기를 따로 기억)', async ({
+  page,
+  browserName,
+}, testInfo) => {
+  test.skip(
+    testInfo.project.name === 'iphone' && browserName === 'webkit',
+    '아이폰은 ZIP 대신 공유 화면으로 넘긴다',
+  );
+  await page.goto('/photo');
+  await page.getByLabel(/사진을 끌어오세요/).setInputFiles({
+    name: 'trip.jpg',
+    mimeType: 'image/jpeg',
+    buffer: await makeImage(page, 1600, 1000),
+  });
+  for (const [query, name] of [
+    ['17 프로', 'iPhone 17 Pro'],
+    ['플립8', 'Galaxy Z Flip8'],
+    ['워치9', 'Galaxy Watch9 44mm'],
+  ] as const) {
+    await chooseDevice(page, query, name);
+    await page.getByRole('button', { name: '내 기기로 저장' }).click();
+  }
+  await page.getByRole('radio', { name: '배경 채우기' }).click();
+
+  // 워치에서 키운 사진 크기는 다른 기기로 갔다 와도 그대로
+  const size = page.getByLabel('사진 크기');
+  await size.fill('1.5');
+  await chooseDevice(page, '17 프로', 'iPhone 17 Pro');
+  await expect(size).toHaveValue('1');
+  await chooseDevice(page, '워치9', 'Galaxy Watch9 44mm');
+  await expect(size).toHaveValue('1.5');
+
+  const [download] = await Promise.all([
+    page.waitForEvent('download'),
+    page.getByRole('button', { name: '내 기기 3개 한 번에 저장' }).click(),
+  ]);
+  expect(download.suggestedFilename()).toBe('trip_기기3개.zip');
+  const files = unzipSync(new Uint8Array(await readFile(await download.path())));
+  const names = Object.keys(files).sort();
+  expect(names).toHaveLength(3);
+  expect(names.some((n) => n.includes('iPhone-17-Pro'))).toBe(true);
+  expect(names.some((n) => n.includes('Galaxy-Z-Flip8'))).toBe(true);
+  expect(names.some((n) => n.includes('Galaxy-Watch9-44mm'))).toBe(true);
+  const watch = names.find((n) => n.includes('Watch9')) ?? '';
+  expect(imageSize(Buffer.from(files[watch] ?? new Uint8Array()))).toMatchObject({
+    width: 480,
+    height: 480,
+  });
+  await expect(page.getByText(/3개를 ZIP 하나로 저장했어요/)).toBeVisible();
 });
