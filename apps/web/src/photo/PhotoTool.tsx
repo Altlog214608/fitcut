@@ -7,7 +7,8 @@ import { IN_APP, inAppLabel, SAVE_METHOD } from '../lib/inApp';
 import { readJson, writeJson } from '../lib/storage';
 import { track } from '../lib/analytics';
 import { sizeBucket } from '@fitcut/shared';
-import { download, openShare } from '../lib/save';
+import { canShareAll, download, openShare } from '../lib/save';
+import { targetKey, uniqueNames, zipFiles, zipName } from './batch';
 import { DevicePicker } from './DevicePicker';
 import { outputFileName, type OutputFormat } from './fileName';
 import { computeLayout, fillAxis, maxZoom, ratioFit, type FitMode, type Position } from './layout';
@@ -22,6 +23,10 @@ import { isTargetList, pushRecent, resolveTarget, sameTarget, type Target } from
 const RECENT_KEY = 'fitcut.photo.recent';
 const MINE_KEY = 'fitcut.photo.mine';
 const CENTER: Position = { x: 0, y: 0 };
+
+/** 기기마다 따로 기억하는 사진 위치·크기 (F8). position이 null이면 자동 */
+type Placement = { position: Position | null; zoom: number };
+const DEFAULT_PLACEMENT: Placement = { position: null, zoom: 1 };
 
 type Loaded = {
   file: File;
@@ -88,8 +93,16 @@ export function PhotoTool({ initialFile }: { initialFile: File | null }) {
 
   const [mode, setMode] = useState<FitMode>('cover');
   // null이면 자동: 배경 채우기에서는 사진이 잘린 쪽을 화면 끝에 붙인다. 끌면 직접 정한 위치가 된다.
-  const [position, setPosition] = useState<Position | null>(null);
-  const [zoom, setZoom] = useState(1);
+  const [placements, setPlacements] = useState<Record<string, Placement>>({});
+  const placementKey = target ? targetKey(target) : '';
+  const { position, zoom } = placements[placementKey] ?? DEFAULT_PLACEMENT;
+  const place = (patch: Partial<Placement>) =>
+    setPlacements((all) => ({
+      ...all,
+      [placementKey]: { ...(all[placementKey] ?? DEFAULT_PLACEMENT), ...patch },
+    }));
+  const setPosition = (next: Position | null) => place({ position: next });
+  const setZoom = (next: number) => place({ zoom: next });
   // '자연스럽게'(결 이어 붙이기)는 색이 튀어 뺐다 (2026-10-10 사용자 결정, ADR-028)
   const [background, setBackground] = useState<Background>({
     kind: 'extend',
@@ -102,6 +115,15 @@ export function PhotoTool({ initialFile }: { initialFile: File | null }) {
   const [soft, setSoft] = useState(true);
 
   const [saving, setSaving] = useState(false);
+  // 여러 기기 한 번에 (F8): 진행 상황과 결과
+  const [batch, setBatch] = useState<{ done: number; total: number } | null>(null);
+  const [batchSaved, setBatchSaved] = useState<{
+    key: string;
+    count: number;
+    bytes: number;
+    shared: boolean;
+  } | null>(null);
+  const [shareFiles, setShareFiles] = useState<File[] | null>(null);
   const [saved, setSaved] = useState<(Saved & { key: string }) | null>(null);
   const [saveError, setSaveError] = useState<string | null>(null);
   // 만드는 사이 '누른 직후' 상태가 풀려 공유 화면이 막혔을 때, 다시 눌러 열 파일
@@ -195,8 +217,7 @@ export function PhotoTool({ initialFile }: { initialFile: File | null }) {
       return;
     }
     setPickError(null);
-    setPosition(null);
-    setZoom(1);
+    setPlacements({});
     setFile(next);
   }
 
@@ -204,15 +225,13 @@ export function PhotoTool({ initialFile }: { initialFile: File | null }) {
     track('preset_selected', {
       presetId: next.kind === 'preset' ? `${next.presetId}:${next.role}` : 'custom',
     });
+    // 기기마다 맞춘 위치는 그대로 둔다 (다시 돌아오면 그 위치)
     setTarget(next);
-    setPosition(null);
-    setZoom(1);
   }
 
   function chooseMode(next: FitMode) {
     setMode(next);
-    setPosition(null);
-    setZoom(1);
+    setPlacements({});
   }
 
   function toggleMine(t: Target) {
@@ -221,6 +240,98 @@ export function PhotoTool({ initialFile }: { initialFile: File | null }) {
       : [t, ...mine];
     setMine(next);
     writeJson(MINE_KEY, next);
+  }
+
+  const batchKey = JSON.stringify([
+    mine,
+    placements,
+    mode,
+    background,
+    format,
+    quality,
+    circleOutside,
+    soft,
+  ]);
+  const batchNow = batchSaved && batchSaved.key === batchKey && current ? batchSaved : null;
+
+  /** 내 기기 모두를 같은 설정으로 만들어 ZIP 하나로 (아이폰은 공유 화면으로 한 번에) */
+  async function saveAll() {
+    if (!bitmap || !file || !current || !source || mine.length < 2) return;
+    if (SAVE_METHOD === 'unsupported' && IN_APP) {
+      setSaveError(
+        `${inAppLabel(IN_APP.app)} 안에서는 저장할 수 없어요. 맨 위의 안내대로 크롬 같은 다른 브라우저에서 열어 주세요.`,
+      );
+      return;
+    }
+    const started = performance.now();
+    setSaveError(null);
+    setShareFiles(null);
+    setBatch({ done: 0, total: mine.length });
+    try {
+      const made: { name: string; blob: Blob }[] = [];
+      for (const t of mine) {
+        const r = resolveTarget(t, VISIBLE_PRESETS);
+        if (!r) continue;
+        const p = placements[targetKey(t)] ?? DEFAULT_PLACEMENT;
+        const autoT = contain ? suggestPosition(current.edges, fillAxis(source, r.size)) : CENTER;
+        const lay = computeLayout(source, r.size, mode, p.position ?? autoT, contain ? p.zoom : 1);
+        const circle = r.shape === 'circle';
+        const fmt: OutputFormat =
+          circle && circleOutside === 'transparent' && format === 'jpeg' ? 'png' : format;
+        const result = await renderPhoto(bitmap, {
+          target: r.size,
+          layout: lay,
+          background,
+          format: fmt,
+          quality,
+          feather,
+          ...(circle ? { circleOutside } : {}),
+        });
+        made.push({
+          name: outputFileName(file.name, r.label, r.size, result.format),
+          blob: result.blob,
+        });
+        setBatch({ done: made.length, total: mine.length });
+      }
+      const names = uniqueNames(made.map((m) => m.name));
+      const files = made.map(
+        (m, i) => new File([m.blob], names[i] ?? m.name, { type: m.blob.type }),
+      );
+      let bytes = files.reduce((sum, f) => sum + f.size, 0);
+      const shared = SAVE_METHOD === 'share' && canShareAll(files);
+      if (shared) {
+        openShare(files, () => setShareFiles(files));
+      } else {
+        const zip = zipFiles(
+          await Promise.all(
+            files.map(async (f) => ({ name: f.name, data: new Uint8Array(await f.arrayBuffer()) })),
+          ),
+        );
+        const blob = new Blob([zip.slice()], { type: 'application/zip' });
+        bytes = blob.size;
+        await download(
+          blob,
+          zipName(file.name, files.length),
+          SAVE_METHOD === 'share' ? 'blob' : SAVE_METHOD,
+        );
+      }
+      setBatchSaved({ key: batchKey, count: files.length, bytes, shared });
+      track('export_done', {
+        tool: 'photo',
+        format: shared ? format : 'zip',
+        count: files.length,
+        sizeBytes: bytes,
+        elapsedMs: Math.round(performance.now() - started),
+      });
+    } catch (error) {
+      setSaveError(
+        error instanceof Error
+          ? `${error.message} 다시 시도해 주세요.`
+          : '이미지를 만들지 못했어요. 다시 시도해 주세요.',
+      );
+    } finally {
+      setBatch(null);
+    }
   }
 
   async function save() {
@@ -443,6 +554,41 @@ export function PhotoTool({ initialFile }: { initialFile: File | null }) {
             >
               {saving ? '만드는 중…' : '이미지 저장'}
             </button>
+            {mine.length >= 2 && (
+              <button
+                type="button"
+                className={styles.again}
+                disabled={!current || saving || batch !== null}
+                onClick={() => void saveAll()}
+              >
+                {batch
+                  ? `${batch.total}개 중 ${batch.done + 1 > batch.total ? batch.total : batch.done + 1}개째 만드는 중…`
+                  : `내 기기 ${mine.length}개 한 번에 저장`}
+              </button>
+            )}
+            {batchNow && (
+              <p className={styles.saved} role="status">
+                {batchNow.shared
+                  ? `${batchNow.count}개를 만들었어요`
+                  : `${batchNow.count}개를 ZIP 하나로 저장했어요`}{' '}
+                · {formatBytes(batchNow.bytes)}
+              </p>
+            )}
+            {batchNow && shareFiles && (
+              <button
+                type="button"
+                className={styles.again}
+                onClick={() => openShare(shareFiles, () => undefined)}
+              >
+                사진 앱에 저장
+              </button>
+            )}
+            {mine.length >= 2 && !batchNow && (
+              <p className={styles.hint}>
+                사진 위치와 크기는 기기마다 따로 기억해요. 기기를 바꿔 가며 맞춘 뒤 한 번에
+                저장하세요.
+              </p>
+            )}
             {savedNow && (
               <p className={styles.saved} role="status">
                 {savedNow.shared ? '만들었어요' : '저장했어요'} ·{' '}

@@ -44,11 +44,17 @@ export function openDownloadUrl(url: string): void {
  * 아이폰 공유 화면을 연다. 결과를 기다리지 않는다: iOS 15에서 '이미지 저장'을 고르면 끝났다는 신호가
  * 오지 않는 버그가 있었다 (WebKit 231995). 버튼을 누른 직후가 아니어서 막히면 onBlocked로 다시 누르게 한다.
  */
-export function openShare(file: File, onBlocked: () => void): void {
-  navigator.share({ files: [file] }).catch((error: unknown) => {
+export function openShare(files: File | File[], onBlocked: () => void): void {
+  const list = Array.isArray(files) ? files : [files];
+  navigator.share({ files: list }).catch((error: unknown) => {
     const name = error instanceof DOMException ? error.name : '';
     if (name === 'AbortError') return; // 사용자가 닫았다
     if (name === 'NotAllowedError') onBlocked();
-    else void download(file, file.name, 'blob');
+    else for (const f of list) void download(f, f.name, 'blob');
   });
+}
+
+/** 여러 파일을 한 번에 공유할 수 있는지 (아이폰은 사진 여러 장을 사진 앱에 한 번에 넣는다) */
+export function canShareAll(files: File[]): boolean {
+  return typeof navigator.canShare === 'function' && navigator.canShare({ files });
 }
