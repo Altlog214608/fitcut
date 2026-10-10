@@ -64,3 +64,18 @@ variable "log_retention_days" {
   type    = number
   default = 14
 }
+
+variable "events_queue_url" {
+  description = "사용 이벤트 큐. POST /api/events와 잡 이벤트를 넣는다 (modules/events)"
+  type        = string
+}
+
+variable "events_queue_arn" {
+  type = string
+}
+
+variable "events_throttle_rate" {
+  description = "POST /api/events 초당 요청 수 상한"
+  type        = number
+  default     = 5
+}

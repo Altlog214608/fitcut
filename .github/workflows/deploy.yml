@@ -30,7 +30,11 @@ jobs:
           cache: pnpm
       - run: pnpm install --frozen-lockfile
       - run: pnpm --filter @fitcut/web build
+        env:
+          # 사용 이벤트의 appVersion (lib/analytics.ts)
+          VITE_APP_VERSION: ${{ github.sha }}
       - run: pnpm --filter @fitcut/api build
+      - run: pnpm --filter @fitcut/events build
       - run: pnpm --filter @fitcut/worker build
 
       - uses: hashicorp/setup-terraform@dfe3c3f87815947d99a8997f908cb6525fc44e9e # v4.0.1

@@ -1,9 +1,10 @@
-import { JOB_LIMITS, type JobKind } from '@fitcut/shared';
+import { JOB_LIMITS, sizeBucket, type JobKind } from '@fitcut/shared';
 import { CircleCheck, Film, Pause, Play, Repeat, ShieldCheck } from 'lucide-react';
 import { useEffect, useId, useRef, useState, type CSSProperties } from 'react';
 import { DropZone } from '../components/DropZone';
 import { Segmented } from '../components/Segmented';
 import { detectKind } from '../lib/detectKind';
+import { track } from '../lib/analytics';
 import { SAVE_METHOD } from '../lib/inApp';
 import { download, openDownloadUrl, openShare } from '../lib/save';
 import {
@@ -399,6 +400,7 @@ export function GifTool({ initialFile }: { initialFile: File | null }) {
       }
       if (!live()) return;
       if (job.status === 'failed') {
+        track('error_shown', { tool: 'gif', code: 'job_failed' });
         setMaking({
           phase: 'failed',
           key: runKey,
@@ -416,7 +418,12 @@ export function GifTool({ initialFile }: { initialFile: File | null }) {
         }
       }
     } catch (error) {
-      if (live()) setMaking({ phase: 'failed', key: runKey, message: messageOf(error) });
+      if (!live()) return;
+      track('error_shown', {
+        tool: 'gif',
+        code: error instanceof ApiError ? error.code : 'unknown',
+      });
+      setMaking({ phase: 'failed', key: runKey, message: messageOf(error) });
     }
   }
 
@@ -438,6 +445,14 @@ export function GifTool({ initialFile }: { initialFile: File | null }) {
     if (now?.phase !== 'done') return;
     const name = resultName(now.job);
     setSaveError(null);
+    const { width: w, height: h } = now.job.params;
+    track('export_done', {
+      tool: 'gif',
+      format: now.job.kind,
+      width: w,
+      ...(h ? { height: h } : {}),
+      sizeBytes: now.job.outputBytes ?? 0,
+    });
     if (SAVE_METHOD === 'share' && now.blob) {
       const made = new File([now.blob], name, { type: now.blob.type });
       openShare(made, () => setShareFile(made));
@@ -610,6 +625,15 @@ export function GifTool({ initialFile }: { initialFile: File | null }) {
                     size: { width: v.videoWidth, height: v.videoHeight },
                   });
                   setRange(initialRange(v.duration));
+                  track('file_selected', {
+                    tool: 'gif',
+                    kind: 'video',
+                    mime: contentTypeOf(file) ?? file.type,
+                    sizeBucket: sizeBucket(file.size),
+                    width: v.videoWidth,
+                    height: v.videoHeight,
+                    durationSec: Math.round(v.duration),
+                  });
                   setCurrent(0);
                 }}
                 onError={() => setVideoError(file)}

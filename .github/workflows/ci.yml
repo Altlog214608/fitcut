@@ -90,6 +90,7 @@ jobs:
       # Lambda 코드 묶음(zip 해시)이 plan에 들어가므로 먼저 만든다
       - run: pnpm install --frozen-lockfile
       - run: pnpm --filter @fitcut/api build
+      - run: pnpm --filter @fitcut/events build
       - uses: hashicorp/setup-terraform@dfe3c3f87815947d99a8997f908cb6525fc44e9e # v4.0.1
         with:
           terraform_version: ${{ env.TF_VERSION }}

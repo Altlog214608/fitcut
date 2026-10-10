@@ -37,6 +37,7 @@ function handler() {
       UPLOADS_BUCKET: 'fitcut-dev-uploads-x',
       OUTPUTS_BUCKET: 'fitcut-dev-outputs-x',
       QUEUE_URL: 'https://sqs.ap-northeast-2.amazonaws.com/000000000000/fitcut-dev-worker',
+      EVENTS_QUEUE_URL: 'https://sqs.ap-northeast-2.amazonaws.com/000000000000/fitcut-dev-events',
       SALT_PARAM: '/fitcut/dev/ip-salt',
       ORIGIN_PARAM: '/fitcut/dev/origin-verify',
       DAILY_JOB_LIMIT: '20',
@@ -180,6 +181,17 @@ describe('잡 만들기', () => {
     expect(sqsMock.commandCalls(SendMessageCommand)[0]?.args[0].input.MessageBody).toBe(
       JSON.stringify({ jobId: ID }),
     );
+    // 잡 이벤트는 이벤트 큐로 (원본 IP 없이)
+    const sent = sqsMock.commandCalls(SendMessageCommand)[1]?.args[0].input;
+    expect(sent?.QueueUrl).toContain('fitcut-dev-events');
+    expect(JSON.parse(sent?.MessageBody ?? '{}').events[0]).toMatchObject({
+      name: 'job_created',
+      jobId: ID,
+      type: 'gif',
+      inputSize: 5_000_000,
+      durationSec: 5,
+      source: 'server',
+    });
   });
 
   it('업로드가 끝나지 않았으면 할당량을 쓰지 않고 409', async () => {
@@ -269,5 +281,43 @@ describe('잡 상태', () => {
     const res = await handler()(event('GET /api/jobs/{id}', { pathParameters: { id: '../x' } }));
     expect(res.statusCode).toBe(404);
     expect(ddbMock.calls()).toHaveLength(0);
+  });
+});
+
+describe('사용 이벤트', () => {
+  const common = { sessionId: 's1', appVersion: 'dev', ts: NOW.getTime() };
+
+  it('허용한 이벤트·필드만 이벤트 큐에 넣고 204', async () => {
+    sqsMock.on(SendMessageCommand).resolves({});
+    const res = await handler()(
+      event('POST /api/events', {
+        body: JSON.stringify({
+          events: [
+            { ...common, name: 'tool_open', tool: 'gif', fileName: 'x.mp4' },
+            { ...common, name: 'job_succeeded', jobId: 'fake' },
+          ],
+        }),
+      }),
+    );
+    expect(res.statusCode).toBe(204);
+    const sent = JSON.parse(
+      sqsMock.commandCalls(SendMessageCommand)[0]?.args[0].input.MessageBody ?? '{}',
+    );
+    expect(sent.events).toEqual([
+      { ...common, name: 'tool_open', tool: 'gif', source: 'web', receivedAt: NOW.getTime() },
+    ]);
+    expect(JSON.stringify(sent)).not.toContain('203.0.113.7');
+  });
+
+  it('남는 이벤트가 없으면 큐에 넣지 않는다, 모양이 틀리면 400, 너무 크면 413', async () => {
+    const empty = await handler()(
+      event('POST /api/events', { body: JSON.stringify({ events: [{ name: 'hack' }] }) }),
+    );
+    expect(empty.statusCode).toBe(204);
+    expect(sqsMock.calls()).toHaveLength(0);
+    const bad = await handler()(event('POST /api/events', { body: 'nope' }));
+    expect(bad.statusCode).toBe(400);
+    const big = await handler()(event('POST /api/events', { body: 'x'.repeat(20000) }));
+    expect(big.statusCode).toBe(413);
   });
 });

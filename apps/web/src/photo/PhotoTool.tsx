@@ -5,6 +5,8 @@ import { DropZone } from '../components/DropZone';
 import { detectKind } from '../lib/detectKind';
 import { IN_APP, inAppLabel, SAVE_METHOD } from '../lib/inApp';
 import { readJson, writeJson } from '../lib/storage';
+import { track } from '../lib/analytics';
+import { sizeBucket } from '@fitcut/shared';
 import { download, openShare } from '../lib/save';
 import { DevicePicker } from './DevicePicker';
 import { outputFileName, type OutputFormat } from './fileName';
@@ -119,6 +121,14 @@ export function PhotoTool({ initialFile }: { initialFile: File | null }) {
         }
         const preview = downscaled(bitmap, PREVIEW_MAX_SIDE, makeCanvas);
         setLoaded({ file, url, bitmap, preview, edges: sampleEdges(preview) });
+        track('file_selected', {
+          tool: 'photo',
+          kind: 'image',
+          mime: file.type,
+          sizeBucket: sizeBucket(file.size),
+          width: bitmap.width,
+          height: bitmap.height,
+        });
       })
       .catch((error: unknown) => {
         if (cancelled) return;
@@ -191,6 +201,9 @@ export function PhotoTool({ initialFile }: { initialFile: File | null }) {
   }
 
   function chooseTarget(next: Target) {
+    track('preset_selected', {
+      presetId: next.kind === 'preset' ? `${next.presetId}:${next.role}` : 'custom',
+    });
     setTarget(next);
     setPosition(null);
     setZoom(1);
@@ -220,6 +233,7 @@ export function PhotoTool({ initialFile }: { initialFile: File | null }) {
       return;
     }
     setSaving(true);
+    const started = performance.now();
     setSaveError(null);
     try {
       const result = await renderPhoto(bitmap, {
@@ -247,6 +261,14 @@ export function PhotoTool({ initialFile }: { initialFile: File | null }) {
         bytes: result.blob.size,
         fellBack: result.format !== effectiveFormat,
         shared: SAVE_METHOD === 'share',
+      });
+      track('export_done', {
+        tool: 'photo',
+        format: result.format,
+        width: resolved.size.width,
+        height: resolved.size.height,
+        sizeBytes: result.blob.size,
+        elapsedMs: Math.round(performance.now() - started),
       });
       const nextRecent = pushRecent(recent, target);
       setRecent(nextRecent);

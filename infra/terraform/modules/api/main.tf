@@ -216,7 +216,7 @@ data "aws_iam_policy_document" "api" {
   statement {
     sid       = "Queue"
     actions   = ["sqs:SendMessage"]
-    resources = [var.queue_arn]
+    resources = [var.queue_arn, var.events_queue_arn]
   }
 
   # 결과 내려받기 서명 주소
@@ -263,6 +263,7 @@ resource "aws_lambda_function" "api" {
       UPLOADS_BUCKET     = aws_s3_bucket.files["uploads"].bucket
       OUTPUTS_BUCKET     = aws_s3_bucket.files["outputs"].bucket
       QUEUE_URL          = var.queue_url
+      EVENTS_QUEUE_URL   = var.events_queue_url
       SALT_PARAM         = aws_ssm_parameter.secret["ip-salt"].name
       ORIGIN_PARAM       = aws_ssm_parameter.secret["origin-verify"].name
       DAILY_JOB_LIMIT    = tostring(var.daily_job_limit)
@@ -290,7 +291,7 @@ resource "aws_apigatewayv2_integration" "api" {
 }
 
 resource "aws_apigatewayv2_route" "api" {
-  for_each  = toset(["POST /api/uploads", "POST /api/jobs", "GET /api/jobs/{id}"])
+  for_each  = toset(["POST /api/uploads", "POST /api/jobs", "GET /api/jobs/{id}", "POST /api/events"])
   api_id    = aws_apigatewayv2_api.api.id
   route_key = each.key
   target    = "integrations/${aws_apigatewayv2_integration.api.id}"
@@ -305,6 +306,13 @@ resource "aws_apigatewayv2_stage" "default" {
   default_route_settings {
     throttling_rate_limit  = var.throttle_rate
     throttling_burst_limit = var.throttle_burst
+  }
+
+  # 사용 이벤트가 몰려도 잡 API 몫을 먹지 않게 따로 낮게 건다
+  route_settings {
+    route_key              = "POST /api/events"
+    throttling_rate_limit  = var.events_throttle_rate
+    throttling_burst_limit = var.events_throttle_rate * 2
   }
 }
 

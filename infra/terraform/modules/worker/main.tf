@@ -91,6 +91,12 @@ data "aws_iam_policy_document" "worker" {
   }
 
   statement {
+    sid       = "Events"
+    actions   = ["sqs:SendMessage"]
+    resources = [var.events_queue_arn]
+  }
+
+  statement {
     sid       = "Jobs"
     actions   = ["dynamodb:UpdateItem"]
     resources = [var.table_arn]
@@ -138,9 +144,10 @@ resource "aws_lambda_function" "worker" {
 
   environment {
     variables = {
-      TABLE_NAME     = var.table_name
-      UPLOADS_BUCKET = var.uploads_bucket
-      OUTPUTS_BUCKET = var.outputs_bucket
+      TABLE_NAME       = var.table_name
+      UPLOADS_BUCKET   = var.uploads_bucket
+      OUTPUTS_BUCKET   = var.outputs_bucket
+      EVENTS_QUEUE_URL = var.events_queue_url
     }
   }
 
@@ -187,9 +194,10 @@ resource "aws_lambda_function" "bench" {
 
   environment {
     variables = {
-      TABLE_NAME     = var.table_name
-      UPLOADS_BUCKET = var.uploads_bucket
-      OUTPUTS_BUCKET = var.outputs_bucket
+      TABLE_NAME       = var.table_name
+      UPLOADS_BUCKET   = var.uploads_bucket
+      OUTPUTS_BUCKET   = var.outputs_bucket
+      EVENTS_QUEUE_URL = var.events_queue_url
     }
   }
 

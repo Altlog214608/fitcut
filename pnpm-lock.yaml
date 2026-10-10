@@ -266,6 +266,9 @@ importers:
       typescript:
         specifier: ~6.0.3
         version: 6.0.3
+      vitest:
+        specifier: ^5.0.3
+        version: 5.0.3(@types/node@24.19.1)(jsdom@30.1.2)(vite@8.3.4(@types/node@24.19.1)(esbuild@0.28.2))
 
   services/api:
     dependencies:
@@ -313,12 +316,40 @@ importers:
         specifier: ^5.0.3
         version: 5.0.3(@types/node@24.19.1)(jsdom@30.1.2)(vite@8.3.4(@types/node@24.19.1)(esbuild@0.28.2))
 
+  services/events:
+    dependencies:
+      '@aws-sdk/client-s3':
+        specifier: ^3.1148.0
+        version: 3.1148.0
+    devDependencies:
+      '@types/aws-lambda':
+        specifier: ^8.10.164
+        version: 8.10.164
+      '@types/node':
+        specifier: ^24.19.1
+        version: 24.19.1
+      aws-sdk-client-mock:
+        specifier: ^4.1.0
+        version: 4.1.0
+      esbuild:
+        specifier: ^0.28.2
+        version: 0.28.2
+      typescript:
+        specifier: ~6.0.3
+        version: 6.0.3
+      vitest:
+        specifier: ^5.0.3
+        version: 5.0.3(@types/node@24.19.1)(jsdom@30.1.2)(vite@8.3.4(@types/node@24.19.1)(esbuild@0.28.2))
+
   services/worker:
     dependencies:
       '@aws-sdk/client-dynamodb':
         specifier: ^3.1148.0
         version: 3.1148.0
       '@aws-sdk/client-s3':
+        specifier: ^3.1148.0
+        version: 3.1148.0
+      '@aws-sdk/client-sqs':
         specifier: ^3.1148.0
         version: 3.1148.0
       '@aws-sdk/lib-dynamodb':

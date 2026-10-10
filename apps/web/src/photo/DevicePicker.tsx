@@ -1,6 +1,7 @@
 import { searchPresets, VISIBLE_PRESETS, type DevicePreset } from '@fitcut/presets';
 import { Search, Star, X } from 'lucide-react';
 import { useId, useState } from 'react';
+import { track } from '../lib/analytics';
 import styles from './DevicePicker.module.css';
 import {
   MAX_CUSTOM_SIDE,
@@ -108,6 +109,12 @@ export function DevicePicker({ value, recent, mine, onChange, onToggleMine }: Pr
           placeholder="기기 이름으로 찾기 (예: 17 프로, 플립8, 워치9)"
           value={query}
           onChange={(e) => setQuery(e.currentTarget.value)}
+          onBlur={() => {
+            // 찾았는데 없던 기기 → 프리셋 추가 우선순위 (docs/ADMIN.md)
+            if (query.trim().length >= 2 && results.length === 0) {
+              track('preset_search_miss', { query: query.trim() });
+            }
+          }}
           autoComplete="off"
         />
         {query && (
