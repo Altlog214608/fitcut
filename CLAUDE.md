@@ -58,7 +58,7 @@ FitCut(가칭)은 사진·영상·음성을 기기와 용도에 딱 맞게 바�
 
 - 프론트엔드: React, TypeScript, Vite. 이미지 처리는 Web Worker + OffscreenCanvas
 - 백엔드: TypeScript (Lambda가 지원하는 최신 Node.js LTS 런타임, arm64), ffmpeg
-- 데이터: DynamoDB(온디맨드), S3, Amazon Data Firehose, Glue Data Catalog, Athena
+- 데이터: DynamoDB(온디맨드), S3, SQS + 배치 Lambda(무료 플랜이라 Firehose 대신, ADR-030), Glue Data Catalog, Athena
 - 인증: 관리자는 Cognito(MFA). 스트리머는 플랫폼 OAuth로 채널 연결 (세션 방식은 ADR-015)
 - 인프라: Terraform, AWS 서울 리전(ap-northeast-2). CloudFront용 ACM 인증서만 us-east-1
 - CI/CD: GitHub Actions + AWS OIDC (장기 액세스 키 금지)
@@ -72,7 +72,7 @@ apps/web/              프론트엔드 (관리자 화면은 /admin 라우트)
 services/api/          잡·링크 API
 services/dispatcher/   작업 크기에 따라 Lambda / Fargate로 분배
 services/worker/       ffmpeg 워커: 움짤, 클립, 음성 (Lambda 컨테이너 이미지와 Fargate 태스크가 같은 코드 사용)
-services/events/       사용 이벤트 수집 → Data Firehose
+services/events/       사용 이벤트 수집 → SQS → 배치 Lambda → S3
 services/admin/        관리자 API, 일별 집계
 services/highlight/    하이라이트 분석 (점수 계산은 순수 함수로)
 services/collectors/   플랫폼별 라이브 채팅 수집 (치지직·YouTube는 Fargate, Kick·Twitch는 웹훅 Lambda)

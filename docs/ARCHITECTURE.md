@@ -22,7 +22,7 @@
 | 음성 추출·벨소리 | Lambda (같은 워커) | 가벼운 작업 |
 | 영상 세로로 돌리기 | 회전 정보만 바꾸기는 Lambda, 재인코딩은 작업 크기에 따라 Lambda / Fargate Spot (같은 워커) | 영상 전체를 다루므로 움짤보다 길 수 있음 (ADR-024) |
 | 긴 영상 변환, 오디오 분석, 오디오그램 | ECS Fargate Spot 태스크 | Lambda 15분 제한, Spot으로 비용 절감 |
-| 사용 이벤트 수집 | Lambda → Data Firehose | 쓴 만큼 과금, 버퍼링으로 S3 객체 수를 줄임 |
+| 사용 이벤트 수집 | Lambda → SQS → 배치 Lambda | 쓴 만큼 과금, 최대 5분씩 모아 S3 객체 수를 줄임 (무료 플랜이라 Firehose 대신, ADR-030) |
 | 관리자 집계 | 하루 한 번 Lambda + Athena | 화면은 집계만 읽어서 쿼리 비용 최소화 |
 | 채팅 수집: 웹훅 플랫폼 (Kick, Twitch) | API Gateway + Lambda | 이벤트가 올 때만 실행 |
 | 채팅 수집: 연결 유지 플랫폼 (치지직 세션, YouTube streamList) | Fargate 태스크 (일반), 방송 중에만 | 장시간 연결 필요. 태스크 하나가 여러 채널을 맡음 |
@@ -67,7 +67,7 @@
 ```
 브라우저 (sendBeacon) ──→ POST /events → Lambda(events: 검증, 허용 필드만 통과)
 서버 잡 상태 변화 ──────────────────────────┘
-   → Data Firehose (버퍼링, Parquet 변환) → S3(analytics) dt=YYYY-MM-DD 파티션
+   → SQS → Lambda(배치 창 최대 5분) → S3(analytics) gzip JSON Lines, dt=YYYY-MM-DD 파티션 (ADR-030)
    → Glue Data Catalog → Athena
 매일 새벽: EventBridge Scheduler → Lambda(aggregate) → Athena 쿼리 → 일별 집계(S3 JSON)
 관리자 화면 → /admin API (Cognito JWT + admin 그룹)
@@ -84,8 +84,8 @@
   ├─ 치지직·YouTube: ECS RunTask (수집기 태스크, 여러 채널 담당)
   └─ Kick·Twitch: 웹훅 → API Gateway → Lambda (서명 검증, 중복 제거)
   → 채팅 이벤트 정규화 (닉네임 제거)
-  → Data Firehose (동적 파티셔닝) → S3(chat) 방송별 경로
-방송 종료 → 수집 중지 → Firehose 버퍼가 비워질 때까지 대기 → Step Functions
+  → SQS → 배치 Lambda → S3(chat) 방송별 경로 (ADR-030)
+방송 종료 → 수집 중지 → SQS가 비고 배치 Lambda가 끝날 때까지 대기 → Step Functions
   1. 채팅 특징 계산 (Lambda)
   2. (녹화 파일이 있으면) 후보 주변만 오디오 분석 + 싱크 보정 (Fargate Spot)
   3. 점수 계산·피크 검출·구간 병합 (Lambda)
@@ -132,7 +132,7 @@
 ## 보안
 
 - 업로드: 일반 파일은 presigned POST 정책으로 `content-length-range`와 Content-Type을 제한한다. 하이라이트 녹화 파일은 멀티파트로 받고 업로드 후 크기를 검증한다 (ADR-008). 처리 전에 ffprobe로 실제 형식을 검증한다 (확장자를 믿지 않는다).
-- API: WAF 속도 기반 규칙(IP당), 잡 생성 시 IP별 일일 할당량.
+- API: HTTP API 단계 속도 제한, 잡 생성 시 IP 해시별 하루 할당량. WAF는 월 고정비 때문에 보류 (ADR-030).
 - 관리자: Cognito 사용자 풀 (셀프 가입 끔, MFA 필수, admin 그룹). HTTP API JWT 권한 부여자로 막고, Lambda에서 그룹을 한 번 더 확인한다. 관리자 행동은 감사 로그에 남긴다.
 - 웹훅: 플랫폼 서명을 검증하고, 메시지 ID로 재전송 중복을 제거한다.
 - 스트리머 토큰: KMS로 암호화해 저장하고, 필요한 최소 권한(scope)만 요청한다. 연결을 해제하면 바로 삭제한다.
@@ -144,13 +144,13 @@
 ## 비용 가드레일
 
 - AWS Budgets 월 예산 알림 (예: $10, $20 단계)
-- Lambda 워커 예약 동시성으로 동시 실행 상한
+- 워커 동시 실행 상한: SQS 이벤트 소스 매핑의 최대 동시 실행 (계정 동시 실행 한도가 10이라 예약 동시성은 못 씀, ADR-030)
 - Fargate 동시 태스크 상한 (dispatcher가 확인하고, 넘으면 대기열), 태스크 최대 실행 시간
 - 입력 제한: 원본 크기, 구간 길이, 출력 해상도 상한
 - 채팅 수집기: 최대 실행 시간(초안 8시간), 동시 수집 채널 상한, 태스크 하나가 여러 채널 담당
 - YouTube: 할당량 사용량을 지표로 남기고, 80%를 넘으면 새 수집을 받지 않고 알림
 - Athena: 워크그룹에 쿼리당 스캔 한도를 걸고, 파티션으로 범위를 제한하고, 결과는 7일 후 삭제
-- Data Firehose: 버퍼를 크게 잡아 S3 객체 수를 줄인다
+- 이벤트 수집 배치 Lambda: 배치 창을 크게 잡아 S3 객체 수를 줄인다
 - Cost Explorer API는 요청마다 요금이 붙으므로 하루 한 번만 호출해 저장한다
 - CloudWatch Logs 보존 기간 14일
 - 모든 리소스에 `Project`, `Env`, `Component` 태그 → Cost Explorer에서 기능별 비용 확인

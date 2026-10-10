@@ -72,6 +72,8 @@
 
 ## ADR-010 사용 분석은 Firehose → S3 Parquet → Athena + 일별 집계
 
+> 2026-10-10: 무료 플랜에서 Firehose를 쓸 수 없어 수집 경로를 SQS + 배치 Lambda로 바꿨다 (ADR-030). S3 → Athena + 일별 집계 구조는 그대로다.
+
 - 상태: 제안
 - 맥락: 관리자 화면에 사용 통계가 필요하다. 트래픽이 적을 때 비용이 거의 0이어야 한다.
 - 결정: 이벤트를 Data Firehose로 모아 S3에 Parquet으로 저장하고 Athena로 조회한다. 하루 한 번 집계해서 화면은 집계만 읽는다.
@@ -158,7 +160,9 @@
 - 결정:
   - 로컬 관리 작업(bootstrap 적용 등)은 IAM 사용자 `fitcut-admin`의 액세스 키(`fitcut` 프로필)로 한다. 키는 로컬 `~/.aws`에만 두고, CI는 계속 OIDC를 쓴다 (ADR-018).
   - Organizations, IAM Identity Center, Control Tower는 쓰지 않는다.
-  - 마일스톤을 시작할 때 쓸 서비스가 무료 플랜에서 되는지 먼저 확인한다. TODO(verify): Data Firehose(M2), Transcribe(M6)는 신규 가입 환경 문서에서 유료 플랜 전용으로 나와 있다. 이 계정에도 해당하는지 확인해야 한다.
+  - 마일스톤을 시작할 때 쓸 서비스가 무료 플랜에서 되는지 먼저 확인한다 (읽기 전용 조회로).
+    - 2026-10-10 확인: Data Firehose는 이 계정에서 `SubscriptionRequiredException`(쓸 수 없음). WAF·ECS·SQS·Glue·Athena·Cognito는 조회된다. Lambda 계정 동시 실행 한도는 10이다. 대응은 ADR-030.
+    - TODO(verify): Transcribe(M6)는 신규 가입 환경 문서에서 유료 플랜 전용으로 나와 있다. M6 시작 때 확인한다.
   - 무료 플랜 종료일 전에 유료 업그레이드 여부를 정한다. 업그레이드하지 않으면 배포한 포트폴리오 주소도 사라진다.
 - 대안: Identity Center (유료 플랜 전환 필요), 루트 계정 키 (금지).
 
@@ -275,6 +279,20 @@
   - 안드로이드·데스크톱은 그대로 내려받는다 (안드로이드 다운로드는 갤러리에 바로 보인다).
 - 대안: 이미지를 화면에 띄우고 길게 눌러 저장하게 하기 (한 단계 더 많고 안내가 필요하다).
 - 확인: E2E(아이폰 WebKit)에서 공유 기능을 흉내 내 파일 이름·형식과 다시 누르기 흐름을 확인했다. 실제 아이폰의 공유 화면과 '누른 직후' 허용 시간은 TODO(verify).
+
+## ADR-030 무료 플랜에 맞춘 M2 구성: Firehose 대신 SQS 배치, WAF 보류, 동시 실행은 이벤트 소스에서 제한
+
+- 상태: 확정 (2026-10-10, M2 시작, 사용자 확인: "무료 플랜인 점을 지켜서 진행")
+- 맥락: M2를 시작하며 이 계정(무료 플랜)에서 쓸 서비스를 읽기 전용 조회로 확인했다 (ADR-021).
+  - Data Firehose: `SubscriptionRequiredException`. 쓸 수 없다.
+  - WAF: 쓸 수 있지만 Web ACL 월 $5 + 규칙당 월 $1이 고정으로 나간다 (2026-10-10 가격표). "쓰지 않을 때 비용 0" 목표와 맞지 않는다. HTTP API에는 WAF를 직접 붙일 수 없어(REST API 전용, AWS re:Post 답변) CloudFront에 붙여야 한다.
+  - Lambda 계정 동시 실행 한도가 10이다. 예약 동시성은 예약하지 않은 몫을 10 이상 남겨야 해서 설정할 수 없다.
+- 결정:
+  - 사용 이벤트(M2)와 채팅 이벤트(M5)는 Firehose 대신 SQS에 넣고, Lambda가 배치 창(최대 5분)으로 모아 S3에 gzip JSON Lines(dt 파티션)로 쓴다. Glue 테이블은 JSON으로 읽고, 필요해지면 일별 집계 때 Parquet으로 바꾼다.
+  - WAF는 넣지 않는다. API 단계 전체 속도 제한(HTTP API throttling), DynamoDB의 IP 해시별 하루 횟수 제한, 입력 크기·길이 제한으로 막는다. 남용이 보이면 CloudFront에 WAF를 붙이는 것을 다시 검토한다 (월 고정비가 생기므로 사용자 확인).
+  - 워커 동시 실행 상한은 SQS 이벤트 소스 매핑의 최대 동시 실행(2~1000)과 Fargate 동시 태스크 상한으로 건다. 계정 동시 실행 한도 상향은 Service Quotas로 요청할 수 있고(무료), 필요할 때 사용자에게 묻는다.
+  - CI 배포 역할이 Lambda·Fargate용 IAM 역할을 만들 수 있게 되면서, 그 역할에는 권한 경계(`fitcut-dev-workload-boundary`)를 꼭 붙이게 했다. 경계 밖 권한을 붙여도 쓸 수 없어서 CI가 권한을 키우는 길이 막힌다.
+- 대안: 유료 플랜으로 전환 (남은 크레딧이 사라지고 사용자가 원하지 않음), 이벤트마다 S3에 바로 쓰기 (작은 객체가 많아져 Athena가 느리고 PUT 요청이 늘어난다).
 
 ---
 
