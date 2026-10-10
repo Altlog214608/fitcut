@@ -120,6 +120,18 @@ describe.skipIf(!enabled)('실제 ffmpeg로 만들기', () => {
     else expect(Math.abs(got.frames - 2.5 * 15)).toBeLessThanOrEqual(1.5);
   });
 
+  it.each([
+    ['gif', 480, 480],
+    ['mp4', 416, 496],
+  ] as const)('%s: 세로를 정하면 정확히 %sx%s (워치 화면)', (kind, width, height) => {
+    const out = join(dir, `watch-${width}.${kind}`);
+    execFileSync(FFMPEG, ffmpegArgs(kind, { ...p, width, height }, input, out), {
+      stdio: 'ignore',
+    });
+    const got = info(kind, out);
+    expect([got.width, got.height]).toEqual([width, height]);
+  });
+
   /** 영상의 한 프레임을 32x18 회색 픽셀로 (비교용) */
   function gray(file: string, filter: string): Buffer {
     return execFileSync(FFMPEG, [

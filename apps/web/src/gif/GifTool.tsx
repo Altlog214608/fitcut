@@ -1,6 +1,6 @@
 import { JOB_LIMITS, type JobKind } from '@fitcut/shared';
 import { CircleCheck, Film, Pause, Play, Repeat, ShieldCheck } from 'lucide-react';
-import { useEffect, useId, useRef, useState } from 'react';
+import { useEffect, useId, useRef, useState, type CSSProperties } from 'react';
 import { DropZone } from '../components/DropZone';
 import { Segmented } from '../components/Segmented';
 import { detectKind } from '../lib/detectKind';
@@ -25,6 +25,7 @@ import { extractThumbnails } from './thumbnails';
 import { TimeField } from './TimeField';
 import { Timeline } from './Timeline';
 import { formatTime, initialRange, moveEnd, moveStart, rangeProblem, type Range } from './time';
+import { centerCrop, WATCHES } from './watch';
 
 const VIDEO_ACCEPT = 'video/mp4,video/quicktime,video/webm,.mp4,.mov,.webm';
 const THUMB_COUNT = 12;
@@ -68,7 +69,20 @@ type UploadView =
   | { state: 'failed'; message: string };
 type UploadState = UploadView & { file: File; attempt: number };
 
-type Request = { kind: JobKind; start: number; end: number; fps: number; width: number };
+type Request = {
+  kind: JobKind;
+  start: number;
+  end: number;
+  fps: number;
+  width: number;
+  height?: number;
+};
+
+type Purpose = 'clip' | 'watch';
+const PURPOSES: readonly { value: Purpose; label: string }[] = [
+  { value: 'clip', label: '움짤' },
+  { value: 'watch', label: '워치 화면' },
+];
 type Making =
   | { phase: 'pending'; key: string }
   | { phase: 'creating'; key: string }
@@ -118,7 +132,9 @@ export function GifTool({ initialFile }: { initialFile: File | null }) {
   const [attempt, setAttempt] = useState(0);
   const [upload, setUpload] = useState<UploadState | null>(null);
 
-  const [kind, setKind] = useState<JobKind>('gif');
+  const [purpose, setPurpose] = useState<Purpose>('clip');
+  const [watchId, setWatchId] = useState(WATCHES[0]?.id ?? '');
+  const [clipKind, setKind] = useState<JobKind>('gif');
   const [widthChoice, setWidthChoice] = useState<WidthChoice>('480');
   const [fpsChoice, setFpsChoice] = useState<FpsChoice>(
     String(JOB_LIMITS.fps.default) as FpsChoice,
@@ -138,17 +154,27 @@ export function GifTool({ initialFile }: { initialFile: File | null }) {
   const up: UploadView =
     upload && upload.file === file && upload.attempt === attempt ? upload : { state: 'starting' };
 
-  const width = widthOf(widthChoice, info?.size ?? null);
+  // 워치 화면이면 크기와 형식은 기기가 정한다 (갤럭시 GIF, 애플워치 MP4)
+  const watch =
+    purpose === 'watch' ? (WATCHES.find((w) => w.id === watchId) ?? WATCHES[0] ?? null) : null;
+  const kind: JobKind = watch ? watch.kind : clipKind;
+  const width = watch ? watch.width : widthOf(widthChoice, info?.size ?? null);
   const request: Request = {
     kind,
     start: range.start,
     end: range.end,
     fps: Number(fpsChoice),
     width,
+    ...(watch ? { height: watch.height } : {}),
   };
+  const crop = watch && info ? centerCrop(info.size, watch) : null;
   const key = JSON.stringify(request);
   const problem = info ? rangeProblem(range, kind) : null;
-  const size = info ? outputSize(width, info.size) : null;
+  const size = watch
+    ? { width: watch.width, height: watch.height }
+    : info
+      ? outputSize(width, info.size)
+      : null;
   const estimate =
     size && !problem ? estimateBytes(kind, size, request.fps, range.end - range.start) : null;
   const now = making && making.key === key ? making : null;
@@ -460,8 +486,12 @@ export function GifTool({ initialFile }: { initialFile: File | null }) {
         : busy
           ? '만드는 중…'
           : `${KIND_LABEL[kind]} 만들기`;
-  const resultSize =
-    now?.phase === 'done' && info ? outputSize(now.job.params.width, info.size) : null;
+  const resultParams = now?.phase === 'done' ? now.job.params : null;
+  const resultSize = resultParams?.height
+    ? { width: resultParams.width, height: resultParams.height }
+    : resultParams && info
+      ? outputSize(resultParams.width, info.size)
+      : null;
   const percent =
     up.state === 'sending' && up.total > 0 ? Math.round((up.sent / up.total) * 100) : 0;
 
@@ -555,30 +585,53 @@ export function GifTool({ initialFile }: { initialFile: File | null }) {
 
       <div className={styles.main}>
         <div className={styles.editCol}>
-          <div className={styles.player}>
-            <video
-              ref={videoRef}
-              className={styles.video}
-              src={videoUrl}
-              playsInline
-              muted
-              preload="auto"
-              onLoadedMetadata={(e) => {
-                const v = e.currentTarget;
-                if (!Number.isFinite(v.duration) || v.videoWidth === 0) return;
-                setMeta({
-                  file,
-                  duration: v.duration,
-                  size: { width: v.videoWidth, height: v.videoHeight },
-                });
-                setRange(initialRange(v.duration));
-                setCurrent(0);
-              }}
-              onError={() => setVideoError(file)}
-              onPlay={() => setPlaying(true)}
-              onPause={() => setPlaying(false)}
-              onSeeked={(e) => setCurrent(e.currentTarget.currentTime)}
-            />
+          <div
+            className={styles.player}
+            style={
+              info
+                ? ({ '--aspect': `${info.size.width} / ${info.size.height}` } as CSSProperties)
+                : undefined
+            }
+          >
+            <div className={styles.frame}>
+              <video
+                ref={videoRef}
+                className={styles.video}
+                src={videoUrl}
+                playsInline
+                muted
+                preload="auto"
+                onLoadedMetadata={(e) => {
+                  const v = e.currentTarget;
+                  if (!Number.isFinite(v.duration) || v.videoWidth === 0) return;
+                  setMeta({
+                    file,
+                    duration: v.duration,
+                    size: { width: v.videoWidth, height: v.videoHeight },
+                  });
+                  setRange(initialRange(v.duration));
+                  setCurrent(0);
+                }}
+                onError={() => setVideoError(file)}
+                onPlay={() => setPlaying(true)}
+                onPause={() => setPlaying(false)}
+                onSeeked={(e) => setCurrent(e.currentTarget.currentTime)}
+              />
+              {crop && watch && (
+                // 워치 화면에 들어갈 부분 (가운데를 자른다). 바깥은 어둡게
+                <div
+                  className={styles.crop}
+                  data-shape={watch.shape}
+                  aria-hidden="true"
+                  style={{
+                    left: `${crop.x * 100}%`,
+                    top: `${crop.y * 100}%`,
+                    width: `${crop.width * 100}%`,
+                    height: `${crop.height * 100}%`,
+                  }}
+                />
+              )}
+            </div>
           </div>
 
           {info ? (
@@ -667,14 +720,41 @@ export function GifTool({ initialFile }: { initialFile: File | null }) {
         </div>
 
         <div className={styles.panel}>
-          <Segmented label="형식" value={kind} options={KINDS} onChange={setKind} />
-          <p className={styles.hint}>{KIND_HINT[kind]}</p>
-          <Segmented
-            label="가로 크기"
-            value={widthChoice}
-            options={WIDTHS}
-            onChange={setWidthChoice}
-          />
+          {WATCHES.length > 0 && (
+            <Segmented label="용도" value={purpose} options={PURPOSES} onChange={setPurpose} />
+          )}
+          {watch ? (
+            <>
+              <label className={styles.select}>
+                <span>워치</span>
+                <select value={watch.id} onChange={(e) => setWatchId(e.currentTarget.value)}>
+                  {WATCHES.map((w) => (
+                    <option key={w.id} value={w.id}>
+                      {w.name} ({w.width} × {w.height})
+                    </option>
+                  ))}
+                </select>
+              </label>
+              <p className={styles.hint}>
+                {watch.livePhoto
+                  ? '애플워치 사진 페이스는 Live Photo만 움직여요. 워치 화면 크기의 짧은 MP4로 만들어요.'
+                  : `워치 화면 크기의 ${KIND_LABEL[watch.kind]}로 만들어요.`}{' '}
+                {watch.shape === 'circle' ? '둥근 화면이라 네 모서리는 보이지 않아요. ' : ''}
+                영상 가운데를 잘라 맞춰요.
+              </p>
+            </>
+          ) : (
+            <>
+              <Segmented label="형식" value={clipKind} options={KINDS} onChange={setKind} />
+              <p className={styles.hint}>{KIND_HINT[clipKind]}</p>
+              <Segmented
+                label="가로 크기"
+                value={widthChoice}
+                options={WIDTHS}
+                onChange={setWidthChoice}
+              />
+            </>
+          )}
           <details className={styles.advanced}>
             <summary>고급</summary>
             <Segmented

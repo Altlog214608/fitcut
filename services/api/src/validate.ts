@@ -16,6 +16,8 @@ export type CreateJob = {
   end: number;
   fps: number;
   width: number;
+  /** 정하면 가로×세로에 꽉 차게 가운데를 잘라 맞춘다 */
+  height?: number;
 };
 
 export type Invalid = { code: string; message: string };
@@ -91,5 +93,20 @@ export function parseCreateJob(body: unknown): Result<CreateJob> {
     );
   }
 
-  return { ok: true, value: { uploadId, kind: k, start, end, fps, width } };
+  let height: number | undefined;
+  if (body.height !== undefined) {
+    const h = intIn(body.height, LIMITS.height.min, LIMITS.height.max, 0);
+    if (!h) {
+      return fail(
+        'bad_height',
+        `세로 크기는 ${LIMITS.height.min}~${LIMITS.height.max}px로 골라 주세요.`,
+      );
+    }
+    height = h;
+  }
+
+  return {
+    ok: true,
+    value: { uploadId, kind: k, start, end, fps, width, ...(height ? { height } : {}) },
+  };
 }

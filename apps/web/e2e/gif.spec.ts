@@ -170,3 +170,23 @@ test('영상이 아닌 파일은 이유를 알려준다', async ({ page }) => {
     '영상 파일이 아니에요. MP4 · MOV · WebM 영상을 골라 주세요.',
   );
 });
+
+test('워치 화면용: 갤럭시 워치는 화면 크기 GIF, 애플워치는 MP4로 정확한 크기를 요청한다', async ({
+  page,
+}) => {
+  const fake = await fakeServer(page);
+  await openClip(page);
+  await expect(page.getByText('올리기 완료')).toBeVisible();
+  await page.getByRole('radio', { name: '워치 화면' }).click();
+  await page.getByLabel('워치').selectOption({ label: 'Galaxy Watch9 44mm (480 × 480)' });
+  await expect(page.getByText(/둥근 화면이라 네 모서리는 보이지 않아요/)).toBeVisible();
+  await page.getByRole('button', { name: 'GIF 만들기' }).click();
+  await expect(page.getByText(/만들었어요 · 480 × 480/)).toBeVisible();
+  expect(fake.jobBodies.at(-1)).toMatchObject({ kind: 'gif', width: 480, height: 480 });
+
+  await page.getByLabel('워치').selectOption({ label: 'Apple Watch Series 11 46mm (416 × 496)' });
+  await expect(page.getByText(/Live Photo만 움직여요/)).toBeVisible();
+  await page.getByRole('button', { name: 'MP4 만들기' }).click();
+  await expect(page.getByText(/만들었어요 · 416 × 496/)).toBeVisible();
+  expect(fake.jobBodies.at(-1)).toMatchObject({ kind: 'mp4', width: 416, height: 496 });
+});
