@@ -48,7 +48,7 @@ describe('홈', () => {
       target: { value: 'https://youtu.be/dQw4w9WgXcQ' },
     });
     fireEvent.click(screen.getByRole('button', { name: '구간 고르기' }));
-    expect(await screen.findByText('영상 ID: dQw4w9WgXcQ')).toBeDefined();
+    expect(await screen.findByRole('heading', { name: '링크 구간' })).toBeDefined();
     expect(router.state.location.search).toBe('?v=dQw4w9WgXcQ');
   });
 

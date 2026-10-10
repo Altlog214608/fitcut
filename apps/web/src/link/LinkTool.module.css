@@ -1,0 +1,116 @@
+.open {
+  display: flex;
+  gap: 8px;
+}
+
+.input {
+  flex: 1;
+  min-width: 0;
+  height: 48px;
+  padding: 0 14px;
+  border: 1px solid var(--color-line);
+  border-radius: var(--radius-control);
+  background: var(--color-paper);
+  color: var(--color-ink);
+  font: inherit;
+}
+
+.openButton {
+  flex: none;
+  height: 48px;
+  padding: 0 20px;
+  border: 0;
+  border-radius: var(--radius-control);
+  background: var(--color-accent);
+  color: var(--color-on-accent);
+  font-weight: 700;
+  cursor: pointer;
+}
+
+/* 공식 플레이어 자리 (16:9, 200×200 이상). 위에는 아무것도 겹치지 않는다 */
+.player {
+  width: 100%;
+  min-width: 200px;
+  min-height: 200px;
+  aspect-ratio: 16 / 9;
+  border-radius: var(--radius-panel);
+  background: #000;
+  overflow: hidden;
+}
+
+.player > * {
+  display: block;
+  width: 100%;
+  height: 100%;
+  border: 0;
+}
+
+.repeat {
+  display: grid;
+  gap: var(--space-2);
+  max-width: 960px;
+}
+
+.saved {
+  display: grid;
+  gap: 10px;
+  padding: 16px;
+  border-radius: var(--radius-control);
+  background: var(--color-accent-soft);
+}
+
+.savedTitle {
+  font-weight: 700;
+}
+
+.url {
+  font-size: var(--text-caption);
+  word-break: break-all;
+  font-variant-numeric: tabular-nums;
+}
+
+.mine {
+  display: grid;
+  gap: 8px;
+}
+
+.mineTitle {
+  font-size: var(--text-subtitle);
+  font-weight: 700;
+}
+
+.list {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  border-top: 1px solid var(--color-line);
+}
+
+.item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  border-bottom: 1px solid var(--color-line);
+}
+
+.itemLink {
+  display: flex;
+  flex: 1;
+  align-items: center;
+  gap: 8px;
+  min-height: 48px;
+  color: var(--color-ink);
+  text-decoration: none;
+  font-size: var(--text-caption);
+}
+
+.remove {
+  display: grid;
+  place-items: center;
+  width: 44px;
+  height: 44px;
+  border: 0;
+  background: none;
+  color: var(--color-slate);
+  cursor: pointer;
+}

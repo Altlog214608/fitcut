@@ -5,6 +5,7 @@
  * - POST /api/jobs: 입력 검사 → 업로드가 끝났는지 확인 → 하루 잡 할당량 → 잡 기록 → 워커 큐에 넣기
  * - GET /api/jobs/{id}: 잡 상태 (끝났으면 내려받기 주소)
  * - POST /api/events: 사용 이벤트 묶음 → 허용한 이벤트·필드만 → 이벤트 큐 (docs/ADMIN.md)
+ * - POST /api/links, GET /api/links/{id}: 유튜브 영상 ID와 구간만 저장·조회 (F15, 영상은 저장하지 않음)
  * CloudFront만 부를 수 있게 오리진 확인 헤더를 검사한다 (API Gateway 기본 주소로 바로 오는 요청은 거절).
  */
 import { ConditionalCheckFailedException, DynamoDBClient } from '@aws-sdk/client-dynamodb';
@@ -35,7 +36,19 @@ import {
   type UploadItem,
 } from './jobs';
 import { LIMITS } from './limits';
+import {
+  isLinkId,
+  linkKey,
+  newLink,
+  newLinkId,
+  parseCreateLink,
+  publicLink,
+  type LinkItem,
+} from './links';
 import { cleanEvent, MAX_EVENTS_PER_REQUEST, type JobEvent } from '@fitcut/shared';
+
+/** 서버가 만드는 그 밖의 이벤트 (link_saved) */
+type ServerEvent = { name: 'link_saved'; ts: number } & Record<string, string | number>;
 import { parseCreateJob, parseCreateUpload } from './validate';
 
 export type Env = {
@@ -48,6 +61,7 @@ export type Env = {
   ORIGIN_PARAM: string;
   DAILY_JOB_LIMIT: string;
   DAILY_UPLOAD_LIMIT: string;
+  DAILY_LINK_LIMIT: string;
 };
 
 type Deps = {
@@ -58,6 +72,8 @@ type Deps = {
   ssm: SSMClient;
   now: () => Date;
   newId: () => string;
+  /** 링크용 짧은 ID (테스트에서 바꿔 끼운다) */
+  newLinkId?: () => string;
 };
 
 function json(statusCode: number, body: unknown): APIGatewayProxyStructuredResultV2 {
@@ -122,7 +138,7 @@ export function makeHandler(deps: Deps) {
   async function useQuota(
     event: APIGatewayProxyEventV2,
     salt: string,
-    counter: 'count' | 'uploads',
+    counter: 'count' | 'uploads' | 'links',
     limit: number,
   ): Promise<boolean> {
     const now = deps.now();
@@ -266,7 +282,7 @@ export function makeHandler(deps: Deps) {
   }
 
   /** 서버 잡 이벤트를 이벤트 큐에 넣는다. 실패해도 잡 흐름은 막지 않는다 */
-  async function emit(events: JobEvent[]) {
+  async function emit(events: (JobEvent | ServerEvent)[]) {
     const receivedAt = deps.now().getTime();
     try {
       await sqs.send(
@@ -315,6 +331,64 @@ export function makeHandler(deps: Deps) {
     return { statusCode: 204, headers: { 'cache-control': 'no-store' } };
   }
 
+  async function createLink(event: APIGatewayProxyEventV2, salt: string) {
+    const read = readBody(event);
+    if (!read.ok) return error(400, 'bad_body', '요청 형식이 올바르지 않아요.');
+    const parsed = parseCreateLink(read.body);
+    if (!parsed.ok) return error(400, parsed.code, parsed.message);
+    const limit = Number(env.DAILY_LINK_LIMIT);
+    if (!(await useQuota(event, salt, 'links', limit))) {
+      return error(
+        429,
+        'daily_link_limit',
+        `오늘은 구간을 ${limit}번까지 저장할 수 있어요. 내일 다시 이용해 주세요.`,
+      );
+    }
+    const now = deps.now();
+    // 짧은 ID라 드물게 겹칠 수 있다. 겹치면 새로 만든다
+    for (let i = 0; i < 3; i++) {
+      const link = newLink((deps.newLinkId ?? newLinkId)(), parsed.value, now);
+      try {
+        await ddb.send(
+          new PutCommand({
+            TableName: env.TABLE_NAME,
+            Item: link,
+            ConditionExpression: 'attribute_not_exists(PK)',
+          }),
+        );
+      } catch (e) {
+        if (e instanceof ConditionalCheckFailedException) continue;
+        throw e;
+      }
+      await emit([
+        {
+          name: 'link_saved',
+          ts: now.getTime(),
+          platform: 'youtube',
+          videoId: link.videoId,
+          start: link.start,
+          end: link.end,
+        },
+      ]);
+      return json(201, { link: publicLink(link) });
+    }
+    throw new Error('link id collision');
+  }
+
+  async function getLink(id: string | undefined) {
+    if (!isLinkId(id)) return error(404, 'not_found', '구간을 찾을 수 없어요.');
+    const r = await ddb.send(new GetCommand({ TableName: env.TABLE_NAME, Key: linkKey(id) }));
+    const item = r.Item as LinkItem | undefined;
+    if (!item || !isLive(item, deps.now())) {
+      return error(
+        404,
+        'not_found',
+        '구간을 찾을 수 없어요. 저장한 지 오래되어 지워졌을 수 있어요.',
+      );
+    }
+    return json(200, { link: publicLink(item) });
+  }
+
   async function getJob(id: string | undefined) {
     if (!isUuid(id)) return error(404, 'not_found', '작업을 찾을 수 없어요.');
     const r = await ddb.send(new GetCommand({ TableName: env.TABLE_NAME, Key: jobKey(id) }));
@@ -345,6 +419,10 @@ export function makeHandler(deps: Deps) {
         return createUpload(event, salt);
       case 'POST /api/jobs':
         return createJob(event, salt);
+      case 'POST /api/links':
+        return createLink(event, salt);
+      case 'GET /api/links/{id}':
+        return getLink(event.pathParameters?.id);
       case 'POST /api/events':
         return postEvents(event);
       case 'GET /api/jobs/{id}':
@@ -366,6 +444,7 @@ function env(): Env {
     'ORIGIN_PARAM',
     'DAILY_JOB_LIMIT',
     'DAILY_UPLOAD_LIMIT',
+    'DAILY_LINK_LIMIT',
   ] as const;
   const out = {} as Env;
   for (const name of names) {

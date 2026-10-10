@@ -6,6 +6,7 @@ import { GifPage } from './pages/GifPage';
 import { HighlightPage } from './pages/HighlightPage';
 import { HomePage } from './pages/HomePage';
 import { LinkPage } from './pages/LinkPage';
+import { RepeatPage } from './link/RepeatPage';
 import { NotFoundPage } from './pages/NotFoundPage';
 import { PhotoPage } from './pages/PhotoPage';
 import { RotatePage } from './pages/RotatePage';
@@ -21,6 +22,8 @@ export const routes: RouteObject[] = [
       { path: 'audio', element: <AudioPage /> },
       { path: 'rotate', element: <RotatePage /> },
       { path: 'link', element: <LinkPage /> },
+      // 구간 반복 링크 (F15). 짧게 공유할 수 있게 /r/<id>
+      { path: 'r/:id', element: <RepeatPage /> },
       { path: 'highlight', element: <HighlightPage /> },
       // 관리자 API는 Cognito 관리자 그룹 + MFA로 보호한다 (M4). 이 화면 자체는 보호 수단이 아니다.
       { path: 'admin', element: <AdminPage /> },
