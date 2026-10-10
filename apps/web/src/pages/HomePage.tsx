@@ -33,9 +33,8 @@ const VIDEO_CHOICES: Tool[] = [
 ];
 
 const MESSAGES = {
-  heic: 'HEIC 사진은 아직 열 수 없어요. 곧 지원할게요. 지금은 JPG · PNG · WebP로 골라 주세요.',
   unknown:
-    '이 파일은 열 수 없어요. 사진(JPG · PNG · WebP), 영상(MP4 · MOV · WebM), 음성(MP3 · M4A · WAV)을 골라 주세요.',
+    '이 파일은 열 수 없어요. 사진(JPG · PNG · WebP · HEIC), 영상(MP4 · MOV · WebM), 음성(MP3 · M4A · WAV)을 골라 주세요.',
   link: '유튜브 영상 링크를 확인해 주세요. 예: https://youtu.be/영상ID',
 };
 

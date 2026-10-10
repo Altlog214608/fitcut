@@ -218,11 +218,7 @@ export function PhotoTool({ initialFile }: { initialFile: File | null }) {
   function pickFile(next: File) {
     const kind = detectKind(next);
     if (kind.kind !== 'image') {
-      setPickError(
-        kind.kind === 'unsupported' && kind.reason === 'heic'
-          ? 'HEIC 사진은 아직 열 수 없어요. 곧 지원할게요. 지금은 JPG · PNG · WebP로 골라 주세요.'
-          : '사진 파일이 아니에요. JPG · PNG · WebP 사진을 골라 주세요.',
-      );
+      setPickError('사진 파일이 아니에요. JPG · PNG · WebP · HEIC 사진을 골라 주세요.');
       return;
     }
     setPickError(null);

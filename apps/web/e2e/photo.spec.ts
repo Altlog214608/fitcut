@@ -1,6 +1,7 @@
 import { expect, test, type Page } from '@playwright/test';
 import { unzipSync } from 'fflate';
 import { readFile } from 'node:fs/promises';
+import { fileURLToPath } from 'node:url';
 import {
   hasExif,
   imageSize,
@@ -18,6 +19,8 @@ function watchUploads(page: Page): string[] {
     const url = new URL(request.url());
     const local =
       url.hostname === 'localhost' || url.protocol === 'blob:' || url.protocol === 'data:';
+    // 사용 이벤트(/api/events)는 파일 내용 없이 메타데이터만 보낸다 (docs/ADMIN.md)
+    if (url.pathname === '/api/events') return;
     if (request.method() !== 'GET' || !local)
       suspicious.push(`${request.method()} ${request.url()}`);
   });
@@ -358,4 +361,24 @@ test('잠금화면 시계·카메라 자리를 켜고 끌 수 있고, 가이드�
 
   await chooseDevice(page, '워치9', 'Galaxy Watch9 44mm');
   await expect(page.getByLabel('잠금화면 시계·카메라 자리 보기')).toHaveCount(0);
+});
+
+test('HEIC 사진도 브라우저 안에서 열어 저장한다 (서버로 보내지 않음, 위치정보 없음)', async ({
+  page,
+}) => {
+  const uploads = watchUploads(page);
+  await page.goto('/photo');
+  // pillow-heif로 만든 1200x900 시험 그림, 회전 정보로 세로(900x1200)로 보인다 (e2e/fixtures/photo.heic)
+  await page
+    .getByLabel(/사진을 끌어오세요/)
+    .setInputFiles(fileURLToPath(new URL('./fixtures/photo.heic', import.meta.url)));
+  const original = page.getByAltText('고른 사진 원본');
+  await expect(page.getByText(/원본 900 × 1200/)).toBeVisible({ timeout: 20_000 });
+  await expect(original).toBeVisible();
+  await chooseDevice(page, '17 프로', 'iPhone 17 Pro');
+  const { name, file } = await save(page);
+  expect(name).toMatch(/^photo_iPhone-17-Pro_1206x2622\.jpg$/);
+  expect(imageSize(file)).toMatchObject({ width: 1206, height: 2622, type: 'jpeg' });
+  expect(hasExif(file)).toBe(false);
+  expect(uploads).toHaveLength(0);
 });
