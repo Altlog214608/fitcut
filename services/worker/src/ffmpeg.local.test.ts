@@ -175,3 +175,69 @@ describe.skipIf(!enabled)('실제 ffmpeg로 만들기', () => {
     expect(streams.trim()).toBe('video');
   });
 });
+
+describe.skipIf(!enabled)('실제 ffmpeg로 음성 만들기 (F14)', () => {
+  // 시험 영상(10초, 440Hz)에서 1.5~4초를 자른다
+  const p = { start: 1.5, end: 4, fps: 15, width: 480 };
+
+  function duration(file: string): number {
+    const out = execFileSync(FFPROBE, ffprobeArgs(file)).toString();
+    return parseProbe(out)?.duration ?? 0;
+  }
+
+  /** 음성을 모노 16비트로 풀어 구간별 세기(RMS)를 잰다 */
+  function rms(file: string, from: number, to: number): number {
+    const pcm = execFileSync(FFMPEG, [
+      '-v',
+      'error',
+      '-i',
+      file,
+      '-ac',
+      '1',
+      '-ar',
+      '8000',
+      '-f',
+      's16le',
+      '-',
+    ]);
+    const samples = new Int16Array(pcm.buffer, pcm.byteOffset, Math.floor(pcm.length / 2));
+    const a = Math.floor(from * 8000);
+    const b = Math.floor(to * 8000);
+    let sum = 0;
+    for (let i = a; i < b; i++) sum += (samples[i] ?? 0) ** 2;
+    return Math.sqrt(sum / Math.max(1, b - a));
+  }
+
+  it.each(['mp3', 'm4a', 'wav', 'm4r'] as const)('%s: 길이가 고른 구간과 0.05초 이내', (kind) => {
+    const out = join(dir, `voice.${kind}`);
+    execFileSync(FFMPEG, ffmpegArgs(kind, { ...p, bitrate: 128 }, input, out), {
+      stdio: 'ignore',
+    });
+    expect(Math.abs(duration(out) - 2.5)).toBeLessThanOrEqual(0.05);
+    const probe = parseProbe(execFileSync(FFPROBE, ffprobeArgs(out)).toString());
+    expect(probe?.video).toBeNull();
+    expect(probe?.audio?.channels).toBe(2);
+  });
+
+  it('페이드 인·아웃: 처음과 끝은 작고 가운데는 크다, 모노도 된다', () => {
+    const out = join(dir, 'fade.mp3');
+    execFileSync(
+      FFMPEG,
+      ffmpegArgs('mp3', { ...p, fadeIn: 1, fadeOut: 1, channels: 1 }, input, out),
+      { stdio: 'ignore' },
+    );
+    const middle = rms(out, 1.1, 1.4);
+    expect(rms(out, 0, 0.1)).toBeLessThan(middle * 0.2);
+    expect(rms(out, 2.4, 2.5)).toBeLessThan(middle * 0.2);
+    const probe = parseProbe(execFileSync(FFPROBE, ffprobeArgs(out)).toString());
+    expect(probe?.audio?.channels).toBe(1);
+  });
+
+  it('음량 맞추기(loudnorm)를 켜도 길이는 그대로', () => {
+    const out = join(dir, 'loud.m4a');
+    execFileSync(FFMPEG, ffmpegArgs('m4a', { ...p, normalize: true }, input, out), {
+      stdio: 'ignore',
+    });
+    expect(Math.abs(duration(out) - 2.5)).toBeLessThanOrEqual(0.05);
+  });
+});

@@ -62,7 +62,9 @@ export function initialRange(duration: number): Range {
 export function rangeProblem(range: Range, kind: JobKind): string | null {
   const max = JOB_LIMITS.maxSeconds[kind];
   if (range.end - range.start > max + 1e-6) {
-    return `구간이 너무 길어요. ${max}초 이하로 골라 주세요.`;
+    return kind === 'm4r'
+      ? `아이폰 벨소리는 ${max}초까지예요. 구간을 ${max}초 이하로 골라 주세요.`
+      : `구간이 너무 길어요. ${max}초 이하로 골라 주세요.`;
   }
   return null;
 }

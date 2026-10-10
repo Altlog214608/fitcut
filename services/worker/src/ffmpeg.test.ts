@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { checkInput, ffmpegArgs, parseProbe, seconds } from './ffmpeg';
+import { audioFilter, checkInput, ffmpegArgs, parseProbe, seconds } from './ffmpeg';
 
 const p = { start: 1.5, end: 4, fps: 15, width: 480 };
 
@@ -86,5 +86,38 @@ describe('parseProbe · checkInput', () => {
     expect(checkInput(parseProbe(mp4), { ...p, start: 12, end: 14 })).toContain(
       '영상 길이를 넘었어요',
     );
+  });
+});
+
+describe('음성 (F14)', () => {
+  const a = { start: 10, end: 20, fps: 15, width: 480 };
+
+  it('영상·자막을 빼고 코덱·비트레이트·채널을 정한다', () => {
+    const mp3 = ffmpegArgs('mp3', { ...a, bitrate: 128, channels: 1 }, 'in', 'out.mp3');
+    expect(mp3).toEqual(expect.arrayContaining(['-vn', 'libmp3lame', '128k', '-ac', '1']));
+    expect(ffmpegArgs('wav', a, 'in', 'o')).toEqual(expect.arrayContaining(['pcm_s16le']));
+    const m4r = ffmpegArgs('m4r', a, 'in', 'o.m4r');
+    expect(m4r).toEqual(expect.arrayContaining(['aac', '-f', 'mp4', '192k']));
+  });
+
+  it('필터: 음량 맞추기 → 페이드 인 → 페이드 아웃 (구간 끝에서 거꾸로)', () => {
+    expect(audioFilter({ ...a, normalize: true, fadeIn: 1.5, fadeOut: 2 })).toBe(
+      'loudnorm=I=-16:TP=-1.5:LRA=11,afade=t=in:st=0:d=1.500,afade=t=out:st=8.000:d=2.000',
+    );
+    expect(audioFilter(a)).toBeNull();
+  });
+
+  it('음성은 소리만 있으면 된다 (MP3·WAV도), 소리가 없으면 이유를 알려준다', () => {
+    const mp3 = JSON.stringify({
+      format: { format_name: 'mp3', duration: '30' },
+      streams: [{ codec_type: 'audio', codec_name: 'mp3', channels: 2 }],
+    });
+    expect(checkInput(parseProbe(mp3), a, 'mp3')).toBeNull();
+    const silent = JSON.stringify({
+      format: { format_name: 'mov,mp4,m4a,3gp,3g2,mj2', duration: '30' },
+      streams: [{ codec_type: 'video', codec_name: 'h264', width: 10, height: 10 }],
+    });
+    expect(checkInput(parseProbe(silent), a, 'm4a')).toContain('소리가 없어요');
+    expect(checkInput(parseProbe(mp3), a, 'gif')).toContain('영상을 읽을 수 없어요');
   });
 });
