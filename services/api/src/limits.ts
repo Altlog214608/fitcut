@@ -14,6 +14,8 @@ export const LIMITS = {
   downloadUrlSeconds: 10 * 60,
   /** 잡 기록 보관(초). DynamoDB TTL은 바로 지워지지 않으므로 조회할 때도 확인한다 */
   jobTtlSeconds: 2 * 24 * 60 * 60,
+  /** 올린 영상으로 잡을 만들 수 있는 시간(초). 업로드 버킷 수명 주기(1일)와 맞춘다 */
+  uploadTtlSeconds: 24 * 60 * 60,
 } as const;
 
 export type JobKind = keyof typeof LIMITS.maxSeconds;

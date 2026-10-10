@@ -1,9 +1,28 @@
 import { describe, expect, it } from 'vitest';
 import { clientIp, ipHash, quotaExpiry, quotaKey, seoulDay } from './client';
-import { isJobId, newJob, publicJob } from './jobs';
-import { parseCreateJob } from './validate';
+import { isUuid, newJob, newUpload, publicJob } from './jobs';
+import { parseCreateJob, parseCreateUpload } from './validate';
 
-const ok = { kind: 'gif', start: 1.5, end: 6.5, fileSize: 10_000_000, contentType: 'video/mp4' };
+const UPLOAD_ID = '7d2e9a41-5b6c-4f8d-8e1a-3c9b0f2d4e6a';
+const okUpload = { fileSize: 10_000_000, contentType: 'video/mp4' };
+const ok = { uploadId: UPLOAD_ID, kind: 'gif', start: 1.5, end: 6.5 };
+
+describe('parseCreateUpload', () => {
+  it('크기와 형식을 확인한다', () => {
+    expect(parseCreateUpload(okUpload)).toEqual({ ok: true, value: okUpload });
+  });
+
+  it.each([
+    [{ ...okUpload, fileSize: 600 * 1024 * 1024 }, 'too_big'],
+    [{ ...okUpload, fileSize: 1.5 }, 'bad_size'],
+    [{ ...okUpload, fileSize: 0 }, 'bad_size'],
+    [{ ...okUpload, contentType: 'image/gif' }, 'bad_type'],
+    ['nope', 'bad_body'],
+  ])('%j → %s', (body, code) => {
+    const r = parseCreateUpload(body);
+    expect(r.ok ? null : r.error.code).toBe(code);
+  });
+});
 
 describe('parseCreateJob', () => {
   it('기본값을 채운다 (15fps, 가로 480)', () => {
@@ -11,13 +30,12 @@ describe('parseCreateJob', () => {
   });
 
   it.each([
+    [{ ...ok, uploadId: '../in/x' }, 'bad_upload'],
+    [{ ...ok, uploadId: undefined }, 'bad_upload'],
     [{ ...ok, kind: 'avi' }, 'bad_kind'],
     [{ ...ok, start: 5, end: 5 }, 'bad_range'],
     [{ ...ok, start: -1 }, 'bad_range'],
     [{ ...ok, start: 0, end: 30.5 }, 'too_long'],
-    [{ ...ok, fileSize: 600 * 1024 * 1024 }, 'too_big'],
-    [{ ...ok, fileSize: 1.5 }, 'bad_size'],
-    [{ ...ok, contentType: 'image/gif' }, 'bad_type'],
     [{ ...ok, fps: 60 }, 'bad_fps'],
     [{ ...ok, width: 2000 }, 'bad_width'],
     ['nope', 'bad_body'],
@@ -75,32 +93,46 @@ describe('ipHash · 할당량 키', () => {
   });
 });
 
-describe('잡 기록', () => {
+describe('업로드·잡 기록', () => {
   const now = new Date('2026-10-10T00:00:00Z');
   const id = '0b8f4c56-1d7e-4c3b-9a55-2f0d6c1e9a10';
+  const upload = newUpload(UPLOAD_ID, okUpload, now);
+  const input = { ...ok, kind: 'gif' as const, fps: 15, width: 480 };
 
-  it('원본 위치와 만료 시각(2일)을 정한다', () => {
-    const job = newJob(id, { ...ok, kind: 'gif', fps: 15, width: 480 }, now);
+  it('업로드는 원본 위치를 정하고 1일 뒤 만료된다 (버킷 수명 주기와 같게)', () => {
+    expect(upload).toMatchObject({
+      PK: `UPLOAD#${UPLOAD_ID}`,
+      SK: 'META',
+      inputKey: `in/${UPLOAD_ID}`,
+    });
+    expect(upload.ttl).toBe(now.getTime() / 1000 + 24 * 3600);
+  });
+
+  it('잡은 올린 영상을 원본으로 쓰고 queued로 시작해 2일 뒤 만료된다', () => {
+    const job = newJob(id, input, upload, now);
     expect(job).toMatchObject({
       PK: `JOB#${id}`,
       SK: 'META',
-      status: 'created',
-      inputKey: `in/${id}`,
+      status: 'queued',
+      uploadId: UPLOAD_ID,
+      inputKey: `in/${UPLOAD_ID}`,
+      fileSize: 10_000_000,
     });
     expect(job.ttl).toBe(now.getTime() / 1000 + 2 * 24 * 3600);
   });
 
   it('화면에는 내부 키를 보내지 않고, 만료된 기록은 없는 것으로 본다', () => {
-    const job = newJob(id, { ...ok, kind: 'gif', fps: 15, width: 480 }, now);
+    const job = newJob(id, input, upload, now);
     const shown = publicJob(job, now);
     expect(shown).not.toHaveProperty('PK');
     expect(shown).not.toHaveProperty('inputKey');
+    expect(shown).not.toHaveProperty('uploadId');
     expect(publicJob(job, new Date(job.ttl * 1000 + 1))).toBeNull();
   });
 
-  it('잡 ID는 UUID 모양만', () => {
-    expect(isJobId(id)).toBe(true);
-    expect(isJobId('../../etc')).toBe(false);
-    expect(isJobId(undefined)).toBe(false);
+  it('ID는 UUID 모양만', () => {
+    expect(isUuid(id)).toBe(true);
+    expect(isUuid('../../etc')).toBe(false);
+    expect(isUuid(undefined)).toBe(false);
   });
 });

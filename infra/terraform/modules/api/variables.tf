@@ -34,6 +34,21 @@ variable "daily_job_limit" {
   default     = 20
 }
 
+variable "daily_upload_limit" {
+  description = "IP 해시별 하루 업로드 수 (서울 자정 기준)"
+  type        = number
+  default     = 20
+}
+
+variable "queue_url" {
+  description = "워커 큐. POST /api/jobs가 잡을 넣는다 (ADR-033)"
+  type        = string
+}
+
+variable "queue_arn" {
+  type = string
+}
+
 variable "throttle_rate" {
   description = "API 전체 초당 요청 수 상한 (WAF 대신, ADR-030)"
   type        = number

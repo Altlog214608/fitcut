@@ -187,10 +187,24 @@ data "aws_iam_policy_document" "api" {
   }
 
   # presigned POST는 이 역할의 권한으로 서명된다
+  # PutObject는 presigned POST 서명용, GetObject·ListBucket은 업로드가 끝났는지 확인(HeadObject)용.
+  # ListBucket이 없으면 없는 객체에 404 대신 403이 온다
   statement {
     sid       = "Uploads"
-    actions   = ["s3:PutObject"]
+    actions   = ["s3:PutObject", "s3:GetObject"]
     resources = ["${aws_s3_bucket.files["uploads"].arn}/in/*"]
+  }
+
+  statement {
+    sid       = "UploadsList"
+    actions   = ["s3:ListBucket"]
+    resources = [aws_s3_bucket.files["uploads"].arn]
+  }
+
+  statement {
+    sid       = "Queue"
+    actions   = ["sqs:SendMessage"]
+    resources = [var.queue_arn]
   }
 
   # 결과 내려받기 서명 주소
@@ -233,13 +247,15 @@ resource "aws_lambda_function" "api" {
 
   environment {
     variables = {
-      TABLE_NAME      = aws_dynamodb_table.main.name
-      UPLOADS_BUCKET  = aws_s3_bucket.files["uploads"].bucket
-      OUTPUTS_BUCKET  = aws_s3_bucket.files["outputs"].bucket
-      SALT_PARAM      = aws_ssm_parameter.secret["ip-salt"].name
-      ORIGIN_PARAM    = aws_ssm_parameter.secret["origin-verify"].name
-      DAILY_JOB_LIMIT = tostring(var.daily_job_limit)
-      NODE_OPTIONS    = "--enable-source-maps"
+      TABLE_NAME         = aws_dynamodb_table.main.name
+      UPLOADS_BUCKET     = aws_s3_bucket.files["uploads"].bucket
+      OUTPUTS_BUCKET     = aws_s3_bucket.files["outputs"].bucket
+      QUEUE_URL          = var.queue_url
+      SALT_PARAM         = aws_ssm_parameter.secret["ip-salt"].name
+      ORIGIN_PARAM       = aws_ssm_parameter.secret["origin-verify"].name
+      DAILY_JOB_LIMIT    = tostring(var.daily_job_limit)
+      DAILY_UPLOAD_LIMIT = tostring(var.daily_upload_limit)
+      NODE_OPTIONS       = "--enable-source-maps"
     }
   }
 
@@ -262,7 +278,7 @@ resource "aws_apigatewayv2_integration" "api" {
 }
 
 resource "aws_apigatewayv2_route" "api" {
-  for_each  = toset(["POST /api/jobs", "GET /api/jobs/{id}"])
+  for_each  = toset(["POST /api/uploads", "POST /api/jobs", "GET /api/jobs/{id}"])
   api_id    = aws_apigatewayv2_api.api.id
   route_key = each.key
   target    = "integrations/${aws_apigatewayv2_integration.api.id}"

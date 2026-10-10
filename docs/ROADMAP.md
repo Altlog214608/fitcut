@@ -51,7 +51,7 @@
 ## M2. 움짤 도구 + 서버리스 파이프라인 + 이벤트 수집 (3주)
 
 - [ ] 타임라인: 썸네일 스트립, 핸들, 확대, 키보드, 시간 입력, 구간 반복
-- [ ] 업로드와 미리보기를 동시에 진행 (Object URL)
+- [ ] 업로드와 미리보기를 동시에 진행 (Object URL) — API를 업로드와 잡으로 나눔 (ADR-033), 화면 작업 중
 - [x] API: `POST /api/jobs`, `GET /api/jobs/{id}` (CloudFront /api/* → HTTP API + Lambda + DynamoDB, ADR-031). 2026-10-10 실제 주소로 확인: 잡 만들기·업로드·상태·잘못된 입력·API 주소로 바로 호출 403·원본 IP 미저장
 - [x] presigned POST 업로드 (크기·타입 제한, 다른 형식으로 올리면 403 확인)
 - [ ] dispatcher: 작업 크기에 따라 Lambda / Fargate Spot으로 분배

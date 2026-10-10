@@ -1,4 +1,4 @@
-# 워커: S3 업로드 완료 → EventBridge → SQS → Lambda(컨테이너 이미지, ffmpeg) → outputs 버킷
+# 워커: 잡 API가 업로드를 확인하고 SQS에 넣는다 → Lambda(컨테이너 이미지, ffmpeg) → outputs 버킷 (ADR-033)
 # (docs/ARCHITECTURE.md 요청 흐름 3~4단계. 큰 작업을 Fargate로 보내는 분배기는 Lambda 측정 후에 붙인다, ADR-002)
 
 locals {
@@ -53,65 +53,6 @@ resource "aws_sqs_queue" "jobs" {
     deadLetterTargetArn = aws_sqs_queue.dlq.arn
     maxReceiveCount     = 2
   })
-}
-
-# ---------- 업로드 완료 이벤트 → SQS ----------
-
-resource "aws_s3_bucket_notification" "uploads" {
-  bucket      = var.uploads_bucket
-  eventbridge = true
-}
-
-resource "aws_cloudwatch_event_rule" "uploaded" {
-  name        = "${local.fn}-uploaded"
-  description = "Original video uploaded under in/"
-  tags        = local.tags
-
-  event_pattern = jsonencode({
-    source      = ["aws.s3"]
-    detail-type = ["Object Created"]
-    detail = {
-      bucket = { name = [var.uploads_bucket] }
-      object = { key = [{ prefix = "in/" }] }
-    }
-  })
-}
-
-resource "aws_cloudwatch_event_target" "jobs" {
-  rule = aws_cloudwatch_event_rule.uploaded.name
-  arn  = aws_sqs_queue.jobs.arn
-
-  input_transformer {
-    input_paths = {
-      key  = "$.detail.object.key"
-      size = "$.detail.object.size"
-    }
-    input_template = <<-EOT
-      {"key": <key>, "size": <size>}
-    EOT
-  }
-}
-
-data "aws_iam_policy_document" "jobs_queue" {
-  statement {
-    sid       = "FromUploadRule"
-    actions   = ["sqs:SendMessage"]
-    resources = [aws_sqs_queue.jobs.arn]
-    principals {
-      type        = "Service"
-      identifiers = ["events.amazonaws.com"]
-    }
-    condition {
-      test     = "ArnEquals"
-      variable = "aws:SourceArn"
-      values   = [aws_cloudwatch_event_rule.uploaded.arn]
-    }
-  }
-}
-
-resource "aws_sqs_queue_policy" "jobs" {
-  queue_url = aws_sqs_queue.jobs.id
-  policy    = data.aws_iam_policy_document.jobs_queue.json
 }
 
 # ---------- Lambda (컨테이너 이미지) ----------

@@ -1,52 +1,42 @@
-/** POST /api/jobs 입력 검사 (순수 함수). 오류 문구는 화면에 그대로 보여준다 (docs/UI.md 문구 규칙). */
+/** POST /api/uploads · POST /api/jobs 입력 검사 (순수 함수). 오류 문구는 화면에 그대로 보여준다 (docs/UI.md 문구 규칙). */
+import { isUuid } from './jobs';
 import { JOB_KINDS, LIMITS, type JobKind } from './limits';
 
+export type CreateUpload = {
+  fileSize: number;
+  contentType: string;
+};
+
 export type CreateJob = {
+  /** POST /api/uploads로 받은 업로드 ID. 한 번 올린 영상으로 여러 결과를 만들 수 있다 */
+  uploadId: string;
   kind: JobKind;
   /** 구간 시작·끝 (초, 소수점 허용) */
   start: number;
   end: number;
-  fileSize: number;
-  contentType: string;
   fps: number;
   width: number;
 };
 
 export type Invalid = { code: string; message: string };
 
+type Result<T> = { ok: true; value: T } | { ok: false; error: Invalid };
 type Obj = Record<string, unknown>;
 
 const isObj = (v: unknown): v is Obj => typeof v === 'object' && v !== null && !Array.isArray(v);
 const isNum = (v: unknown): v is number => typeof v === 'number' && Number.isFinite(v);
+const fail = (code: string, message: string) => ({
+  ok: false as const,
+  error: { code, message },
+});
 
 function intIn(value: unknown, min: number, max: number, fallback: number): number | null {
   if (value === undefined) return fallback;
   return isNum(value) && Number.isInteger(value) && value >= min && value <= max ? value : null;
 }
 
-export function parseCreateJob(
-  body: unknown,
-): { ok: true; value: CreateJob } | { ok: false; error: Invalid } {
-  const fail = (code: string, message: string) => ({
-    ok: false as const,
-    error: { code, message },
-  });
+export function parseCreateUpload(body: unknown): Result<CreateUpload> {
   if (!isObj(body)) return fail('bad_body', '요청 형식이 올바르지 않아요.');
-
-  const kind = body.kind;
-  if (typeof kind !== 'string' || !JOB_KINDS.includes(kind as JobKind)) {
-    return fail('bad_kind', 'GIF · WebP · MP4 중에서 골라 주세요.');
-  }
-  const k = kind as JobKind;
-
-  const { start, end } = body;
-  if (!isNum(start) || !isNum(end) || start < 0 || end <= start) {
-    return fail('bad_range', '구간을 다시 골라 주세요. 끝이 시작보다 뒤여야 해요.');
-  }
-  const max = LIMITS.maxSeconds[k];
-  if (end - start > max) {
-    return fail('too_long', `구간이 너무 길어요. ${max}초 이하로 골라 주세요.`);
-  }
 
   const { fileSize, contentType } = body;
   if (!isNum(fileSize) || !Number.isInteger(fileSize) || fileSize < 1) {
@@ -64,6 +54,31 @@ export function parseCreateJob(
   ) {
     return fail('bad_type', 'MP4 · MOV · WebM 영상만 만들 수 있어요.');
   }
+  return { ok: true, value: { fileSize, contentType } };
+}
+
+export function parseCreateJob(body: unknown): Result<CreateJob> {
+  if (!isObj(body)) return fail('bad_body', '요청 형식이 올바르지 않아요.');
+
+  const { uploadId } = body;
+  if (typeof uploadId !== 'string' || !isUuid(uploadId)) {
+    return fail('bad_upload', '영상을 다시 골라 주세요.');
+  }
+
+  const kind = body.kind;
+  if (typeof kind !== 'string' || !JOB_KINDS.includes(kind as JobKind)) {
+    return fail('bad_kind', 'GIF · WebP · MP4 중에서 골라 주세요.');
+  }
+  const k = kind as JobKind;
+
+  const { start, end } = body;
+  if (!isNum(start) || !isNum(end) || start < 0 || end <= start) {
+    return fail('bad_range', '구간을 다시 골라 주세요. 끝이 시작보다 뒤여야 해요.');
+  }
+  const max = LIMITS.maxSeconds[k];
+  if (end - start > max) {
+    return fail('too_long', `구간이 너무 길어요. ${max}초 이하로 골라 주세요.`);
+  }
 
   const fps = intIn(body.fps, LIMITS.fps.min, LIMITS.fps.max, LIMITS.fps.default);
   if (fps === null)
@@ -76,5 +91,5 @@ export function parseCreateJob(
     );
   }
 
-  return { ok: true, value: { kind: k, start, end, fileSize, contentType, fps, width } };
+  return { ok: true, value: { uploadId, kind: k, start, end, fps, width } };
 }
