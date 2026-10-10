@@ -10,6 +10,7 @@
 import { DynamoDBClient } from '@aws-sdk/client-dynamodb';
 import { GetObjectCommand, PutObjectCommand, S3Client } from '@aws-sdk/client-s3';
 import { DynamoDBDocumentClient, UpdateCommand } from '@aws-sdk/lib-dynamodb';
+import { SendMessageCommand, SQSClient } from '@aws-sdk/client-sqs';
 import type { SQSBatchResponse, SQSEvent } from 'aws-lambda';
 import { createReadStream, createWriteStream } from 'node:fs';
 import { mkdtemp, rm, stat } from 'node:fs/promises';
@@ -35,6 +36,10 @@ export type Env = {
   OUTPUTS_BUCKET: string;
   FFMPEG_PATH: string;
   FFPROBE_PATH: string;
+  /** 사용 이벤트 큐 (없으면 이벤트를 보내지 않는다) */
+  EVENTS_QUEUE_URL?: string;
+  /** Lambda 메모리(MB). 잡 비용 추정에 쓴다 */
+  AWS_LAMBDA_FUNCTION_MEMORY_SIZE?: string;
 };
 
 type Job = { id: string; status: string; kind: OutputKind; params: Params; inputKey: string };
@@ -49,11 +54,16 @@ export type Deps = {
   env: Env;
   ddb: DynamoDBDocumentClient;
   s3: S3Client;
-  /** 남은 실행 시간(ms). ffmpeg 시간 제한에 쓴다 */
-  remainingMs: () => number;
+  sqs: SQSClient;
   /** 실행 (테스트에서 바꿔 끼운다) */
   exec: typeof run;
 };
+
+/** 서울 arm64 Lambda 단가(GB초, AWS Pricing API 2026-10-10). 잡 비용 추정용 (ADR-002) */
+const PRICE_PER_GB_SECOND = 0.0000133334;
+
+/** 남은 실행 시간(ms). 호출마다 새 context에서 읽어야 한다 */
+export type Remaining = () => number;
 
 /** 잡 API가 넣은 메시지에서 잡 ID를 꺼낸다 ({ "jobId": "<uuid>" }) */
 export function jobIdFromMessage(body: string): string | null {
@@ -119,7 +129,41 @@ export function makeHandler(deps: Deps) {
     );
   }
 
-  async function process(id: string) {
+  /** 사용 이벤트(job_succeeded·job_failed). 실패해도 잡은 그대로 둔다 */
+  async function emit(event: Record<string, unknown>) {
+    if (!env.EVENTS_QUEUE_URL) return;
+    const receivedAt = Date.now();
+    try {
+      await deps.sqs.send(
+        new SendMessageCommand({
+          QueueUrl: env.EVENTS_QUEUE_URL,
+          MessageBody: JSON.stringify({
+            events: [{ ...event, ts: receivedAt, source: 'server', receivedAt }],
+          }),
+        }),
+      );
+    } catch (e) {
+      console.error(JSON.stringify({ msg: 'event send failed', error: String(e) }));
+    }
+  }
+
+  function jobEvent(job: Job, startedMs: number, ok: boolean, errorCode?: string) {
+    const processingMs = Date.now() - startedMs;
+    const memoryGb = Number(env.AWS_LAMBDA_FUNCTION_MEMORY_SIZE ?? 2048) / 1024;
+    return emit({
+      name: ok ? 'job_succeeded' : 'job_failed',
+      jobId: job.id,
+      type: job.kind,
+      durationSec: job.params.end - job.params.start,
+      worker: 'lambda',
+      processingMs,
+      estCostUsd: Number(((processingMs / 1000) * memoryGb * PRICE_PER_GB_SECOND).toFixed(6)),
+      ...(errorCode ? { errorCode } : {}),
+    });
+  }
+
+  async function process(id: string, remainingMs: Remaining) {
+    const startedMs = Date.now();
     const job = await claim(id);
     if (!job) return;
     const dir = await mkdtemp(join(tmpdir(), 'job-'));
@@ -139,7 +183,7 @@ export function makeHandler(deps: Deps) {
       const made = await deps.exec(
         env.FFMPEG_PATH,
         ffmpegArgs(job.kind, job.params, input, output),
-        Math.max(10_000, deps.remainingMs() - 20_000),
+        Math.max(10_000, remainingMs() - 20_000),
       );
       const { size } = await stat(output);
       const outputKey = `out/${id}.${EXTENSION[job.kind]}`;
@@ -159,6 +203,7 @@ export function makeHandler(deps: Deps) {
         ffmpegMs: made.ms,
         finishedAt: new Date().toISOString(),
       });
+      await jobEvent(job, startedMs, true);
     } catch (e) {
       if (e instanceof InputError) {
         await finish(id, {
@@ -166,6 +211,7 @@ export function makeHandler(deps: Deps) {
           error: e.message,
           finishedAt: new Date().toISOString(),
         });
+        await jobEvent(job, startedMs, false, 'input');
         return;
       }
       console.error(JSON.stringify({ msg: 'job failed', id, error: String(e) }));
@@ -174,18 +220,21 @@ export function makeHandler(deps: Deps) {
         error: '변환하지 못했어요. 잠시 후 다시 시도해 주세요.',
         finishedAt: new Date().toISOString(),
       });
+      await jobEvent(job, startedMs, false, 'ffmpeg');
     } finally {
       await rm(dir, { recursive: true, force: true });
     }
   }
 
-  return async (event: SQSEvent): Promise<SQSBatchResponse> => {
+  // 남은 시간은 호출마다 받는다. 첫 호출의 context를 붙잡아 두면 오래 살아 있는 컨테이너에서
+  // 남은 시간이 음수가 되어 ffmpeg가 10초 만에 멈춘다 (2026-10-10 측정 중 발견)
+  return async (event: SQSEvent, remainingMs: Remaining): Promise<SQSBatchResponse> => {
     const failures: SQSBatchResponse['batchItemFailures'] = [];
     for (const record of event.Records) {
       const id = jobIdFromMessage(record.body);
       if (!id) continue; // 우리가 만든 메시지가 아니면 버린다
       try {
-        await process(id);
+        await process(id, remainingMs);
       } catch (e) {
         console.error(JSON.stringify({ msg: 'retry later', id, error: String(e) }));
         failures.push({ itemIdentifier: record.messageId });
@@ -203,7 +252,12 @@ function env(): Env {
     'FFMPEG_PATH',
     'FFPROBE_PATH',
   ] as const;
-  const out = {} as Env;
+  const out: Env = {
+    ...(process.env.EVENTS_QUEUE_URL ? { EVENTS_QUEUE_URL: process.env.EVENTS_QUEUE_URL } : {}),
+    ...(process.env.AWS_LAMBDA_FUNCTION_MEMORY_SIZE
+      ? { AWS_LAMBDA_FUNCTION_MEMORY_SIZE: process.env.AWS_LAMBDA_FUNCTION_MEMORY_SIZE }
+      : {}),
+  } as Env;
   for (const name of names) {
     const value = process.env[name];
     if (!value) throw new Error(`env ${name} is required`);
@@ -220,8 +274,8 @@ export const handler = (event: SQSEvent, context: { getRemainingTimeInMillis: ()
       marshallOptions: { removeUndefinedValues: true },
     }),
     s3: new S3Client({}),
-    remainingMs: () => context.getRemainingTimeInMillis(),
+    sqs: new SQSClient({}),
     exec: run,
   });
-  return real(event);
+  return real(event, () => context.getRemainingTimeInMillis());
 };

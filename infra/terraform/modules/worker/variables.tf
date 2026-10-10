@@ -67,3 +67,12 @@ variable "log_retention_days" {
   type    = number
   default = 14
 }
+
+variable "events_queue_url" {
+  description = "사용 이벤트 큐 (job_succeeded·job_failed)"
+  type        = string
+}
+
+variable "events_queue_arn" {
+  type = string
+}

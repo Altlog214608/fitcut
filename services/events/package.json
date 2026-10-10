@@ -1,18 +1,15 @@
 {
-  "name": "@fitcut/worker",
+  "name": "@fitcut/events",
   "private": true,
   "type": "module",
-  "description": "ffmpeg 워커: 움짤(GIF·WebP)·MP4 만들기. Lambda 컨테이너 이미지와 Fargate 태스크가 같은 코드를 쓴다",
+  "description": "사용 이벤트 배치 Lambda: SQS에서 최대 5분씩 모아 S3에 gzip JSON Lines로 (ADR-030)",
   "scripts": {
     "build": "esbuild src/handler.ts --bundle --platform=node --target=node24 --format=esm --minify --sourcemap --outfile=dist/index.mjs --banner:js=\"import { createRequire } from 'module'; const require = createRequire(import.meta.url);\"",
     "typecheck": "tsc -p tsconfig.json",
     "test": "vitest run"
   },
   "dependencies": {
-    "@aws-sdk/client-dynamodb": "^3.1148.0",
-    "@aws-sdk/client-s3": "^3.1148.0",
-    "@aws-sdk/client-sqs": "^3.1148.0",
-    "@aws-sdk/lib-dynamodb": "^3.1148.0"
+    "@aws-sdk/client-s3": "^3.1148.0"
   },
   "devDependencies": {
     "@types/aws-lambda": "^8.10.164",

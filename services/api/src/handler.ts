@@ -4,6 +4,7 @@
  *   화면은 영상을 고르자마자 올리고, 그동안 구간을 고른다.
  * - POST /api/jobs: 입력 검사 → 업로드가 끝났는지 확인 → 하루 잡 할당량 → 잡 기록 → 워커 큐에 넣기
  * - GET /api/jobs/{id}: 잡 상태 (끝났으면 내려받기 주소)
+ * - POST /api/events: 사용 이벤트 묶음 → 허용한 이벤트·필드만 → 이벤트 큐 (docs/ADMIN.md)
  * CloudFront만 부를 수 있게 오리진 확인 헤더를 검사한다 (API Gateway 기본 주소로 바로 오는 요청은 거절).
  */
 import { ConditionalCheckFailedException, DynamoDBClient } from '@aws-sdk/client-dynamodb';
@@ -34,6 +35,7 @@ import {
   type UploadItem,
 } from './jobs';
 import { LIMITS } from './limits';
+import { cleanEvent, MAX_EVENTS_PER_REQUEST, type JobEvent } from '@fitcut/shared';
 import { parseCreateJob, parseCreateUpload } from './validate';
 
 export type Env = {
@@ -41,6 +43,7 @@ export type Env = {
   UPLOADS_BUCKET: string;
   OUTPUTS_BUCKET: string;
   QUEUE_URL: string;
+  EVENTS_QUEUE_URL: string;
   SALT_PARAM: string;
   ORIGIN_PARAM: string;
   DAILY_JOB_LIMIT: string;
@@ -249,7 +252,67 @@ export function makeHandler(deps: Deps) {
       );
       throw e;
     }
+    await emit([
+      {
+        name: 'job_created',
+        ts: now.getTime(),
+        jobId: job.id,
+        type: job.kind,
+        inputSize: job.fileSize,
+        durationSec: job.params.end - job.params.start,
+      },
+    ]);
     return json(201, { job: publicJob(job, now) });
+  }
+
+  /** 서버 잡 이벤트를 이벤트 큐에 넣는다. 실패해도 잡 흐름은 막지 않는다 */
+  async function emit(events: JobEvent[]) {
+    const receivedAt = deps.now().getTime();
+    try {
+      await sqs.send(
+        new SendMessageCommand({
+          QueueUrl: env.EVENTS_QUEUE_URL,
+          MessageBody: JSON.stringify({
+            events: events.map((e) => ({ ...e, source: 'server', receivedAt })),
+          }),
+        }),
+      );
+    } catch (e) {
+      console.error(JSON.stringify({ msg: 'event send failed', error: String(e) }));
+    }
+  }
+
+  async function postEvents(event: APIGatewayProxyEventV2) {
+    const raw = event.isBase64Encoded
+      ? Buffer.from(event.body ?? '', 'base64').toString()
+      : (event.body ?? '');
+    if (raw.length > 16 * 1024) return error(413, 'too_large', '요청이 너무 커요.');
+    const read = (() => {
+      try {
+        return JSON.parse(raw) as { events?: unknown };
+      } catch {
+        return null;
+      }
+    })();
+    if (!read || !Array.isArray(read.events)) {
+      return error(400, 'bad_body', '요청 형식이 올바르지 않아요.');
+    }
+    const events = read.events
+      .slice(0, MAX_EVENTS_PER_REQUEST)
+      .map(cleanEvent)
+      .filter((e) => e !== null);
+    if (events.length > 0) {
+      const receivedAt = deps.now().getTime();
+      await sqs.send(
+        new SendMessageCommand({
+          QueueUrl: env.EVENTS_QUEUE_URL,
+          MessageBody: JSON.stringify({
+            events: events.map((e) => ({ ...e, source: 'web', receivedAt })),
+          }),
+        }),
+      );
+    }
+    return { statusCode: 204, headers: { 'cache-control': 'no-store' } };
   }
 
   async function getJob(id: string | undefined) {
@@ -282,6 +345,8 @@ export function makeHandler(deps: Deps) {
         return createUpload(event, salt);
       case 'POST /api/jobs':
         return createJob(event, salt);
+      case 'POST /api/events':
+        return postEvents(event);
       case 'GET /api/jobs/{id}':
         return getJob(event.pathParameters?.id);
       default:
@@ -296,6 +361,7 @@ function env(): Env {
     'UPLOADS_BUCKET',
     'OUTPUTS_BUCKET',
     'QUEUE_URL',
+    'EVENTS_QUEUE_URL',
     'SALT_PARAM',
     'ORIGIN_PARAM',
     'DAILY_JOB_LIMIT',

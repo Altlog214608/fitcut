@@ -1,6 +1,7 @@
 import { DynamoDBClient } from '@aws-sdk/client-dynamodb';
 import { GetObjectCommand, PutObjectCommand, S3Client } from '@aws-sdk/client-s3';
 import { DynamoDBDocumentClient, UpdateCommand } from '@aws-sdk/lib-dynamodb';
+import { SendMessageCommand, SQSClient } from '@aws-sdk/client-sqs';
 import type { SQSEvent } from 'aws-lambda';
 import { mockClient } from 'aws-sdk-client-mock';
 import { writeFile } from 'node:fs/promises';
@@ -12,6 +13,8 @@ const ddb = DynamoDBDocumentClient.from(new DynamoDBClient({ region: 'ap-northea
 const s3 = new S3Client({ region: 'ap-northeast-2' });
 const ddbMock = mockClient(ddb);
 const s3Mock = mockClient(s3);
+const sqs = new SQSClient({ region: 'ap-northeast-2' });
+const sqsMock = mockClient(sqs);
 
 const ID = '0b8f4c56-1d7e-4c3b-9a55-2f0d6c1e9a10';
 const job = {
@@ -42,13 +45,17 @@ function handler(exec: Deps['exec']) {
       OUTPUTS_BUCKET: 'out',
       FFMPEG_PATH: 'ffmpeg',
       FFPROBE_PATH: 'ffprobe',
+      EVENTS_QUEUE_URL: 'events-queue',
+      AWS_LAMBDA_FUNCTION_MEMORY_SIZE: '2048',
     },
     ddb,
     s3,
-    remainingMs: () => 600_000,
+    sqs,
     exec,
   });
 }
+
+const fresh = () => 600_000;
 
 /** ffprobe는 정해진 JSON을, ffmpeg는 출력 파일(마지막 인자)을 만든다 */
 const fakeExec =
@@ -64,6 +71,8 @@ const updates = () => ddbMock.commandCalls(UpdateCommand).map((c) => c.args[0].i
 beforeEach(() => {
   ddbMock.reset();
   s3Mock.reset();
+  sqsMock.reset();
+  sqsMock.on(SendMessageCommand).resolves({});
   s3Mock.on(GetObjectCommand).callsFake(() => ({ Body: Readable.from([Buffer.from('video')]) }));
   s3Mock.on(PutObjectCommand).resolves({});
 });
@@ -80,7 +89,7 @@ describe('jobIdFromMessage', () => {
 describe('워커', () => {
   it('받아서 만들고 결과를 올린 뒤 done으로 바꾼다', async () => {
     ddbMock.on(UpdateCommand).resolvesOnce({ Attributes: job }).resolves({});
-    const res = await handler(fakeExec(mp4Probe))(event(message));
+    const res = await handler(fakeExec(mp4Probe))(event(message), fresh);
     expect(res.batchItemFailures).toEqual([]);
     const put = s3Mock.commandCalls(PutObjectCommand)[0]?.args[0].input;
     expect(put).toMatchObject({ Bucket: 'out', Key: `out/${ID}.gif`, ContentType: 'image/gif' });
@@ -94,14 +103,14 @@ describe('워커', () => {
     const err = Object.assign(new Error('cond'), { name: 'ConditionalCheckFailedException' });
     ddbMock.on(UpdateCommand).rejects(err);
     const exec = vi.fn(fakeExec(mp4Probe));
-    const res = await handler(exec)(event(message));
+    const res = await handler(exec)(event(message), fresh);
     expect(res.batchItemFailures).toEqual([]);
     expect(exec).not.toHaveBeenCalled();
   });
 
   it('영상이 아니면 다시 시도하지 않고 이유와 함께 failed', async () => {
     ddbMock.on(UpdateCommand).resolvesOnce({ Attributes: job }).resolves({});
-    const res = await handler(fakeExec('{}'))(event(message));
+    const res = await handler(fakeExec('{}'))(event(message), fresh);
     expect(res.batchItemFailures).toEqual([]);
     expect(updates().at(-1)?.ExpressionAttributeValues).toEqual(
       expect.objectContaining({
@@ -118,7 +127,7 @@ describe('워커', () => {
       if (bin === 'ffprobe') return { stdout: mp4Probe, ms: 5 };
       throw new Error('ffmpeg exit 1');
     };
-    await handler(exec)(event(message));
+    await handler(exec)(event(message), fresh);
     expect(updates().at(-1)?.ExpressionAttributeValues).toEqual(
       expect.objectContaining({
         ':v0': 'failed',
@@ -129,7 +138,47 @@ describe('워커', () => {
 
   it('잡을 잡는 단계에서 DynamoDB 오류면 SQS가 다시 보내게 실패로 돌려준다', async () => {
     ddbMock.on(UpdateCommand).rejects(new Error('throttled'));
-    const res = await handler(fakeExec(mp4Probe))(event(message));
+    const res = await handler(fakeExec(mp4Probe))(event(message), fresh);
     expect(res.batchItemFailures).toEqual([{ itemIdentifier: 'm1' }]);
+  });
+
+  it('남은 시간은 호출마다 새로 읽는다 (오래 살아 있는 컨테이너에서도 ffmpeg 시간 제한이 맞다)', async () => {
+    ddbMock.on(UpdateCommand).resolves({ Attributes: job });
+    const limits: number[] = [];
+    const exec: Deps['exec'] = async (bin, args, timeoutMs) => {
+      if (bin === 'ffprobe') return { stdout: mp4Probe, ms: 5 };
+      limits.push(timeoutMs);
+      await writeFile(args.at(-1) ?? '', Buffer.alloc(10));
+      return { stdout: '', ms: 1 };
+    };
+    const h = handler(exec);
+    await h(event(message), () => -60_000); // 앞선 호출: 시간이 지나 음수
+    await h(event(message), () => 500_000); // 이번 호출
+    expect(limits).toEqual([10_000, 480_000]);
+  });
+
+  it('끝나면 job_succeeded 이벤트(처리 시간·추정 비용)를 이벤트 큐에 넣는다', async () => {
+    ddbMock.on(UpdateCommand).resolvesOnce({ Attributes: job }).resolves({});
+    await handler(fakeExec(mp4Probe))(event(message), fresh);
+    const sent = sqsMock.commandCalls(SendMessageCommand)[0]?.args[0].input;
+    expect(sent?.QueueUrl).toBe('events-queue');
+    expect(JSON.parse(sent?.MessageBody ?? '{}').events[0]).toMatchObject({
+      name: 'job_succeeded',
+      jobId: ID,
+      type: 'gif',
+      durationSec: 2.5,
+      worker: 'lambda',
+      source: 'server',
+    });
+  });
+
+  it('이벤트를 못 보내도 잡은 done으로 끝난다', async () => {
+    ddbMock.on(UpdateCommand).resolvesOnce({ Attributes: job }).resolves({});
+    sqsMock.on(SendMessageCommand).rejects(new Error('sqs down'));
+    const res = await handler(fakeExec(mp4Probe))(event(message), fresh);
+    expect(res.batchItemFailures).toEqual([]);
+    expect(updates().at(-1)?.ExpressionAttributeValues).toEqual(
+      expect.objectContaining({ ':v0': 'done' }),
+    );
   });
 });

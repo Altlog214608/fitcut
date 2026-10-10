@@ -9,7 +9,7 @@
 
 | 데이터 | 저장 위치 | 보관 |
 | --- | --- | --- |
-| 사용 이벤트 (아래 목록) | S3 analytics (Parquet) | 12개월 |
+| 사용 이벤트 (아래 목록) | S3 analytics (gzip JSON Lines, 날짜 파티션, ADR-036) | 12개월 |
 | 잡 메타데이터 | DynamoDB | 90일 (TTL) |
 | 링크와 구간 (YouTube URL, 시작·끝) | DynamoDB | 12개월 |
 | 업로드·결과 파일 | S3 uploads·outputs | 1~2일 자동 삭제 |
@@ -35,7 +35,7 @@
 | `retain_consent` | scope (retain_30d), given |
 | `error_shown` | code |
 
-저장하지 않는 것: 파일 내용(보관 동의 파일 제외), 파일명, 원본 IP(솔트 해시만, 솔트는 주기적으로 교체), 채팅 닉네임.
+저장하지 않는 것: 파일 내용(보관 동의 파일 제외), 파일명, 원본 IP(사용 이벤트에는 해시도 넣지 않는다), 채팅 닉네임. 브라우저의 추적 거부(Do Not Track, Global Privacy Control)를 켜면 이벤트를 보내지 않는다. 허용한 이벤트·필드는 `packages/shared/src/events.ts`가 정하고 API가 나머지를 버린다.
 
 ## 파이프라인
 

@@ -12,6 +12,12 @@ data "archive_file" "api" {
   output_path = "${path.module}/.build/api.zip"
 }
 
+data "archive_file" "events" {
+  type        = "zip"
+  source_dir  = "${path.module}/../../../../services/events/dist"
+  output_path = "${path.module}/.build/events.zip"
+}
+
 module "web" {
   source = "../../modules/static-site"
 
@@ -32,6 +38,17 @@ module "api" {
   site_origin           = "https://${module.web.domain_name}"
   queue_url             = module.worker.queue_url
   queue_arn             = module.worker.queue_arn
+  events_queue_url      = module.events.queue_url
+  events_queue_arn      = module.events.queue_arn
+}
+
+module "events" {
+  source = "../../modules/events"
+
+  name_prefix           = "fitcut-dev"
+  lambda_zip            = data.archive_file.events.output_path
+  lambda_zip_hash       = data.archive_file.events.output_base64sha256
+  workload_boundary_arn = local.workload_boundary_arn
 }
 
 variable "worker_image_tag" {
@@ -51,4 +68,6 @@ module "worker" {
   uploads_bucket_arn    = module.api.uploads_bucket_arn
   outputs_bucket        = module.api.outputs_bucket
   outputs_bucket_arn    = module.api.outputs_bucket_arn
+  events_queue_url      = module.events.queue_url
+  events_queue_arn      = module.events.queue_arn
 }

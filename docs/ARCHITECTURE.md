@@ -121,7 +121,7 @@
 | retained | 보관 동의 파일 (SSE-KMS) | 30일 후 만료 |
 | chat | 수집한 채팅 이벤트 (닉네임 제거, 방송별 경로) | 30일 후 만료 |
 | artifacts | 하이라이트 시계열, 일별 집계 | 시계열 90일, 집계는 보관 |
-| analytics | 사용 이벤트 (Parquet, dt 파티션) | 12개월 후 만료 |
+| analytics | 사용 이벤트 (gzip JSON Lines, `events/dt=YYYY-MM-DD/`, ADR-036) | 12개월 후 만료 |
 | athena-results | Athena 쿼리 결과 | 7일 후 만료 |
 
 - 모든 버킷은 퍼블릭 액세스를 차단한다. web은 CloudFront OAC로만, outputs는 CloudFront 서명 URL로만 접근한다. retained는 관리자 API가 발급하는 짧은 서명 URL로만 연다.
