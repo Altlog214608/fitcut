@@ -92,7 +92,10 @@ jobs:
         run: |
           aws s3 sync apps/web/dist/assets "s3://$BUCKET/assets" \
             --cache-control "public,max-age=31536000,immutable"
-          aws s3 sync apps/web/dist "s3://$BUCKET" --delete --exclude "assets/*" \
+          # AI 업스케일 모델(F20): 이름이 바뀌지 않아 1주일만 캐시한다 (바꿀 때는 파일 이름을 바꾼다)
+          aws s3 sync apps/web/dist/models "s3://$BUCKET/models" --delete \
+            --cache-control "public,max-age=604800"
+          aws s3 sync apps/web/dist "s3://$BUCKET" --delete --exclude "assets/*" --exclude "models/*" \
             --cache-control "no-cache"
           aws cloudfront create-invalidation --distribution-id "$DISTRIBUTION_ID" \
             --paths "/index.html" > /dev/null

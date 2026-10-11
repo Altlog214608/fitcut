@@ -382,3 +382,39 @@ test('HEIC 사진도 브라우저 안에서 열어 저장한다 (서버로 보�
   expect(hasExif(file)).toBe(false);
   expect(uploads).toHaveLength(0);
 });
+
+test('AI로 2배 키우면 크기가 정확히 2배가 되고, 사진은 서버로 가지 않는다 (취소도 된다)', async ({
+  page,
+}, testInfo) => {
+  // 헤드리스 브라우저는 GPU 없이 소프트웨어로 돌아 느리다. 작은 사진으로, 데스크톱에서만 본다 (속도는 실제 기기로 따로 잰다)
+  test.skip(testInfo.project.name !== 'desktop', '데스크톱에서만');
+  test.setTimeout(240_000);
+  const uploads = watchUploads(page);
+  await page.goto('/photo');
+  await page.getByLabel(/사진을 끌어오세요/).setInputFiles({
+    name: 'small.png',
+    mimeType: 'image/png',
+    buffer: await makeScene(page, 250, 250),
+  });
+  await page.getByRole('button', { name: '크기 직접 입력' }).click();
+  await page.getByLabel('가로').fill('500');
+  await page.getByLabel('세로').fill('500');
+  await page.getByRole('button', { name: '이 크기로' }).click();
+
+  // 취소
+  await page.getByRole('button', { name: 'AI로 선명하게 키우기 (2배)' }).click();
+  await expect(page.getByText('AI로 키우는 중이에요')).toBeVisible();
+  await page.getByRole('button', { name: '취소' }).click();
+  await expect(page.getByText('AI로 키우는 중이에요')).toBeHidden({ timeout: 60_000 });
+  await expect(page.getByText(/AI로 2배 키운 사진을 쓰고 있어요/)).toHaveCount(0);
+
+  // 끝까지
+  await page.getByRole('button', { name: 'AI로 선명하게 키우기 (2배)' }).click();
+  await expect(page.getByText(/AI로 2배 키운 사진을 쓰고 있어요 \(500 × 500/)).toBeVisible({
+    timeout: 200_000,
+  });
+  const { file } = await save(page);
+  expect(imageSize(file)).toMatchObject({ width: 500, height: 500 });
+  // 받은 것은 모델 파일뿐 (GET), 사진을 올린 요청은 없다
+  expect(uploads).toHaveLength(0);
+});
