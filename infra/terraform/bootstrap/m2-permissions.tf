@@ -37,6 +37,16 @@ locals {
     "arn:aws:logs:${local.region}:${local.account}:log-group:/ecs/${local.p}-*",
   ]
   api_gateway = "arn:aws:apigateway:${local.region}::/*"
+
+  # M4 (m4-permissions.tf). Glue 이름은 하이픈 대신 밑줄을 쓴다
+  glue_prefix       = replace(local.p, "-", "_")
+  athena_workgroups = "arn:aws:athena:${local.region}:${local.account}:workgroup/${local.p}-*"
+  cognito_pools     = "arn:aws:cognito-idp:${local.region}:${local.account}:userpool/*"
+  glue_resources = [
+    "arn:aws:glue:${local.region}:${local.account}:catalog",
+    "arn:aws:glue:${local.region}:${local.account}:database/${local.glue_prefix}*",
+    "arn:aws:glue:${local.region}:${local.account}:table/${local.glue_prefix}*/*",
+  ]
 }
 
 # ---------- 워크로드 권한 경계 ----------
@@ -121,6 +131,25 @@ data "aws_iam_policy_document" "workload_boundary" {
       variable = "iam:PassedToService"
       values   = ["ecs-tasks.amazonaws.com"]
     }
+  }
+  # M4: 일별 집계 Lambda가 Athena로 사용 이벤트를 조회하고 Cost Explorer로 비용을 읽는다 (docs/ADMIN.md)
+  statement {
+    sid       = "AthenaQueries"
+    actions   = ["athena:StartQueryExecution", "athena:GetQueryExecution", "athena:GetQueryResults", "athena:StopQueryExecution", "athena:GetWorkGroup"]
+    resources = [local.athena_workgroups]
+  }
+
+  statement {
+    sid       = "GlueCatalogRead"
+    actions   = ["glue:GetDatabase", "glue:GetTable", "glue:GetTables", "glue:GetPartition", "glue:GetPartitions"]
+    resources = local.glue_resources
+  }
+
+  # Cost Explorer는 리소스 단위 권한이 없다. 읽기 하나만 연다 (호출마다 요금이 붙어 하루 한 번만 부른다)
+  statement {
+    sid       = "CostRead"
+    actions   = ["ce:GetCostAndUsage"]
+    resources = ["*"]
   }
 }
 
