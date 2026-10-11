@@ -4,7 +4,7 @@
   "type": "module",
   "description": "관리자 API와 일별 집계 (Athena로 사용 이벤트, Cost Explorer로 비용, docs/ADMIN.md)",
   "scripts": {
-    "build": "esbuild src/aggregate.ts --bundle --platform=node --target=node24 --format=esm --minify --sourcemap --outfile=dist/aggregate/index.mjs --banner:js=\"import { createRequire } from 'module'; const require = createRequire(import.meta.url);\"",
+    "build": "esbuild src/aggregate.ts --bundle --platform=node --target=node24 --format=esm --minify --sourcemap --outfile=dist/aggregate/index.mjs --banner:js=\"import { createRequire } from 'module'; const require = createRequire(import.meta.url);\" && esbuild src/api.ts --bundle --platform=node --target=node24 --format=esm --minify --sourcemap --outfile=dist/api/index.mjs --banner:js=\"import { createRequire } from 'module'; const require = createRequire(import.meta.url);\"",
     "typecheck": "tsc -p tsconfig.json",
     "test": "vitest run"
   },
@@ -12,6 +12,7 @@
     "@aws-sdk/client-athena": "^3.1148.0",
     "@aws-sdk/client-cost-explorer": "^3.1148.0",
     "@aws-sdk/client-dynamodb": "^3.1148.0",
+    "@aws-sdk/client-ssm": "^3.1148.0",
     "@aws-sdk/lib-dynamodb": "^3.1148.0"
   },
   "devDependencies": {

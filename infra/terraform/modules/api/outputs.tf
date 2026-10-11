@@ -36,3 +36,19 @@ output "uploads_bucket_arn" {
 output "outputs_bucket_arn" {
   value = aws_s3_bucket.files["outputs"].arn
 }
+
+output "api_id" {
+  value = aws_apigatewayv2_api.api.id
+}
+
+output "api_execution_arn" {
+  value = aws_apigatewayv2_api.api.execution_arn
+}
+
+output "origin_param_name" {
+  value = aws_ssm_parameter.secret["origin-verify"].name
+}
+
+output "origin_param_arn" {
+  value = aws_ssm_parameter.secret["origin-verify"].arn
+}
