@@ -211,15 +211,16 @@ data "aws_iam_policy_document" "aggregate" {
     resources = ["${var.analytics_bucket_arn}/events/*"]
   }
 
+  # Athena가 버킷 위치를 확인하고 결과를 나눠 쓴다
   statement {
     sid       = "ListBuckets"
-    actions   = ["s3:ListBucket"]
+    actions   = ["s3:ListBucket", "s3:GetBucketLocation", "s3:ListBucketMultipartUploads"]
     resources = [var.analytics_bucket_arn, aws_s3_bucket.results.arn]
   }
 
   statement {
     sid       = "Results"
-    actions   = ["s3:GetObject", "s3:PutObject", "s3:AbortMultipartUpload"]
+    actions   = ["s3:GetObject", "s3:PutObject", "s3:AbortMultipartUpload", "s3:ListMultipartUploadParts"]
     resources = ["${aws_s3_bucket.results.arn}/athena/*"]
   }
 

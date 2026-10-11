@@ -72,6 +72,8 @@ data "aws_iam_policy_document" "workload_boundary" {
     sid = "S3Objects"
     actions = [
       "s3:GetObject", "s3:PutObject", "s3:DeleteObject", "s3:AbortMultipartUpload", "s3:ListBucket",
+      # Athena가 결과 버킷을 확인하고 큰 결과를 나눠 쓸 때 (M4)
+      "s3:GetBucketLocation", "s3:ListBucketMultipartUploads", "s3:ListMultipartUploadParts",
     ]
     resources = [local.managed_bucket_arn, "${local.managed_bucket_arn}/*"]
   }
