@@ -437,6 +437,18 @@
 - 대안: heic2any (MIT라고 적혀 있지만 libheif를 함께 묶고 2023년 이후 갱신 없음), heic-to (LGPL, 패키지 26MB), 서버 변환 (사진을 서버로 보내야 해서 원칙에 어긋남).
 - 시험: pillow-heif로 만든 우리 그림(1200×900, 회전 정보로 900×1200)을 E2E로 열어 저장 (Chromium·WebKit).
 
+## ADR-038 관리자 로그인은 우리 화면 + Cognito 공개 인증 API, 토큰은 x-admin-token
+
+- 상태: 확정 (2026-10-11, M4). ADR-011을 구체화한다
+- 결정:
+  - 사용자 풀: 셀프 가입 끔(관리자가 만든 계정만), TOTP MFA 필수, 비밀번호 12자 이상, 비밀번호 찾기는 관리자만(이메일 발송 안 씀), 삭제 보호, Lite 등급(무료 한도 안).
+  - 로그인 화면은 Cognito 호스팅 UI 대신 우리 화면에서 공개 인증 API(InitiateAuth·RespondToAuthChallenge·AssociateSoftwareToken·VerifySoftwareToken)를 직접 부른다. 문구를 한국어로 맞추고 SDK를 넣지 않는다. 앱 클라이언트는 비밀 없음, USER_PASSWORD_AUTH(TLS로만 보냄)와 갱신 토큰만 허용. 토큰은 이 탭에만(sessionStorage), 1시간.
+  - 토큰은 `x-admin-token` 헤더로 보낸다. CloudFront 오리진 요청 정책으로는 Authorization 헤더를 넘길 수 없어서다. HTTP API JWT 권한 부여자가 이 헤더의 ID 토큰(aud = 클라이언트 ID, 발급자 = 사용자 풀)을 검사하고, Lambda가 `cognito:groups`에 admin이 있는지 다시 본다. CloudFront를 거쳤는지(오리진 확인 헤더)도 본다.
+  - 관리자가 API로 본 것은 모두 감사 로그(AUDIT#yyyymm, 12개월)에 남는다.
+  - 풀 ID·클라이언트 ID는 비밀이 아니다. 웹 빌드가 apply보다 먼저라서 배포가 apply 뒤에 `/admin-config.json`을 만들어 올리고 화면이 그때 읽는다.
+  - 관리자 계정은 이메일이 들어가 Terraform·저장소에 두지 않고, 사용자가 로컬에서 AWS CLI로 만든다.
+- 대안: 호스팅 UI(관리형 로그인) — 영어 위주이고 도메인을 따로 둬야 한다. Amplify — 번들이 크다.
+
 ---
 
 ## 템플릿

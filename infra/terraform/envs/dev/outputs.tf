@@ -25,3 +25,12 @@ output "worker_repository_url" {
 output "worker_function_name" {
   value = module.worker.function_name
 }
+
+# 화면이 로그인에 쓰는 값 (비밀이 아니다). 배포 워크플로가 웹 빌드에 넣는다
+output "admin_user_pool_id" {
+  value = module.admin.user_pool_id
+}
+
+output "admin_client_id" {
+  value = module.admin.client_id
+}

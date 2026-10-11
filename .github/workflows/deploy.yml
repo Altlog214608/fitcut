@@ -81,6 +81,11 @@ jobs:
           echo "bucket=$(terraform output -raw web_bucket_name)" >> "$GITHUB_OUTPUT"
           echo "distribution_id=$(terraform output -raw web_distribution_id)" >> "$GITHUB_OUTPUT"
           echo "url=$(terraform output -raw web_url)" >> "$GITHUB_OUTPUT"
+          # 관리자 로그인 설정 (비밀이 아님). 웹 빌드는 apply 전에 끝나서 실행 중에 읽는 파일로 둔다
+          pool="$(terraform output -raw admin_user_pool_id)"
+          client="$(terraform output -raw admin_client_id)"
+          echo "{\"region\":\"ap-northeast-2\",\"userPoolId\":\"$pool\",\"clientId\":\"$client\"}" \
+            > ../../../../apps/web/dist/admin-config.json
 
       # 1) 해시가 붙은 assets를 먼저 올린다 (1년 캐시). 이전 assets는 지우지 않아
       #    아직 이전 index.html을 가진 브라우저도 깨지지 않는다.

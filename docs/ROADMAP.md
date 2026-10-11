@@ -85,10 +85,10 @@
 
 ## M4. 관리자·분석 (2주)
 
-- [ ] Cognito 사용자 풀 (셀프 가입 끔, MFA, admin 그룹), `/admin/*` API 권한
+- [x] Cognito 사용자 풀 (셀프 가입 끔, TOTP MFA 필수, admin 그룹), `/api/admin/*` JWT 권한 부여자 + Lambda에서 그룹 재확인 (ADR-038)
 - [x] Glue Data Catalog 테이블(파티션 투영, JSON), Athena 워크그룹 (쿼리당 1GB, 결과 7일)
 - [x] 일별 집계 Lambda (EventBridge 규칙 매일 03:00 서울, Scheduler 대신), Cost Explorer 일일 수집 → DynamoDB STATS#<날짜>
-- [ ] 관리자 화면: 개요, 도구 사용, 기기 프리셋, 성능, 링크, 감사 로그
+- [x] 관리자 화면: 개요, 도구 사용, 기기 프리셋·없던 기기, 성능(변환 p95·비용), 링크, 서비스별 비용, 감사 로그 (기본형, 1차)
 - [ ] 작업 파일 보관 동의 (F16): 동의 UI, retained 버킷, 내 작업 기록 삭제, 관리자 보관 파일 화면
 - [ ] 개인정보 처리방침 페이지
 
