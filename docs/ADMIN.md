@@ -46,8 +46,9 @@
    → SQS → 배치 Lambda (최대 5분씩 모아 gzip JSON Lines, ADR-030)
    → S3 analytics/dt=YYYY-MM-DD/
    → Glue Data Catalog 테이블 → Athena
-매일 새벽: EventBridge Scheduler → Lambda(aggregate)
-   → Athena 쿼리 (전날 파티션만) → 일별 집계 JSON (S3 artifacts)
+매일 새벽 3시(서울): EventBridge 규칙 → Lambda(aggregate)
+   → Athena 쿼리 (전날 파티션만, 쿼리당 1GB 한도) + Cost Explorer(전날 서비스별 비용)
+   → DynamoDB STATS#<날짜> (관리자 화면이 읽는다)
 비용: 하루 한 번 Cost Explorer API → 태그별 일별 비용 저장
 ```
 
