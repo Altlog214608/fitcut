@@ -9,3 +9,7 @@ output "queue_arn" {
 output "analytics_bucket" {
   value = aws_s3_bucket.analytics.bucket
 }
+
+output "analytics_bucket_arn" {
+  value = aws_s3_bucket.analytics.arn
+}

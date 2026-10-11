@@ -18,6 +18,12 @@ data "archive_file" "events" {
   output_path = "${path.module}/.build/events.zip"
 }
 
+data "archive_file" "aggregate" {
+  type        = "zip"
+  source_dir  = "${path.module}/../../../../services/admin/dist/aggregate"
+  output_path = "${path.module}/.build/aggregate.zip"
+}
+
 module "web" {
   source = "../../modules/static-site"
 
@@ -70,4 +76,17 @@ module "worker" {
   outputs_bucket_arn    = module.api.outputs_bucket_arn
   events_queue_url      = module.events.queue_url
   events_queue_arn      = module.events.queue_arn
+}
+
+module "analytics" {
+  source = "../../modules/analytics"
+
+  name_prefix           = "fitcut-dev"
+  analytics_bucket      = module.events.analytics_bucket
+  analytics_bucket_arn  = module.events.analytics_bucket_arn
+  table_name            = module.api.table_name
+  table_arn             = module.api.table_arn
+  lambda_zip            = data.archive_file.aggregate.output_path
+  lambda_zip_hash       = data.archive_file.aggregate.output_base64sha256
+  workload_boundary_arn = local.workload_boundary_arn
 }

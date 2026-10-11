@@ -86,8 +86,8 @@
 ## M4. 관리자·분석 (2주)
 
 - [ ] Cognito 사용자 풀 (셀프 가입 끔, MFA, admin 그룹), `/admin/*` API 권한
-- [ ] Glue Data Catalog 테이블, Athena 워크그룹 (스캔 한도)
-- [ ] 일별 집계 Lambda (EventBridge Scheduler), Cost Explorer 일일 수집
+- [x] Glue Data Catalog 테이블(파티션 투영, JSON), Athena 워크그룹 (쿼리당 1GB, 결과 7일)
+- [x] 일별 집계 Lambda (EventBridge 규칙 매일 03:00 서울, Scheduler 대신), Cost Explorer 일일 수집 → DynamoDB STATS#<날짜>
 - [ ] 관리자 화면: 개요, 도구 사용, 기기 프리셋, 성능, 링크, 감사 로그
 - [ ] 작업 파일 보관 동의 (F16): 동의 UI, retained 버킷, 내 작업 기록 삭제, 관리자 보관 파일 화면
 - [ ] 개인정보 처리방침 페이지
