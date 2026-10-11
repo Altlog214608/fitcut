@@ -113,7 +113,9 @@ export function makeHandler(deps: Deps) {
       items.push(...(r.Responses?.[env.TABLE_NAME] ?? []));
     }
     const days_ = items
-      .map(({ PK: _pk, SK: _sk, ...rest }) => rest)
+      .map((item) =>
+        Object.fromEntries(Object.entries(item).filter(([k]) => k !== 'PK' && k !== 'SK')),
+      )
       .sort((a, b) => String(b.day).localeCompare(String(a.day)));
     return json(200, { days: days_ });
   }
