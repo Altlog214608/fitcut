@@ -1,6 +1,6 @@
 import { VISIBLE_PRESETS } from '@fitcut/presets';
 import { ImageUp, ShieldCheck } from 'lucide-react';
-import { useEffect, useId, useMemo, useState } from 'react';
+import { useEffect, useId, useMemo, useRef, useState } from 'react';
 import { DropZone } from '../components/DropZone';
 import { detectKind } from '../lib/detectKind';
 import { IN_APP, inAppLabel, SAVE_METHOD } from '../lib/inApp';
@@ -10,6 +10,8 @@ import { sizeBucket } from '@fitcut/shared';
 import { canShareAll, download, openShare } from '../lib/save';
 import { targetKey, uniqueNames, zipFiles, zipName } from './batch';
 import { targetLabel } from './targetSize';
+import { pickFactor } from '../upscale/tiles';
+import { canUpscale, upscale } from '../upscale/upscaleClient';
 import { DevicePicker } from './DevicePicker';
 import { outputFileName, type OutputFormat } from './fileName';
 import { computeLayout, fillAxis, maxZoom, ratioFit, type FitMode, type Position } from './layout';
@@ -117,6 +119,19 @@ export function PhotoTool({ initialFile }: { initialFile: File | null }) {
   const [quality, setQuality] = useState(0.92);
   const [targetKb, setTargetKb] = useState(0);
   const [showGuide, setShowGuide] = useState(false);
+  // AI로 키운 사진 (F20). 같은 파일일 때만 쓴다
+  const [ai, setAi] = useState<{
+    file: File;
+    factor: 2 | 4;
+    bitmap: ImageBitmap;
+    preview: CanvasImageSource & { width: number; height: number };
+    edges: EdgeBusyness;
+    ms: number;
+    backend: string;
+  } | null>(null);
+  const [aiRun, setAiRun] = useState<{ done: number; total: number; backend: string } | null>(null);
+  const [aiError, setAiError] = useState<string | null>(null);
+  const aiAbort = useRef<AbortController | null>(null);
   const [circleOutside, setCircleOutside] = useState<'black' | 'transparent'>('black');
   const [soft, setSoft] = useState(true);
 
@@ -172,7 +187,13 @@ export function PhotoTool({ initialFile }: { initialFile: File | null }) {
     };
   }, [file]);
 
-  const current = loaded && loaded.file === file ? loaded : null;
+  const decoded = loaded && loaded.file === file ? loaded : null;
+  const enhanced = decoded && ai && ai.file === file ? ai : null;
+  // AI로 키웠으면 그 사진으로 맞추고 저장한다 (원본 주소는 꽉 채우기의 흐린 바깥 표시에만 쓴다)
+  const current =
+    decoded && enhanced
+      ? { ...decoded, bitmap: enhanced.bitmap, preview: enhanced.preview, edges: enhanced.edges }
+      : decoded;
   const bitmap = current?.bitmap ?? null;
   const imageUrl = current?.url ?? null;
   const fileError = pickError ?? (decodeError?.file === file ? decodeError.message : null);
@@ -223,6 +244,9 @@ export function PhotoTool({ initialFile }: { initialFile: File | null }) {
     }
     setPickError(null);
     setPlacements({});
+    aiAbort.current?.abort();
+    setAi(null);
+    setAiError(null);
     setFile(next);
   }
 
@@ -245,6 +269,45 @@ export function PhotoTool({ initialFile }: { initialFile: File | null }) {
       : [t, ...mine];
     setMine(next);
     writeJson(MINE_KEY, next);
+  }
+
+  const aiFactor =
+    decoded && layout && !enhanced && layout.scale > 1.05
+      ? pickFactor(decoded.bitmap.width, decoded.bitmap.height, layout.scale)
+      : null;
+
+  /** AI로 선명하게 키우기 (F20): 브라우저 안에서만, 진행률·취소 */
+  async function enhance(factor: 2 | 4) {
+    if (!decoded || !file) return;
+    const controller = new AbortController();
+    aiAbort.current = controller;
+    setAiError(null);
+    setAiRun({ done: 0, total: 0, backend: '' });
+    try {
+      const r = await upscale(
+        decoded.bitmap,
+        factor,
+        (done, total, backend) => setAiRun({ done, total, backend }),
+        controller.signal,
+      );
+      const preview = downscaled(r.bitmap, PREVIEW_MAX_SIDE, makeCanvas);
+      setAi({
+        file,
+        factor,
+        bitmap: r.bitmap,
+        preview,
+        edges: sampleEdges(preview),
+        ms: r.ms,
+        backend: r.backend,
+      });
+      setPlacements({});
+    } catch (error) {
+      if (!(error as { cancelled?: boolean }).cancelled) {
+        setAiError(error instanceof Error ? error.message : 'AI로 키우지 못했어요.');
+      }
+    } finally {
+      setAiRun(null);
+    }
   }
 
   const batchKey = JSON.stringify([
@@ -521,7 +584,46 @@ export function PhotoTool({ initialFile }: { initialFile: File | null }) {
               {layout.scale > 1.05 && (
                 <p className={styles.notice}>
                   원본보다 <b className={styles.num}>{layout.scale.toFixed(1)}배</b> 커요. 흐려 보일
-                  수 있어요.
+                  수 있어요.{' '}
+                  {aiFactor && canUpscale() && !aiRun && (
+                    <button type="button" onClick={() => void enhance(aiFactor)}>
+                      AI로 선명하게 키우기 ({aiFactor}배)
+                    </button>
+                  )}
+                </p>
+              )}
+              {aiFactor && !aiRun && !enhanced && (
+                <p className={styles.hint}>
+                  처음 한 번 AI 모델(약 2.4MB)을 받아요. 사진은 이 기기 밖으로 나가지 않아요.
+                </p>
+              )}
+              {aiRun && (
+                <p className={styles.notice} role="status">
+                  AI로 키우는 중이에요{' '}
+                  {aiRun.total > 0 && (
+                    <b className={styles.num}>{Math.round((aiRun.done / aiRun.total) * 100)}%</b>
+                  )}
+                  {aiRun.backend === 'cpu' && ' · 이 기기는 GPU를 쓸 수 없어 오래 걸릴 수 있어요'}{' '}
+                  <button type="button" onClick={() => aiAbort.current?.abort()}>
+                    취소
+                  </button>
+                </p>
+              )}
+              {enhanced && (
+                <p className={styles.hint} role="status">
+                  AI로 {enhanced.factor}배 키운 사진을 쓰고 있어요 (
+                  <span className={styles.num}>
+                    {enhanced.bitmap.width} × {enhanced.bitmap.height}
+                  </span>
+                  , {(enhanced.ms / 1000).toFixed(1)}초).{' '}
+                  <button type="button" className={styles.linkButton} onClick={() => setAi(null)}>
+                    원래 사진으로
+                  </button>
+                </p>
+              )}
+              {aiError && (
+                <p className={styles.error} role="alert">
+                  {aiError}
                 </p>
               )}
               {(layout.movable.x || layout.movable.y) && (

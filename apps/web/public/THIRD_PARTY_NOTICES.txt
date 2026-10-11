@@ -7,6 +7,11 @@ libheif-js 1.23.5 (libheif, libde265 포함) — LGPL-3.0
         https://github.com/strukturag/libde265
   라이선스 전문: https://www.gnu.org/licenses/lgpl-3.0.html
 
+Real-ESRGAN realesr-general-x4v3 가중치 — BSD-3-Clause, Copyright (c) 2021, Xintao Wang
+  AI 업스케일 모델. 원본 .pth를 fp16으로 바꿔 models/에 둔다. 라이선스 전문: models/Real-ESRGAN-LICENSE.txt
+  소스: https://github.com/xinntao/Real-ESRGAN
+
+TensorFlow.js (tfjs-core, backend-webgl, backend-cpu) 4.22.0 — Apache-2.0 (https://github.com/tensorflow/tfjs)
 pica 10.0.3 — MIT (https://github.com/nodeca/pica)
 fflate 0.8.3 — MIT (https://github.com/101arrowz/fflate)
 React, React DOM, React Router — MIT
