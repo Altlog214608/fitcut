@@ -34,3 +34,8 @@ output "admin_user_pool_id" {
 output "admin_client_id" {
   value = module.admin.client_id
 }
+
+output "chzzk_redirect_uri" {
+  description = "치지직 앱의 로그인 리디렉션 URL과 같아야 한다"
+  value       = module.highlight.redirect_uri
+}

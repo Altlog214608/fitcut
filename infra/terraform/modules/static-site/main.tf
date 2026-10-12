@@ -162,8 +162,12 @@ resource "aws_cloudfront_origin_request_policy" "api" {
   name    = "${var.name_prefix}-api"
   comment = "Forward viewer address and content type to the HTTP API"
 
+  # fitcut_s: 스트리머 세션, fitcut_oauth: 치지직 로그인 state (M5). 둘 다 HttpOnly, Path=/api/streamer
   cookies_config {
-    cookie_behavior = "none"
+    cookie_behavior = "whitelist"
+    cookies {
+      items = ["fitcut_s", "fitcut_oauth"]
+    }
   }
 
   headers_config {

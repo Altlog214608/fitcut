@@ -122,9 +122,9 @@
 
 ## ADR-015 스트리머 인증과 세션
 
-- 상태: 제안
+- 상태: 확정 (2026-10-12, M5). 구체적인 방식은 ADR-039
 - 맥락: 스트리머는 플랫폼 OAuth로 채널을 연결한다. 치지직 OAuth는 표준 OIDC와 다를 수 있어서 Cognito 페더레이션이 바로 되지 않을 수 있다.
-- 결정(초안): 플랫폼 OAuth 완료 후 서버가 자체 세션을 발급한다 (HttpOnly 쿠키, 짧은 만료). Cognito 연동(OIDC 페더레이션이나 커스텀 인증 흐름) 가능 여부를 M5 시작 시 검토한다.
+- 결정: 플랫폼 OAuth 완료 후 서버가 자체 세션을 발급한다 (HttpOnly 쿠키, 7일). 치지직 인증은 OIDC가 아니고(ID 토큰·discovery 없음, 본문 필드가 camelCase) 사용자 정보도 `/open/v1/users/me`로 따로 받아서 Cognito 페더레이션은 쓰지 않는다.
 
 ## ADR-016 녹화 파일은 후보 주변만 처리한다
 
@@ -450,6 +450,21 @@
   - 풀 ID·클라이언트 ID는 비밀이 아니다. 웹 빌드가 apply보다 먼저라서 배포가 apply 뒤에 `/admin-config.json`을 만들어 올리고 화면이 그때 읽는다.
   - 관리자 계정은 이메일이 들어가 Terraform·저장소에 두지 않고, 사용자가 로컬에서 AWS CLI로 만든다.
 - 대안: 호스팅 UI(관리형 로그인) — 영어 위주이고 도메인을 따로 둬야 한다. Amplify — 번들이 크다.
+
+## ADR-039 스트리머 플랫폼 토큰은 SSM SecureString, 세션은 해시만 저장하는 쿠키
+
+- 상태: 확정 (2026-10-12, M5, 사용자 선택: "SSM 보안 파라미터")
+- 맥락: 치지직 액세스 토큰(1일)과 리프레시 토큰(30일, 한 번만 사용)을 서버에 둬야 수집기가 방송 중에 채팅 세션을 열 수 있다. 원칙은 "KMS로 암호화해 저장"이다. 고객 관리 KMS 키는 키당 월 고정 비용이 있어 유휴 비용 0 목표와 맞지 않는다.
+- 결정:
+  - 토큰은 채널마다 SSM 표준 파라미터 SecureString 하나(`/fitcut/dev/streamer/chzzk/<채널ID>`)에 JSON으로 둔다. 암호화는 AWS 관리형 키 `aws/ssm`(KMS)이라 고정 비용이 없고, 표준 파라미터·표준 처리량은 무료다. DynamoDB에는 토큰을 두지 않는다.
+  - 권한: 하이라이트 API Lambda만 이 경로에 Get·Put·Delete, KMS는 SSM을 거칠 때만(`kms:ViaService`). 워크로드 권한 경계도 같은 경로로만 넓혔다 (bootstrap, 사용자가 로컬 적용).
+  - 연결 해제: 치지직 토큰 폐기(revoke, 같은 사용자·클라이언트 토큰 전체) → 파라미터 삭제 → `CONN#` 삭제 → 이 브라우저 세션 삭제. 폐기가 실패해도 우리 쪽 삭제는 계속한다. 다른 브라우저의 세션은 `CONN#`이 없어서 끊긴 것으로 보인다.
+  - 세션: 무작위 32바이트를 `fitcut_s` 쿠키(HttpOnly, Secure, SameSite=Lax, Path=/api/streamer, 7일)로 주고, DynamoDB에는 SHA-256 해시(`SESS#<해시>`, TTL)만 둔다. SameSite=Lax라 다른 사이트에서 연결 해제(DELETE)를 대신 보낼 수 없다.
+  - 로그인 state: 무작위 값을 쿠키(`fitcut_oauth`, 10분)와 DynamoDB(`OAUTH#<state>`, TTL)에 함께 두고, 콜백에서 쿠키와 같은지 + DynamoDB에서 한 번만 지워지는지 둘 다 본다.
+  - CloudFront `/api/*` 오리진 요청 정책은 이 두 쿠키만 넘긴다.
+  - 리디렉션 URL은 API 경로(`/api/streamer/chzzk/callback`)다. 코드 교환에 클라이언트 시크릿이 필요해서 서버가 받는다. 시크릿은 사용자가 로컬에서 SSM(`/fitcut/dev/chzzk/client-secret`)에 넣었다. Client ID는 인증 주소에 그대로 나가는 공개 값이라 Terraform에 둔다.
+- 대안: 고객 관리 KMS 키로 직접 암호화해 DynamoDB에 저장 (키 정책을 세밀하게 쓸 수 있지만 월 고정 비용), Secrets Manager (비밀당 월 비용).
+- 결과: TBD (연결 수, 토큰 갱신 실패율)
 
 ---
 
