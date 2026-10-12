@@ -5,8 +5,17 @@
  * 3) 가중 합 → 큰 순서로 피크를 고른다 (최소 간격) → 채팅 지연을 빼고 앞뒤 여유를 붙인 구간
  * 4) 겹치는 구간은 합치고 점수 순으로 상위 N개
  */
-import type { ChatEvent } from '@fitcut/chzzk';
 import { isReaction, KEYWORDS_VERSION } from './keywords';
+
+/** 점수 계산에 쓰는 이벤트 (치지직 ChatEvent의 일부. 웹 리플레이 데모도 같은 모양으로 만든다) */
+export type ScoreEvent = {
+  /** 수집 시작 기준 초 */
+  t: number;
+  type: 'chat' | 'donation' | 'subscription';
+  text?: string;
+  /** 후원 금액 (원) */
+  amount?: number;
+};
 
 export type ScoreConfig = {
   /** 이동 합 창 (초) */
@@ -85,7 +94,7 @@ const QUIET_DB = -70;
 
 type Series = Float64Array;
 
-export function perSecond(events: readonly ChatEvent[], durationSec: number) {
+export function perSecond(events: readonly ScoreEvent[], durationSec: number) {
   const n = Math.max(1, Math.ceil(durationSec) + 1);
   const chat = new Float64Array(n);
   const reaction = new Float64Array(n);
@@ -165,7 +174,7 @@ const round = (v: number, d = 2) => Math.round(v * 10 ** d) / 10 ** d;
  * @param loudness 초마다 소리 크기 (RMS dB, 0번째 = 수집 시작). 녹화 파일을 분석했을 때만 (ADR-044)
  */
 export function analyze(
-  events: readonly ChatEvent[],
+  events: readonly ScoreEvent[],
   durationSec: number,
   cfg: ScoreConfig = DEFAULT_CONFIG,
   loudness?: readonly number[],

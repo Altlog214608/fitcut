@@ -443,3 +443,25 @@ test('모드 C: 녹화 파일만으로 찾기 → 올리기 → 소리 크기 �
   await expect(list).toContainText('소리 -9dB');
   await expect(page.getByRole('img', { name: /소리 크기 그래프/ })).toBeVisible();
 });
+
+test('리플레이 데모: 로그인 없이 예시 방송을 재생하며 후보를 찾고, 끝나면 찾은 장면을 보여준다', async ({
+  page,
+}) => {
+  await page.route('**/api/streamer/me', (route) => route.fulfill({ json: { connection: null } }));
+  await page.goto('/highlight');
+  await page.getByRole('button', { name: '예시 방송 열기' }).click();
+  await page.getByRole('button', { name: '60배' }).click();
+  await expect(page.getByRole('button', { name: '60배' })).toHaveAttribute('aria-pressed', 'true');
+  await page.getByRole('button', { name: '재생', exact: true }).click();
+  // 첫 장면(3:40)은 60배로 4초쯤 뒤에 감지한다
+  const list = page.getByRole('list', { name: '찾은 하이라이트 후보' });
+  await expect(list.getByRole('listitem').first()).toContainText('에 감지', { timeout: 15_000 });
+  await page.getByRole('button', { name: '잠시 멈춤' }).click();
+  await page.getByRole('button', { name: '결과 바로 보기' }).click();
+  await expect(page.getByText('30:00 / 30:00')).toBeVisible();
+  await expect(page.getByRole('status')).toContainText('예시에 넣은 장면 6개 중 6개를 찾았어요.');
+  await expect(page.getByRole('status')).toContainText('후보 5개 중 5개');
+  await expect(list.getByRole('listitem')).toHaveCount(10);
+  await page.getByRole('button', { name: '처음부터 다시' }).click();
+  await expect(page.getByRole('button', { name: '잠시 멈춤' })).toBeVisible();
+});

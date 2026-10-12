@@ -78,7 +78,7 @@ services/highlight/    하이라이트 분석 (점수 계산은 순수 함수로
 services/collector/    치지직 라이브 채팅 수집기 (방송 중에만 도는 Fargate 태스크, ADR-040)
 packages/chzzk/        치지직 Open API 클라이언트 (인증·세션·이벤트 정규화)
 packages/presets/      기기 프리셋 데이터(JSON)와 스키마
-packages/shared/       공용 타입·유틸
+packages/shared/       공용 타입·유틸, 하이라이트 점수 계산 (분석 Lambda와 웹 리플레이 데모가 같이 씀)
 infra/terraform/       IaC (modules/, envs/dev, envs/prod)
 docs/                  기획·설계 문서
 ```
