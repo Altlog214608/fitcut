@@ -81,3 +81,16 @@ variable "log_retention_days" {
   type    = number
   default = 14
 }
+
+variable "analysis_zip" {
+  type = string
+}
+
+variable "analysis_zip_hash" {
+  type = string
+}
+
+variable "analysis_timeout_seconds" {
+  type    = number
+  default = 120
+}

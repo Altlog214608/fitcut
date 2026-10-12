@@ -10,6 +10,7 @@
  * DELETE /api/streamer/connection     : 연결 해제. 수집 중이면 멈추고, 플랫폼 토큰 폐기, 저장한 토큰·연결 정보 삭제
  * GET    /api/streamer/broadcasts            : 최근 방송 수집 기록 20개
  * POST   /api/streamer/broadcasts            : 수집 시작 (Fargate 수집기, ADR-040)
+ * GET    /api/streamer/broadcasts/{id}       : 방송 하나와 분석 결과 (후보, 10초 단위 채팅 수)
  * POST   /api/streamer/broadcasts/{id}/stop  : 수집 종료 요청
  */
 import { ECSClient } from '@aws-sdk/client-ecs';
@@ -300,11 +301,12 @@ export function makeHandler(deps: Deps) {
       }
       case 'GET /api/streamer/broadcasts':
       case 'POST /api/streamer/broadcasts':
+      case 'GET /api/streamer/broadcasts/{id}':
       case 'POST /api/streamer/broadcasts/{id}/stop': {
         const s = await session(event);
         if (!s) return error(401, 'no_session', '채널 연결을 다시 해 주세요.');
         try {
-          if (event.routeKey.startsWith('GET')) {
+          if (event.routeKey === 'GET /api/streamer/broadcasts') {
             return json(200, { broadcasts: await broadcasts.list(s.channelId) });
           }
           if (event.routeKey === 'POST /api/streamer/broadcasts') {
@@ -312,6 +314,9 @@ export function makeHandler(deps: Deps) {
           }
           const id = event.pathParameters?.id ?? '';
           if (!BROADCAST_ID.test(id)) return error(404, 'not_found', '방송 기록이 없어요.');
+          if (event.routeKey.startsWith('GET')) {
+            return json(200, { broadcast: await broadcasts.detail(s.channelId, id) });
+          }
           return json(200, { broadcast: await broadcasts.stop(s.channelId, id) });
         } catch (e) {
           if (e instanceof BroadcastError) return error(e.status, e.code, e.message);

@@ -2,6 +2,8 @@
  * 스트리머 채널 연결 API (M5, ADR-015·039). 세션은 HttpOnly 쿠키라 화면은 값을 볼 수 없다.
  * 로그인은 페이지 이동으로 한다: /api/streamer/chzzk/login → 치지직 → /highlight?connected=chzzk
  */
+import type { Candidate } from './timeline';
+
 export const CHZZK_LOGIN_PATH = '/api/streamer/chzzk/login';
 
 export type Connection = {
@@ -45,6 +47,16 @@ export type Broadcast = {
   subscriptionCount: number;
   stopRequested?: boolean;
   stopReason?: string;
+  analysisStatus?: 'done';
+};
+
+export type BroadcastDetail = Broadcast & {
+  analyzedAt?: string;
+  durationSec?: number;
+  reactionCount?: number;
+  candidates: Candidate[];
+  /** 10초마다 채팅 수 (그래프) */
+  chatPer10s: number[];
 };
 
 async function call<T>(path: string, method = 'GET'): Promise<T> {
@@ -67,6 +79,11 @@ export const stopBroadcast = (id: string) =>
     `/api/streamer/broadcasts/${encodeURIComponent(id)}/stop`,
     'POST',
   ).then((r) => r.broadcast);
+
+export const getBroadcast = (id: string) =>
+  call<{ broadcast: BroadcastDetail }>(`/api/streamer/broadcasts/${encodeURIComponent(id)}`).then(
+    (r) => r.broadcast,
+  );
 
 export const isActive = (b: Broadcast) => b.status === 'starting' || b.status === 'collecting';
 

@@ -115,3 +115,101 @@ test('하루 횟수를 넘으면 서버 문구를 그대로 보여준다', async
   await page.getByRole('button', { name: '수집 시작' }).click();
   await expect(page.getByRole('status')).toContainText('하루 3번까지');
 });
+
+test('지난 수집의 하이라이트: 그래프, 후보 시각, offset 반영, 타임라인 복사', async ({
+  page,
+  context,
+  browserName,
+}) => {
+  await page.route('**/api/streamer/me', (route) => route.fulfill({ json: { connection } }));
+  const base = {
+    id: '20261011120000-aaaaaa',
+    status: 'done',
+    requestedAt: '2026-10-11T12:00:00.000Z',
+    startedAt: '2026-10-11T12:01:00.000Z',
+    endedAt: '2026-10-11T13:30:00.000Z',
+    chatCount: 5400,
+    donationCount: 3,
+    subscriptionCount: 1,
+    stopReason: 'requested',
+    analysisStatus: 'done',
+  };
+  await page.route('**/api/streamer/broadcasts', (route) =>
+    route.fulfill({ json: { broadcasts: [base] } }),
+  );
+  await page.route('**/api/streamer/broadcasts/20261011120000-aaaaaa', (route) =>
+    route.fulfill({
+      json: {
+        broadcast: {
+          ...base,
+          durationSec: 5340,
+          reactionCount: 900,
+          chatPer10s: Array.from({ length: 535 }, (_, i) => (i === 200 ? 90 : 10)),
+          candidates: [
+            {
+              rank: 1,
+              start: 1990,
+              end: 2015,
+              peak: 2005,
+              score: 7.2,
+              counts: { chat: 90, reaction: 60, donation: 1, subscription: 0 },
+            },
+            {
+              rank: 2,
+              start: 300,
+              end: 325,
+              peak: 315,
+              score: 3.1,
+              counts: { chat: 40, reaction: 20, donation: 0, subscription: 0 },
+            },
+          ],
+        },
+      },
+    }),
+  );
+  if (browserName === 'chromium') {
+    await context.grantPermissions(['clipboard-read', 'clipboard-write']);
+  }
+
+  await page.goto('/highlight');
+  await page.getByRole('button', { name: '하이라이트 보기' }).click();
+  await expect(page.getByRole('img', { name: /채팅 수 그래프/ })).toBeVisible();
+  const list = page.getByRole('list', { name: '하이라이트 후보' });
+  // 시간 순서: 05:00, 33:10
+  await expect(list.getByRole('listitem').first()).toContainText('05:00 – 05:25');
+  await expect(list).toContainText('33:10 – 33:35');
+  await expect(list).toContainText('1위');
+
+  await page.getByRole('textbox').fill('2:00');
+  await expect(list.getByRole('listitem').first()).toContainText('07:00 – 07:25');
+
+  await page.getByRole('button', { name: '유튜브 댓글용 타임라인 복사' }).click();
+  if (browserName === 'chromium') {
+    await expect(page.getByRole('button', { name: '복사했어요' })).toBeVisible();
+    const text = await page.evaluate(() => navigator.clipboard.readText());
+    // Windows 클립보드는 줄바꿈을 \r\n으로 바꾼다
+    expect(text.replace(/\r\n/g, '\n')).toBe('07:00 하이라이트 1\n35:10 하이라이트 2');
+  }
+});
+
+test('분석 전이면 기다려 달라고 안내한다', async ({ page }) => {
+  await page.route('**/api/streamer/me', (route) => route.fulfill({ json: { connection } }));
+  const b = {
+    id: '20261012090000-cccccc',
+    status: 'done',
+    requestedAt: '2026-10-12T09:00:00.000Z',
+    chatCount: 10,
+    donationCount: 0,
+    subscriptionCount: 0,
+    stopReason: 'requested',
+  };
+  await page.route('**/api/streamer/broadcasts', (route) =>
+    route.fulfill({ json: { broadcasts: [b] } }),
+  );
+  await page.route('**/api/streamer/broadcasts/20261012090000-cccccc', (route) =>
+    route.fulfill({ json: { broadcast: { ...b, candidates: [], chatPer10s: [] } } }),
+  );
+  await page.goto('/highlight');
+  await page.getByRole('button', { name: '하이라이트 보기' }).click();
+  await expect(page.getByText('분석하고 있어요')).toBeVisible();
+});

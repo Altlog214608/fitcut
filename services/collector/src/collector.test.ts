@@ -45,6 +45,7 @@ function deps(over: Partial<Deps> = {}): Deps {
     env: {
       TABLE_NAME: 't',
       QUEUE_URL: 'https://sqs/q',
+      ANALYSIS_QUEUE_URL: 'https://sqs/analysis',
       TOKEN_PREFIX: '/fitcut/dev/streamer/',
       CHZZK_CLIENT_ID: 'cid',
       CHZZK_SECRET_PARAM: '/fitcut/dev/chzzk/client-secret',
@@ -118,6 +119,7 @@ const updates = () => ddbMock.commandCalls(UpdateCommand).map((c) => c.args[0].i
 const sentEvents = () =>
   sqsMock
     .commandCalls(SendMessageCommand)
+    .filter((c) => c.args[0].input.QueueUrl === 'https://sqs/q')
     .flatMap(
       (c) => (JSON.parse(String(c.args[0].input.MessageBody)) as { events: unknown[] }).events,
     );
@@ -177,11 +179,19 @@ describe('runCollector', () => {
     });
     // 채널의 수집 중 표시를 푼다
     expect(updates().some((u) => u.UpdateExpression === 'REMOVE activeBroadcastId')).toBe(true);
+    // 3분 뒤 분석을 맡긴다
+    const analysis = sqsMock
+      .commandCalls(SendMessageCommand)
+      .map((c) => c.args[0].input)
+      .find((i) => i.QueueUrl === 'https://sqs/analysis');
+    expect(analysis?.DelaySeconds).toBe(180);
+    expect(JSON.parse(String(analysis?.MessageBody))).toEqual({ channelId: CH, broadcastId: 'b1' });
   });
 
-  it('이벤트가 30분 없으면 idle로 끝낸다', async () => {
+  it('이벤트가 30분 없으면 idle로 끝내고, 분석할 것이 없으니 맡기지 않는다', async () => {
     heartbeats(() => ({}));
     expect(await runCollector(deps())).toBe('idle');
+    expect(sqsMock.commandCalls(SendMessageCommand)).toHaveLength(0);
     // 30초 간격 → 60번째 확인에서 끝난다
     expect(now - T0).toBe(30 * 60_000);
   });

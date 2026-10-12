@@ -412,7 +412,7 @@ data "aws_iam_policy_document" "task" {
   statement {
     sid       = "ChatQueue"
     actions   = ["sqs:SendMessage"]
-    resources = [aws_sqs_queue.chat.arn]
+    resources = [aws_sqs_queue.chat.arn, aws_sqs_queue.analysis.arn]
   }
 }
 
@@ -446,6 +446,7 @@ resource "aws_ecs_task_definition" "collector" {
     environment = [
       { name = "TABLE_NAME", value = var.table_name },
       { name = "QUEUE_URL", value = aws_sqs_queue.chat.url },
+      { name = "ANALYSIS_QUEUE_URL", value = aws_sqs_queue.analysis.url },
       { name = "TOKEN_PREFIX", value = var.token_prefix },
       { name = "CHZZK_CLIENT_ID", value = var.chzzk_client_id },
       { name = "CHZZK_SECRET_PARAM", value = var.chzzk_secret_param },
@@ -462,4 +463,118 @@ resource "aws_ecs_task_definition" "collector" {
       }
     }
   }])
+}
+
+# ---------- 하이라이트 분석 (모드 A, ADR-041) ----------
+# 수집기가 끝나면 3분 지연 메시지를 넣는다 → 분석 Lambda가 채팅을 읽어 후보를 방송 기록에 남긴다
+
+resource "aws_sqs_queue" "analysis_dlq" {
+  name                      = "${var.name_prefix}-analysis-dlq"
+  message_retention_seconds = 14 * 24 * 60 * 60
+  sqs_managed_sse_enabled   = true
+  tags                      = local.tags
+}
+
+resource "aws_sqs_queue" "analysis" {
+  name                       = "${var.name_prefix}-analysis"
+  visibility_timeout_seconds = var.analysis_timeout_seconds * 6
+  message_retention_seconds  = 4 * 24 * 60 * 60
+  sqs_managed_sse_enabled    = true
+  tags                       = local.tags
+
+  redrive_policy = jsonencode({
+    deadLetterTargetArn = aws_sqs_queue.analysis_dlq.arn
+    maxReceiveCount     = 3
+  })
+}
+
+resource "aws_iam_role" "analysis" {
+  name                 = "${var.name_prefix}-analysis"
+  assume_role_policy   = data.aws_iam_policy_document.assume_lambda.json
+  permissions_boundary = var.workload_boundary_arn
+  tags                 = local.tags
+}
+
+data "aws_iam_policy_document" "analysis" {
+  statement {
+    sid       = "Logs"
+    actions   = ["logs:CreateLogStream", "logs:PutLogEvents"]
+    resources = ["${aws_cloudwatch_log_group.analysis.arn}:*"]
+  }
+
+  statement {
+    sid       = "Queue"
+    actions   = ["sqs:ReceiveMessage", "sqs:DeleteMessage", "sqs:GetQueueAttributes", "sqs:ChangeMessageVisibility"]
+    resources = [aws_sqs_queue.analysis.arn]
+  }
+
+  statement {
+    sid       = "ListChat"
+    actions   = ["s3:ListBucket"]
+    resources = [aws_s3_bucket.chat.arn]
+    condition {
+      test     = "StringLike"
+      variable = "s3:prefix"
+      values   = ["chat/*"]
+    }
+  }
+
+  statement {
+    sid       = "ReadChat"
+    actions   = ["s3:GetObject"]
+    resources = ["${aws_s3_bucket.chat.arn}/chat/*"]
+  }
+
+  # 방송 기록(BCAST#)을 읽고 분석 결과를 쓴다
+  statement {
+    sid       = "Table"
+    actions   = ["dynamodb:GetItem", "dynamodb:UpdateItem"]
+    resources = [var.table_arn]
+  }
+}
+
+resource "aws_iam_role_policy" "analysis" {
+  name   = "analysis"
+  role   = aws_iam_role.analysis.id
+  policy = data.aws_iam_policy_document.analysis.json
+}
+
+resource "aws_cloudwatch_log_group" "analysis" {
+  name              = "/aws/lambda/${var.name_prefix}-analysis"
+  retention_in_days = var.log_retention_days
+  tags              = local.tags
+}
+
+resource "aws_lambda_function" "analysis" {
+  function_name    = "${var.name_prefix}-analysis"
+  role             = aws_iam_role.analysis.arn
+  runtime          = "nodejs24.x"
+  architectures    = ["arm64"]
+  handler          = "index.handler"
+  filename         = var.analysis_zip
+  source_code_hash = var.analysis_zip_hash
+  memory_size      = 1024
+  timeout          = var.analysis_timeout_seconds
+  tags             = local.tags
+
+  environment {
+    variables = {
+      CHAT_BUCKET  = aws_s3_bucket.chat.bucket
+      TABLE_NAME   = var.table_name
+      NODE_OPTIONS = "--enable-source-maps"
+    }
+  }
+
+  depends_on = [aws_iam_role_policy.analysis, aws_cloudwatch_log_group.analysis]
+}
+
+resource "aws_lambda_event_source_mapping" "analysis" {
+  event_source_arn        = aws_sqs_queue.analysis.arn
+  function_name           = aws_lambda_function.analysis.arn
+  batch_size              = 1
+  function_response_types = ["ReportBatchItemFailures"]
+
+  scaling_config {
+    maximum_concurrency = 2
+  }
 }

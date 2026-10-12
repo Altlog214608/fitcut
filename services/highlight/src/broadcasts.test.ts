@@ -226,4 +226,25 @@ describe('stop·list', () => {
     const q = ddbMock.commandCalls(QueryCommand)[0]?.args[0].input;
     expect(q).toMatchObject({ ScanIndexForward: false, Limit: 20 });
   });
+
+  it('방송 하나는 분석 결과까지 돌려주고, 없으면 404', async () => {
+    ddbMock.on(GetCommand).resolvesOnce({
+      Item: {
+        id: 'x',
+        status: 'done',
+        requestedAt: 'r',
+        analysisStatus: 'done',
+        durationSec: 600,
+        candidates: [{ rank: 1, start: 285, end: 310, peak: 300, score: 6.1 }],
+        chatPer10s: [10, 12],
+        taskArn: 'arn',
+      },
+    });
+    const d = await b.detail(CH, '20261012090000-abcdef');
+    expect(d).toMatchObject({ analysisStatus: 'done', durationSec: 600, chatPer10s: [10, 12] });
+    expect(d.candidates).toHaveLength(1);
+    expect(JSON.stringify(d)).not.toContain('arn');
+    ddbMock.on(GetCommand).resolves({});
+    await expect(b.detail(CH, '20261012090000-abcdef')).rejects.toMatchObject({ status: 404 });
+  });
 });
