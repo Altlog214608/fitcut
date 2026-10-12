@@ -15,7 +15,7 @@ export type UploadItem = {
   ttl: number;
 };
 
-export type JobStatus = 'queued' | 'processing' | 'done' | 'failed';
+export type JobStatus = 'queued' | 'processing' | 'done' | 'failed' | 'deleted';
 
 export type JobItem = {
   PK: string;
@@ -49,6 +49,13 @@ export type JobItem = {
   /** 워커가 채운다 (status done) */
   outputKey?: string;
   outputBytes?: number;
+  /** 보관 동의 (F16): 삭제 열쇠의 해시만 둔다. 열쇠는 만든 사람의 브라우저에만 있다 */
+  retain?: boolean;
+  retainUntil?: string;
+  deleteTokenHash?: string;
+  /** 워커가 보관 버킷에 복사한 위치 */
+  retainedInputKey?: string;
+  retainedOutputKey?: string;
 };
 
 export const uploadKey = (id: string) => ({ PK: `UPLOAD#${id}`, SK: 'META' as const });
@@ -94,9 +101,22 @@ export function newJob(id: string, input: CreateJob, upload: UploadItem, now: Da
     inputKey: upload.inputKey,
     fileSize: upload.fileSize,
     createdAt: now.toISOString(),
-    ttl: expiry(now, LIMITS.jobTtlSeconds),
+    // 보관한 잡은 기록도 보관 기간만큼 둔다
+    ttl: expiry(now, input.retain ? LIMITS.retainSeconds + 24 * 60 * 60 : LIMITS.jobTtlSeconds),
+    ...(input.retain
+      ? {
+          retain: true,
+          retainUntil: new Date(now.getTime() + LIMITS.retainSeconds * 1000).toISOString(),
+        }
+      : {}),
   };
 }
+
+/** 보관 파일 위치 (보관 버킷, 30일 수명 주기) */
+export const retainedKeys = (jobId: string, ext: string) => ({
+  input: `jobs/${jobId}/input`,
+  output: `jobs/${jobId}/output.${ext}`,
+});
 
 /** 화면에 돌려줄 잡 정보. 내부 키와 크기 같은 값은 빼고, 만료된 기록은 없는 것으로 본다 */
 export function publicJob(item: JobItem | undefined, now: Date) {
@@ -109,6 +129,7 @@ export function publicJob(item: JobItem | undefined, now: Date) {
     createdAt: item.createdAt,
     ...(item.error ? { error: item.error } : {}),
     ...(item.status === 'done' && item.outputBytes ? { outputBytes: item.outputBytes } : {}),
+    ...(item.retain ? { retain: true, retainUntil: item.retainUntil } : {}),
   };
 }
 

@@ -24,6 +24,8 @@ export type CreateJob = {
   /** 세로로 돌리기만 (F21): 시계 방향 각도, 좌우 반전(다시 압축할 때만) */
   rotate?: 90 | 180 | 270;
   flip?: boolean;
+  /** 작업 파일 30일 보관 동의 (F16, 기본 꺼짐) */
+  retain?: boolean;
 };
 
 export type AudioOptions = {
@@ -171,6 +173,7 @@ export function parseCreateJob(body: unknown): Result<CreateJob> {
       width,
       ...(height ? { height } : {}),
       ...(audio ? { audio } : {}),
+      ...(body.retain === true ? { retain: true } : {}),
     },
   };
 }

@@ -1,8 +1,9 @@
 import { ConditionalCheckFailedException, DynamoDBClient } from '@aws-sdk/client-dynamodb';
-import { HeadObjectCommand, S3Client } from '@aws-sdk/client-s3';
+import { DeleteObjectsCommand, HeadObjectCommand, S3Client } from '@aws-sdk/client-s3';
 import { SendMessageCommand, SQSClient } from '@aws-sdk/client-sqs';
 import { GetParametersCommand, SSMClient } from '@aws-sdk/client-ssm';
 import {
+  DeleteCommand,
   DynamoDBDocumentClient,
   GetCommand,
   PutCommand,
@@ -10,6 +11,7 @@ import {
 } from '@aws-sdk/lib-dynamodb';
 import type { APIGatewayProxyEventV2 } from 'aws-lambda';
 import { mockClient } from 'aws-sdk-client-mock';
+import { createHash } from 'node:crypto';
 import { beforeEach, describe, expect, it } from 'vitest';
 import { makeHandler } from './handler';
 
@@ -36,6 +38,7 @@ function handler() {
       TABLE_NAME: 'fitcut-dev-main',
       UPLOADS_BUCKET: 'fitcut-dev-uploads-x',
       OUTPUTS_BUCKET: 'fitcut-dev-outputs-x',
+      RETAINED_BUCKET: 'fitcut-dev-retained-x',
       QUEUE_URL: 'https://sqs.ap-northeast-2.amazonaws.com/000000000000/fitcut-dev-worker',
       EVENTS_QUEUE_URL: 'https://sqs.ap-northeast-2.amazonaws.com/000000000000/fitcut-dev-events',
       SALT_PARAM: '/fitcut/dev/ip-salt',
@@ -196,6 +199,32 @@ describe('잡 만들기', () => {
     });
   });
 
+  it('보관 동의하면 30일 보관 표시와 삭제 열쇠를 주고, 열쇠는 해시만 저장한다', async () => {
+    uploaded();
+    sqsMock.on(SendMessageCommand).resolves({});
+    const res = await handler()(
+      event('POST /api/jobs', {
+        body: JSON.stringify({ uploadId: UPLOAD_ID, kind: 'gif', start: 1, end: 6, retain: true }),
+      }),
+    );
+    const out = JSON.parse(res.body ?? '{}');
+    expect(out.job).toMatchObject({ retain: true, retainUntil: '2026-11-09T03:00:00.000Z' });
+    expect(out.deleteToken).toMatch(/^[\w-]{32}$/);
+    const saved = ddbMock.commandCalls(PutCommand)[0]?.args[0].input.Item;
+    expect(saved?.deleteTokenHash).toBe(createHash('sha256').update(out.deleteToken).digest('hex'));
+    expect(JSON.stringify(saved)).not.toContain(out.deleteToken);
+    expect(saved?.ttl).toBe(NOW.getTime() / 1000 + 31 * 24 * 3600);
+  });
+
+  it('보관 동의가 없으면 삭제 열쇠도 없다', async () => {
+    uploaded();
+    sqsMock.on(SendMessageCommand).resolves({});
+    const res = await handler()(event('POST /api/jobs', { body }));
+    const out = JSON.parse(res.body ?? '{}');
+    expect(out.deleteToken).toBeUndefined();
+    expect(out.job.retain).toBeUndefined();
+  });
+
   it('업로드가 끝나지 않았으면 할당량을 쓰지 않고 409', async () => {
     ddbMock.on(GetCommand).resolves({ Item: upload });
     s3Mock.on(HeadObjectCommand).rejects(Object.assign(new Error('nf'), { name: 'NotFound' }));
@@ -277,6 +306,22 @@ describe('잡 상태', () => {
       'attachment; filename="fitcut_gif_480_0b8f4c56.gif"',
     );
     expect(url.searchParams.get('X-Amz-Expires')).toBe('600');
+  });
+
+  it('보관한 잡은 보관 버킷에서 내려받는다', async () => {
+    ddbMock.on(GetCommand).resolves({
+      Item: {
+        ...item,
+        status: 'done',
+        outputKey: `out/${ID}.gif`,
+        retain: true,
+        retainedOutputKey: `jobs/${ID}/output.gif`,
+      },
+    });
+    const res = await handler()(event('GET /api/jobs/{id}', { pathParameters: { id: ID } }));
+    const url = new URL(JSON.parse(res.body ?? '{}').job.downloadUrl);
+    expect(url.hostname).toContain('fitcut-dev-retained-x');
+    expect(url.pathname).toBe(`/jobs/${ID}/output.gif`);
   });
 
   it('없는 잡이나 이상한 ID는 404 (DynamoDB를 부르지 않는다)', async () => {
@@ -385,5 +430,61 @@ describe('링크 구간', () => {
     expect(JSON.parse(ok.body ?? '{}').link).toMatchObject({ videoId: VIDEO, start: 1, end: 5 });
     const bad = await handler()(event('GET /api/links/{id}', { pathParameters: { id: 'x' } }));
     expect(bad.statusCode).toBe(404);
+  });
+});
+
+describe('보관 파일 지우기', () => {
+  const token = 'my-delete-token';
+  const item = {
+    PK: `JOB#${ID}`,
+    SK: 'META',
+    id: ID,
+    kind: 'gif',
+    status: 'done',
+    inputKey: `in/${UPLOAD_ID}`,
+    outputKey: `out/${ID}.gif`,
+    retain: true,
+    retainedInputKey: `jobs/${ID}/input`,
+    retainedOutputKey: `jobs/${ID}/output.gif`,
+    deleteTokenHash: createHash('sha256').update(token).digest('hex'),
+    createdAt: NOW.toISOString(),
+  };
+  const del = (t?: string) =>
+    event('DELETE /api/jobs/{id}', {
+      pathParameters: { id: ID },
+      headers: {
+        'x-origin-verify': 'origin-secret',
+        ...(t ? { 'x-delete-token': t } : {}),
+      },
+    });
+
+  it('열쇠가 맞으면 보관본·원본·결과와 관리자 목록 항목을 지운다', async () => {
+    ddbMock.on(GetCommand).resolves({ Item: item });
+    ddbMock.on(UpdateCommand).resolves({});
+    ddbMock.on(DeleteCommand).resolves({});
+    s3Mock.on(DeleteObjectsCommand).resolves({});
+    const res = await handler()(del(token));
+    expect(res.statusCode).toBe(204);
+    const deleted = s3Mock
+      .commandCalls(DeleteObjectsCommand)
+      .map((c) => [c.args[0].input.Bucket, c.args[0].input.Delete?.Objects?.map((o) => o.Key)]);
+    expect(deleted).toEqual([
+      ['fitcut-dev-retained-x', [`jobs/${ID}/input`, `jobs/${ID}/output.gif`]],
+      ['fitcut-dev-outputs-x', [`out/${ID}.gif`]],
+      ['fitcut-dev-uploads-x', [`in/${UPLOAD_ID}`]],
+    ]);
+    expect(ddbMock.commandCalls(DeleteCommand)[0]?.args[0].input.Key).toEqual({
+      PK: 'RETAINED',
+      SK: `${NOW.toISOString()}#${ID}`,
+    });
+  });
+
+  it('열쇠가 틀리면 403, 없거나 보관하지 않은 잡이면 404 (아무것도 지우지 않는다)', async () => {
+    ddbMock.on(GetCommand).resolves({ Item: item });
+    expect((await handler()(del('wrong'))).statusCode).toBe(403);
+    expect((await handler()(del())).statusCode).toBe(404);
+    ddbMock.on(GetCommand).resolves({ Item: { ...item, deleteTokenHash: undefined } });
+    expect((await handler()(del(token))).statusCode).toBe(404);
+    expect(s3Mock.calls()).toHaveLength(0);
   });
 });

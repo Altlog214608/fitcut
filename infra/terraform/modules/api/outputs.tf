@@ -21,6 +21,14 @@ output "outputs_bucket" {
   value = aws_s3_bucket.files["outputs"].bucket
 }
 
+output "retained_bucket" {
+  value = aws_s3_bucket.files["retained"].bucket
+}
+
+output "retained_bucket_arn" {
+  value = aws_s3_bucket.files["retained"].arn
+}
+
 output "function_name" {
   value = aws_lambda_function.api.function_name
 }

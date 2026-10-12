@@ -36,10 +36,15 @@ resource "aws_dynamodb_table" "main" {
   }
 }
 
-# ---------- S3: 업로드 원본, 결과 ----------
+# ---------- S3: 업로드 원본, 결과, 보관(동의한 영상·음성만 30일, ADR-009) ----------
+
+locals {
+  # 버킷별 만료(일). 보관 버킷은 SSE-S3로 둔다 (KMS 키는 월 고정 비용이 있다, ADR-009)
+  expire_days = { uploads = 1, outputs = 1, retained = 30 }
+}
 
 resource "aws_s3_bucket" "files" {
-  for_each = toset(["uploads", "outputs"])
+  for_each = local.expire_days
   bucket   = "${var.name_prefix}-${each.key}-${random_id.suffix.hex}"
   tags     = local.tags
 }
@@ -74,19 +79,19 @@ resource "aws_s3_bucket_ownership_controls" "files" {
   }
 }
 
-# 원본과 결과는 1일 후 만료 (만료는 다음 자정 UTC 기준으로 비동기 처리된다)
+# 원본과 결과는 1일, 보관본은 30일 후 만료 (만료는 다음 자정 UTC 기준으로 비동기 처리된다)
 resource "aws_s3_bucket_lifecycle_configuration" "files" {
   for_each = aws_s3_bucket.files
   bucket   = each.value.id
 
   rule {
-    id     = "expire-after-1-day"
+    id     = "expire-after-${local.expire_days[each.key]}-day"
     status = "Enabled"
 
     filter {}
 
     expiration {
-      days = 1
+      days = local.expire_days[each.key]
     }
 
     abort_incomplete_multipart_upload {
@@ -139,8 +144,19 @@ resource "aws_s3_bucket_cors_configuration" "uploads" {
 
 # 결과는 서명 주소로 받는다. 아이폰 공유 화면과 인앱 브라우저 저장은 누르는 순간 파일이 있어야 해서
 # 화면이 결과를 미리 받아 둘 수 있게 화면 주소에서의 GET만 연다 (ADR-034)
+# 보관한 잡은 보관 버킷에서 받으므로 같은 규칙을 둔다
 resource "aws_s3_bucket_cors_configuration" "outputs" {
   bucket = aws_s3_bucket.files["outputs"].id
+
+  cors_rule {
+    allowed_methods = ["GET"]
+    allowed_origins = [var.site_origin]
+    max_age_seconds = 3600
+  }
+}
+
+resource "aws_s3_bucket_cors_configuration" "retained" {
+  bucket = aws_s3_bucket.files["retained"].id
 
   cors_rule {
     allowed_methods = ["GET"]
@@ -192,9 +208,10 @@ data "aws_iam_policy_document" "api" {
     resources = ["${aws_cloudwatch_log_group.api.arn}:*"]
   }
 
+  # DeleteItem은 사용자가 보관 파일을 지울 때 관리자 목록(RETAINED) 항목을 뺀다
   statement {
     sid       = "Jobs"
-    actions   = ["dynamodb:GetItem", "dynamodb:PutItem", "dynamodb:UpdateItem"]
+    actions   = ["dynamodb:GetItem", "dynamodb:PutItem", "dynamodb:UpdateItem", "dynamodb:DeleteItem"]
     resources = [aws_dynamodb_table.main.arn]
   }
 
@@ -224,6 +241,24 @@ data "aws_iam_policy_document" "api" {
     sid       = "Downloads"
     actions   = ["s3:GetObject"]
     resources = ["${aws_s3_bucket.files["outputs"].arn}/out/*"]
+  }
+
+  # 보관한 잡은 보관본에서 내려받는다
+  statement {
+    sid       = "RetainedDownloads"
+    actions   = ["s3:GetObject"]
+    resources = ["${aws_s3_bucket.files["retained"].arn}/jobs/*"]
+  }
+
+  # 사용자가 "내 작업 기록"에서 지우면 바로 지운다 (F16)
+  statement {
+    sid     = "UserDelete"
+    actions = ["s3:DeleteObject"]
+    resources = [
+      "${aws_s3_bucket.files["uploads"].arn}/in/*",
+      "${aws_s3_bucket.files["outputs"].arn}/out/*",
+      "${aws_s3_bucket.files["retained"].arn}/jobs/*",
+    ]
   }
 
   statement {
@@ -262,6 +297,7 @@ resource "aws_lambda_function" "api" {
       TABLE_NAME         = aws_dynamodb_table.main.name
       UPLOADS_BUCKET     = aws_s3_bucket.files["uploads"].bucket
       OUTPUTS_BUCKET     = aws_s3_bucket.files["outputs"].bucket
+      RETAINED_BUCKET    = aws_s3_bucket.files["retained"].bucket
       QUEUE_URL          = var.queue_url
       EVENTS_QUEUE_URL   = var.events_queue_url
       SALT_PARAM         = aws_ssm_parameter.secret["ip-salt"].name
@@ -296,6 +332,7 @@ resource "aws_apigatewayv2_route" "api" {
     "POST /api/uploads",
     "POST /api/jobs",
     "GET /api/jobs/{id}",
+    "DELETE /api/jobs/{id}",
     "POST /api/events",
     "POST /api/links",
     "GET /api/links/{id}",

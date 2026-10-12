@@ -24,6 +24,9 @@ export function Layout() {
       <main className={styles.main}>
         <Outlet />
       </main>
+      <footer className={styles.footer}>
+        <Link to="/my-jobs">내 작업 기록</Link>
+      </footer>
     </div>
   );
 }

@@ -10,18 +10,24 @@
  */
 import { ConditionalCheckFailedException, DynamoDBClient } from '@aws-sdk/client-dynamodb';
 import {
+  DeleteCommand,
   DynamoDBDocumentClient,
   GetCommand,
   PutCommand,
   UpdateCommand,
 } from '@aws-sdk/lib-dynamodb';
-import { GetObjectCommand, HeadObjectCommand, S3Client } from '@aws-sdk/client-s3';
+import {
+  DeleteObjectsCommand,
+  GetObjectCommand,
+  HeadObjectCommand,
+  S3Client,
+} from '@aws-sdk/client-s3';
 import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
 import { createPresignedPost } from '@aws-sdk/s3-presigned-post';
 import { SendMessageCommand, SQSClient } from '@aws-sdk/client-sqs';
 import { GetParametersCommand, SSMClient } from '@aws-sdk/client-ssm';
 import type { APIGatewayProxyEventV2, APIGatewayProxyStructuredResultV2 } from 'aws-lambda';
-import { randomUUID, timingSafeEqual } from 'node:crypto';
+import { createHash, randomBytes, randomUUID, timingSafeEqual } from 'node:crypto';
 import { clientIp, ipHash, quotaExpiry, quotaKey } from './client';
 import {
   downloadName,
@@ -55,6 +61,7 @@ export type Env = {
   TABLE_NAME: string;
   UPLOADS_BUCKET: string;
   OUTPUTS_BUCKET: string;
+  RETAINED_BUCKET: string;
   QUEUE_URL: string;
   EVENTS_QUEUE_URL: string;
   SALT_PARAM: string;
@@ -86,6 +93,9 @@ function json(statusCode: number, body: unknown): APIGatewayProxyStructuredResul
 
 const error = (statusCode: number, code: string, message: string) =>
   json(statusCode, { error: { code, message } });
+
+/** 삭제 열쇠의 해시 (열쇠 자체는 저장하지 않는다) */
+const hashToken = (token: string) => createHash('sha256').update(token).digest('hex');
 
 function sameSecret(a: string | undefined, b: string): boolean {
   if (!a) return false;
@@ -238,6 +248,9 @@ export function makeHandler(deps: Deps) {
     }
 
     const job = newJob(deps.newId(), parsed.value, upload, now);
+    // 보관 동의: 삭제 열쇠는 응답으로 한 번만 주고 해시만 저장한다 (F16)
+    const deleteToken = job.retain ? randomBytes(24).toString('base64url') : null;
+    if (deleteToken) job.deleteTokenHash = hashToken(deleteToken);
     await ddb.send(
       new PutCommand({
         TableName: env.TABLE_NAME,
@@ -278,7 +291,49 @@ export function makeHandler(deps: Deps) {
         durationSec: job.params.end - job.params.start,
       },
     ]);
-    return json(201, { job: publicJob(job, now) });
+    return json(201, { job: publicJob(job, now), ...(deleteToken ? { deleteToken } : {}) });
+  }
+
+  /** 사용자가 "내 작업 기록"에서 지운다: 보관본·원본·결과를 바로 지우고 기록을 deleted로 (F16) */
+  async function deleteJob(event: APIGatewayProxyEventV2) {
+    const id = event.pathParameters?.id;
+    if (!isUuid(id)) return error(404, 'not_found', '작업을 찾을 수 없어요.');
+    const r = await ddb.send(new GetCommand({ TableName: env.TABLE_NAME, Key: jobKey(id) }));
+    const item = r.Item as JobItem | undefined;
+    const token = event.headers['x-delete-token'];
+    if (!item || !item.deleteTokenHash || !token) {
+      return error(404, 'not_found', '지울 수 있는 작업이 없어요.');
+    }
+    if (!sameSecret(hashToken(token), item.deleteTokenHash)) {
+      return error(403, 'bad_token', '이 기기에서 만든 작업만 지울 수 있어요.');
+    }
+    const del = async (bucket: string, keys: (string | undefined)[]) => {
+      const objects = keys.filter((k): k is string => !!k).map((Key) => ({ Key }));
+      if (objects.length > 0) {
+        await s3.send(new DeleteObjectsCommand({ Bucket: bucket, Delete: { Objects: objects } }));
+      }
+    };
+    await del(env.RETAINED_BUCKET, [item.retainedInputKey, item.retainedOutputKey]);
+    await del(env.OUTPUTS_BUCKET, [item.outputKey]);
+    await del(env.UPLOADS_BUCKET, [item.inputKey]);
+    await ddb.send(
+      new UpdateCommand({
+        TableName: env.TABLE_NAME,
+        Key: jobKey(id),
+        UpdateExpression:
+          'SET #s = :deleted REMOVE outputKey, retainedInputKey, retainedOutputKey, deleteTokenHash',
+        ExpressionAttributeNames: { '#s': 'status' },
+        ExpressionAttributeValues: { ':deleted': 'deleted' },
+      }),
+    );
+    // 관리자 보관 파일 목록에서도 뺀다
+    await ddb.send(
+      new DeleteCommand({
+        TableName: env.TABLE_NAME,
+        Key: { PK: 'RETAINED', SK: `${item.createdAt}#${id}` },
+      }),
+    );
+    return { statusCode: 204, headers: { 'cache-control': 'no-store' } };
   }
 
   /** 서버 잡 이벤트를 이벤트 큐에 넣는다. 실패해도 잡 흐름은 막지 않는다 */
@@ -396,12 +451,13 @@ export function makeHandler(deps: Deps) {
     const job = publicJob(item, deps.now());
     if (!job || !item) return error(404, 'not_found', '작업을 찾을 수 없어요.');
     if (job.status !== 'done' || !item.outputKey) return json(200, { job });
-    // 결과는 outputs 버킷에서 짧은 서명 주소로 내려받는다 (버킷은 비공개, 1일 후 지워짐)
+    // 결과는 짧은 서명 주소로 내려받는다. 보관한 잡은 보관본(30일), 아니면 outputs(1일)
+    const fromRetained = !!item.retainedOutputKey;
     const downloadUrl = await getSignedUrl(
       s3,
       new GetObjectCommand({
-        Bucket: env.OUTPUTS_BUCKET,
-        Key: item.outputKey,
+        Bucket: fromRetained ? env.RETAINED_BUCKET : env.OUTPUTS_BUCKET,
+        Key: item.retainedOutputKey ?? item.outputKey,
         ResponseContentDisposition: `attachment; filename="${downloadName(item)}"`,
       }),
       { expiresIn: LIMITS.downloadUrlSeconds },
@@ -425,6 +481,8 @@ export function makeHandler(deps: Deps) {
         return getLink(event.pathParameters?.id);
       case 'POST /api/events':
         return postEvents(event);
+      case 'DELETE /api/jobs/{id}':
+        return deleteJob(event);
       case 'GET /api/jobs/{id}':
         return getJob(event.pathParameters?.id);
       default:
@@ -438,6 +496,7 @@ function env(): Env {
     'TABLE_NAME',
     'UPLOADS_BUCKET',
     'OUTPUTS_BUCKET',
+    'RETAINED_BUCKET',
     'QUEUE_URL',
     'EVENTS_QUEUE_URL',
     'SALT_PARAM',

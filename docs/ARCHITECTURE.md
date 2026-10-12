@@ -118,7 +118,7 @@
 | web | 정적 사이트 | 버전 관리, 이전 버전은 30일 후 삭제 |
 | uploads | 원본 업로드 | 1일 후 만료, 완료되지 않은 멀티파트 업로드는 1일 후 중단 |
 | outputs | 결과물 | 1일 후 만료 |
-| retained | 보관 동의 파일 (SSE-KMS) | 30일 후 만료 |
+| retained | 보관 동의 파일, 영상·음성만 (SSE-S3, ADR-009) | 30일 후 만료 |
 | chat | 수집한 채팅 이벤트 (닉네임 제거, 방송별 경로) | 30일 후 만료 |
 | artifacts | 하이라이트 시계열, 일별 집계 | 시계열 90일, 집계는 보관 |
 | analytics | 사용 이벤트 (gzip JSON Lines, `events/dt=YYYY-MM-DD/`, ADR-036) | 12개월 후 만료 |
