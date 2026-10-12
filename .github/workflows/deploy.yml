@@ -38,6 +38,7 @@ jobs:
       - run: pnpm --filter @fitcut/admin build
       - run: pnpm --filter @fitcut/highlight build
       - run: pnpm --filter @fitcut/worker build
+      - run: pnpm --filter @fitcut/collector build
 
       - uses: hashicorp/setup-terraform@dfe3c3f87815947d99a8997f908cb6525fc44e9e # v4.0.1
         with:
@@ -59,7 +60,8 @@ jobs:
           echo "tag=$tag" >> "$GITHUB_OUTPUT"
           terraform init -input=false
           terraform apply -input=false -lock-timeout=5m -auto-approve -no-color \
-            -target=module.worker.aws_ecr_repository.worker -var "worker_image_tag=$tag"
+            -target=module.worker.aws_ecr_repository.worker -var "worker_image_tag=$tag" \
+            -var "collector_image_tag=$(sh ../../../../scripts/collector-image-tag.sh)"
           repo=$(terraform output -raw worker_repository_url 2>/dev/null || true)
           if [ -z "$repo" ]; then
             repo=$(aws ecr describe-repositories --repository-names fitcut-dev-worker --query 'repositories[0].repositoryUri' --output text)
@@ -72,13 +74,35 @@ jobs:
           docker run --privileged --rm tonistiigi/binfmt@sha256:400a4873b838d1b89194d982c45e5fb3cda4593fbfd7e08a02e76b03b21166f0 --install arm64
           docker buildx build --platform linux/arm64 --provenance=false -t "$repo:$tag" --push ../../../../services/worker
 
+      # 수집기 이미지 (M5): 워커와 같은 방식. 태그는 services/collector·packages/chzzk·잠금 파일 내용으로 정해진다
+      - name: 수집기 이미지
+        id: collector
+        working-directory: infra/terraform/envs/dev
+        env:
+          WORKER_TAG: ${{ steps.image.outputs.tag }}
+        run: |
+          tag=$(sh ../../../../scripts/collector-image-tag.sh)
+          echo "tag=$tag" >> "$GITHUB_OUTPUT"
+          terraform apply -input=false -lock-timeout=5m -auto-approve -no-color \
+            -target=module.collector.aws_ecr_repository.collector \
+            -var "worker_image_tag=$WORKER_TAG" -var "collector_image_tag=$tag"
+          repo=$(aws ecr describe-repositories --repository-names fitcut-dev-collector --query 'repositories[0].repositoryUri' --output text)
+          if aws ecr describe-images --repository-name fitcut-dev-collector --image-ids "imageTag=$tag" >/dev/null 2>&1; then
+            echo "이미지 $tag 이미 있음"
+            exit 0
+          fi
+          aws ecr get-login-password | docker login --username AWS --password-stdin "${repo%%/*}"
+          docker run --privileged --rm tonistiigi/binfmt@sha256:400a4873b838d1b89194d982c45e5fb3cda4593fbfd7e08a02e76b03b21166f0 --install arm64
+          docker buildx build --platform linux/arm64 --provenance=false -t "$repo:$tag" --push ../../../../services/collector
+
       - name: terraform apply (dev)
         id: tf
         working-directory: infra/terraform/envs/dev
         env:
           TAG: ${{ steps.image.outputs.tag }}
+          COLLECTOR_TAG: ${{ steps.collector.outputs.tag }}
         run: |
-          terraform apply -input=false -lock-timeout=5m -auto-approve -no-color -var "worker_image_tag=$TAG"
+          terraform apply -input=false -lock-timeout=5m -auto-approve -no-color -var "worker_image_tag=$TAG" -var "collector_image_tag=$COLLECTOR_TAG"
           echo "bucket=$(terraform output -raw web_bucket_name)" >> "$GITHUB_OUTPUT"
           echo "distribution_id=$(terraform output -raw web_distribution_id)" >> "$GITHUB_OUTPUT"
           echo "url=$(terraform output -raw web_url)" >> "$GITHUB_OUTPUT"

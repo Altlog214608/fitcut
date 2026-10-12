@@ -1,0 +1,27 @@
+{
+  "name": "@fitcut/collector",
+  "private": true,
+  "type": "module",
+  "description": "치지직 라이브 채팅 수집기: 방송 중에만 도는 Fargate 태스크 (docs/HIGHLIGHT.md)",
+  "scripts": {
+    "build": "esbuild src/main.ts --bundle --platform=node --target=node24 --format=esm --minify --sourcemap --external:bufferutil --external:utf-8-validate --outfile=dist/index.mjs --banner:js=\"import { createRequire } from 'module'; const require = createRequire(import.meta.url);\"",
+    "typecheck": "tsc -p tsconfig.json",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "@aws-sdk/client-dynamodb": "^3.1148.0",
+    "@aws-sdk/client-sqs": "^3.1148.0",
+    "@aws-sdk/client-ssm": "^3.1148.0",
+    "@aws-sdk/lib-dynamodb": "^3.1148.0",
+    "@fitcut/chzzk": "workspace:*",
+    "socket.io-client": "2.5.0"
+  },
+  "devDependencies": {
+    "@types/node": "^24.19.1",
+    "@types/socket.io-client": "^1.4.36",
+    "aws-sdk-client-mock": "^4.1.0",
+    "esbuild": "^0.28.2",
+    "typescript": "~6.0.3",
+    "vitest": "^5.0.3"
+  }
+}

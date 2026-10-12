@@ -67,3 +67,16 @@ variable "log_retention_days" {
   type    = number
   default = 14
 }
+
+variable "collector" {
+  description = "수집기 모듈 출력 (RunTask에 쓴다)"
+  type = object({
+    cluster_arn                = string
+    task_family                = string
+    task_definition_arn_prefix = string
+    task_role_arn              = string
+    execution_role_arn         = string
+    subnet_ids                 = list(string)
+    security_group_id          = string
+  })
+}
