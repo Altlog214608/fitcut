@@ -1,13 +1,21 @@
 /**
- * 방송 하나의 하이라이트 결과 (모드 A: 채팅만). 그래프, 후보 목록, 유튜브 댓글용 타임라인 복사.
+ * 방송 하나의 하이라이트 결과 (모드 A: 채팅만). 그래프, 후보 목록, 유튜브 댓글용 타임라인 복사, 편집용 마커 파일.
  * 시각은 수집 시작 기준이라, 방송을 켠 뒤 수집을 누르기까지 걸린 시간을 넣으면 다시보기 시각이 된다.
  */
 import { useEffect, useState } from 'react';
 import { getBroadcast, StreamerError, type BroadcastDetail } from './streamer';
-import { clock, parseClock, timelineText } from './timeline';
+import { SAVE_METHOD } from '../lib/inApp';
+import { download } from '../lib/save';
+import { clock, markerFile, parseClock, timelineText, type MarkerFormat } from './timeline';
 import styles from './Result.module.css';
 
 const count = (n: number) => n.toLocaleString('ko-KR');
+
+const MARKERS: { format: MarkerFormat; label: string }[] = [
+  { format: 'csv', label: '표 (CSV)' },
+  { format: 'srt', label: '자막 (SRT)' },
+  { format: 'audacity', label: 'Audacity 라벨' },
+];
 
 function Graph({ detail }: { detail: BroadcastDetail }) {
   const data = detail.chatPer10s;
@@ -73,6 +81,17 @@ export function Result({ id }: { id: string }) {
   const shift = offset ?? 0;
   const ordered = [...detail.candidates].sort((a, b) => a.start - b.start);
 
+  function saveMarkers(format: MarkerFormat) {
+    if (!detail) return;
+    const { text, ext, type } = markerFile(detail.candidates, shift, format);
+    // iOS 인앱 브라우저는 blob 다운로드를 못 한다 (lib/inApp.ts)
+    void download(
+      new Blob([text], { type }),
+      `fitcut-highlight-${detail.id}.${ext}`,
+      SAVE_METHOD === 'data-url' ? 'data-url' : 'blob',
+    );
+  }
+
   async function copy() {
     try {
       await navigator.clipboard.writeText(timelineText(detail?.candidates ?? [], shift));
@@ -125,6 +144,23 @@ export function Result({ id }: { id: string }) {
           <button type="button" className={styles.primary} onClick={() => void copy()}>
             {copied ? '복사했어요' : '유튜브 댓글용 타임라인 복사'}
           </button>
+          <div className={styles.markers} role="group" aria-label="편집용 마커 파일 받기">
+            <span className={styles.meta}>편집용 마커 파일</span>
+            {MARKERS.map((m) => (
+              <button
+                key={m.format}
+                type="button"
+                className={styles.ghost}
+                onClick={() => saveMarkers(m.format)}
+              >
+                {m.label}
+              </button>
+            ))}
+          </div>
+          <p className={styles.meta}>
+            자막(SRT)은 프리미어·다빈치 리졸브·캡컷에서 자막 트랙으로 불러오면 후보 구간에 글자가
+            떠서 마커처럼 쓸 수 있어요.
+          </p>
         </>
       )}
       <p className={styles.meta}>

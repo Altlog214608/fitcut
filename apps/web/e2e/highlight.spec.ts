@@ -183,6 +183,16 @@ test('지난 수집의 하이라이트: 그래프, 후보 시각, offset 반영,
   await page.getByRole('textbox').fill('2:00');
   await expect(list.getByRole('listitem').first()).toContainText('07:00 – 07:25');
 
+  // 편집용 마커: 자막(SRT) 파일은 offset이 반영된 시각으로
+  const [srt] = await Promise.all([
+    page.waitForEvent('download'),
+    page.getByRole('button', { name: '자막 (SRT)' }).click(),
+  ]);
+  expect(srt.suggestedFilename()).toBe('fitcut-highlight-20261011120000-aaaaaa.srt');
+  const srtPath = await srt.path();
+  const { readFile } = await import('node:fs/promises');
+  expect(await readFile(srtPath, 'utf8')).toContain('1\n00:07:00,000 --> 00:07:25,000\n');
+
   await page.getByRole('button', { name: '유튜브 댓글용 타임라인 복사' }).click();
   if (browserName === 'chromium') {
     await expect(page.getByRole('button', { name: '복사했어요' })).toBeVisible();

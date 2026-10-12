@@ -39,3 +39,71 @@ export function timelineText(candidates: readonly Candidate[], offsetSec: number
     .map((c, i) => `${clock(c.start + offsetSec, hours)} 하이라이트 ${i + 1}`)
     .join('\n');
 }
+
+/** 편집용 마커 파일 (모드 A). 시각은 offset을 더한 다시보기 기준 */
+export type MarkerFormat = 'csv' | 'srt' | 'audacity';
+
+const byTime = (candidates: readonly Candidate[]) =>
+  [...candidates].sort((a, b) => a.start - b.start);
+
+/** SRT 시각: 00:01:02,500 */
+export function srtTime(sec: number): string {
+  const ms = Math.max(0, Math.round(sec * 1000));
+  const h = Math.floor(ms / 3_600_000);
+  const m = Math.floor((ms % 3_600_000) / 60_000);
+  const s = Math.floor((ms % 60_000) / 1000);
+  const r = ms % 1000;
+  const p = (n: number, w = 2) => String(n).padStart(w, '0');
+  return `${p(h)}:${p(m)}:${p(s)},${p(r, 3)}`;
+}
+
+export function markerFile(
+  candidates: readonly Candidate[],
+  offsetSec: number,
+  format: MarkerFormat,
+): { text: string; ext: string; type: string } {
+  const list = byTime(candidates).map((c, i) => ({
+    n: i + 1,
+    start: c.start + offsetSec,
+    end: c.end + offsetSec,
+    peak: c.peak + offsetSec,
+    c,
+  }));
+  if (format === 'srt') {
+    // 자막 파일 형식(SubRip): 번호, 시작 --> 끝, 내용, 빈 줄. 편집 프로그램에서 자막 트랙으로 불러와 마커처럼 쓴다
+    const text = list
+      .map(
+        (m) =>
+          `${m.n}\n${srtTime(m.start)} --> ${srtTime(m.end)}\n하이라이트 ${m.n} (점수 ${m.c.score})\n`,
+      )
+      .join('\n');
+    return { text, ext: 'srt', type: 'application/x-subrip' };
+  }
+  if (format === 'audacity') {
+    // Audacity 라벨: 시작(초)<탭>끝(초)<탭>이름
+    const text = list
+      .map((m) => `${m.start.toFixed(3)}\t${m.end.toFixed(3)}\t하이라이트 ${m.n}`)
+      .join('\n');
+    return { text: `${text}\n`, ext: 'txt', type: 'text/plain' };
+  }
+  // 엑셀이 한글을 깨뜨리지 않게 BOM을 붙인다
+  const rows = [
+    '순서,시작,끝,장면,시작(초),끝(초),점수,채팅,반응,후원,구독',
+    ...list.map((m) =>
+      [
+        m.n,
+        clock(m.start, true),
+        clock(m.end, true),
+        clock(m.peak, true),
+        m.start.toFixed(1),
+        m.end.toFixed(1),
+        m.c.score,
+        m.c.counts.chat,
+        m.c.counts.reaction,
+        m.c.counts.donation,
+        m.c.counts.subscription,
+      ].join(','),
+    ),
+  ];
+  return { text: `﻿${rows.join('\r\n')}\r\n`, ext: 'csv', type: 'text/csv' };
+}
