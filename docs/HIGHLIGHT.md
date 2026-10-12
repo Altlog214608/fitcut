@@ -53,6 +53,17 @@
 - Twitch: 채팅 이벤트를 웹훅으로 받는 조건(권한, 봇 계정), 서명 검증
 - 공통: 채팅 데이터 저장·가공에 관한 약관, 개인정보(닉네임) 처리
 
+### 치지직 확인 결과 (2026-10-12, chzzk.gitbook.io/chzzk)
+
+- 앱 등록: 개발자센터에서 애플리케이션 ID·이름(공식 서비스명 포함 불가), 로그인 리디렉션 URL, API Scope를 입력한다. 등록 완료 (Client ID는 `infra/terraform/envs/dev/main.tf`, 시크릿은 SSM). **최근 90일간 API Scope 사용량이 0인 앱은 삭제된다** — 테스트 방송을 90일 안에 한 번은 해야 한다.
+- 고른 권한: 유저 정보 조회, 채팅 메시지 조회, 후원 조회, 구독 조회 (읽기만)
+- 인증: `https://chzzk.naver.com/account-interlock?clientId&redirectUri&state` → 리디렉션 URL로 `code`, `state`. redirectUri는 등록한 값과 같아야 한다
+- 토큰: `POST https://openapi.chzzk.naver.com/auth/v1/token` (JSON, grantType `authorization_code`·`refresh_token`). 액세스 1일, 리프레시 30일·일회용. 폐기는 `/auth/v1/token/revoke`
+- 응답은 `{ code, message, content }`로 감싸져 온다. 사용자 토큰 API는 `Authorization: Bearer <토큰>`, 클라이언트 API는 `Client-Id`·`Client-Secret` 헤더
+- 채널 확인: `GET /open/v1/users/me` → channelId(사용자 고유 식별자로도 쓴다), channelName
+- 세션(수집기용): 사용자 세션 `GET /open/v1/sessions/auth`, 클라이언트 세션 `GET /open/v1/sessions/auth/client`. 채팅·후원·구독 구독은 `POST /open/v1/sessions/events/subscribe/{chat|donation|subscription}`. 클라이언트 세션 최대 10개, 사용자당 3개, 세션당 이벤트 구독 30개. 세션 URL은 짧은 시간만 유효(정확한 시간은 문서에 없음, TODO(verify))
+- 아직 확인할 것: 다시보기 시간 지정 링크 지원 여부, 이용약관의 채팅 데이터 저장·가공 조항
+
 ## YouTube 할당량 계산
 
 - `liveChatMessages.list`(폴링)는 호출당 5 units, 기본 할당량은 프로젝트당 하루 10,000 units → 하루 2,000번 호출할 수 있다

@@ -30,6 +30,12 @@ data "archive_file" "admin_api" {
   output_path = "${path.module}/.build/admin-api.zip"
 }
 
+data "archive_file" "highlight_api" {
+  type        = "zip"
+  source_dir  = "${path.module}/../../../../services/highlight/dist/api"
+  output_path = "${path.module}/.build/highlight-api.zip"
+}
+
 module "web" {
   source = "../../modules/static-site"
 
@@ -113,5 +119,25 @@ module "admin" {
   retained_bucket_arn   = module.api.retained_bucket_arn
   lambda_zip            = data.archive_file.admin_api.output_path
   lambda_zip_hash       = data.archive_file.admin_api.output_base64sha256
+  workload_boundary_arn = local.workload_boundary_arn
+}
+
+module "highlight" {
+  source = "../../modules/highlight"
+
+  name_prefix       = "fitcut-dev"
+  ssm_prefix        = "/fitcut/dev/"
+  api_id            = module.api.api_id
+  api_execution_arn = module.api.api_execution_arn
+  table_name        = module.api.table_name
+  table_arn         = module.api.table_arn
+  origin_param_name = module.api.origin_param_name
+  origin_param_arn  = module.api.origin_param_arn
+  site_origin       = "https://${module.web.domain_name}"
+  # 치지직 개발자센터 앱 (2026-10-12 등록). Client ID는 인증 주소에 그대로 나가는 공개 값이다
+  chzzk_client_id       = "b0268950-e7c9-42c1-b17b-3738167aee92"
+  chzzk_secret_param    = "/fitcut/dev/chzzk/client-secret"
+  lambda_zip            = data.archive_file.highlight_api.output_path
+  lambda_zip_hash       = data.archive_file.highlight_api.output_base64sha256
   workload_boundary_arn = local.workload_boundary_arn
 }

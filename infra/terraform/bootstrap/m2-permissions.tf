@@ -93,9 +93,16 @@ data "aws_iam_policy_document" "workload_boundary" {
     resources = [local.ssm_params]
   }
 
+  # 스트리머 플랫폼 토큰 (M5, ADR-039): 채널마다 SecureString 하나를 만들고 연결 해제 때 지운다
   statement {
-    sid       = "DecryptSSMOnly"
-    actions   = ["kms:Decrypt"]
+    sid       = "SSMStreamerTokens"
+    actions   = ["ssm:PutParameter", "ssm:DeleteParameter"]
+    resources = ["arn:aws:ssm:${local.region}:${local.account}:parameter${var.managed_ssm_path}streamer/*"]
+  }
+
+  statement {
+    sid       = "KmsViaSsmOnly"
+    actions   = ["kms:Decrypt", "kms:Encrypt", "kms:GenerateDataKey"]
     resources = ["*"]
     condition {
       test     = "StringEquals"
