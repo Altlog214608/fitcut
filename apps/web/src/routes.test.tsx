@@ -18,6 +18,8 @@ describe('routes', () => {
     ['/link', '링크 구간'],
     ['/highlight', '하이라이트'],
     ['/admin', '관리자'],
+    ['/my-jobs', '내 작업 기록'],
+    ['/privacy', '개인정보 처리방침'],
   ])('%s 경로는 "%s" 페이지를 보여준다', (path, heading) => {
     renderAt(path);
     expect(screen.getByRole('heading', { level: 1, name: heading })).toBeDefined();
