@@ -20,7 +20,14 @@ export type ScoreConfig = {
   /** 피크 앞뒤 여유 (초) */
   beforeSec: number;
   afterSec: number;
-  weights: { chat: number; reaction: number; donation: number; subscription: number };
+  weights: {
+    chat: number;
+    reaction: number;
+    donation: number;
+    subscription: number;
+    /** 소리 크기 (모드 B·C, 녹화 파일이 있을 때) */
+    loudness: number;
+  };
   /** 이 점수 이상인 피크만 후보로 */
   threshold: number;
   /** 피크 사이 최소 간격 (초) */
@@ -36,7 +43,7 @@ export const DEFAULT_CONFIG: ScoreConfig = {
   lagSec: 5,
   beforeSec: 15,
   afterSec: 10,
-  weights: { chat: 1, reaction: 1, donation: 0.5, subscription: 0.3 },
+  weights: { chat: 1, reaction: 1, donation: 0.5, subscription: 0.3, loudness: 1 },
   threshold: 2,
   minGapSec: 30,
   topN: 10,
@@ -52,7 +59,14 @@ export type Candidate = {
   peak: number;
   score: number;
   /** 피크 창(W초) 안의 실제 개수 */
-  counts: { chat: number; reaction: number; donation: number; subscription: number };
+  counts: {
+    chat: number;
+    reaction: number;
+    donation: number;
+    subscription: number;
+    /** 피크 창의 평균 소리 크기 (dB, 녹화 파일이 있을 때) */
+    loudness?: number;
+  };
 };
 
 export type Analysis = {
@@ -62,7 +76,12 @@ export type Analysis = {
   candidates: Candidate[];
   /** 그래프용: 10초마다 채팅 수 */
   chatPer10s: number[];
+  /** 그래프용: 10초마다 평균 소리 크기 (dB). 녹화 파일을 분석했을 때만 */
+  loudPer10s?: number[];
 };
+
+/** 소리가 없는 구간(-inf, -120)은 이 값으로 둔다. 조용한 구간끼리의 차이로 튀지 않게 */
+const QUIET_DB = -70;
 
 type Series = Float64Array;
 
@@ -105,6 +124,7 @@ export function windowSum(x: Series, w: number): Series {
 export function rollingZ(
   x: Series,
   cfg: Pick<ScoreConfig, 'baselineSec' | 'minBaselineSec'>,
+  centered = false,
 ): Series {
   const n = x.length;
   const p1 = new Float64Array(n + 1);
@@ -123,6 +143,15 @@ export function rollingZ(
   const global = stats(0, n);
   const out = new Float64Array(n);
   for (let i = 0; i < n; i++) {
+    if (centered) {
+      // 앞뒤를 함께 기준으로: 소리 크기가 바뀐 지점(무음 → 말소리)은 피크가 아니다
+      const half = Math.floor(cfg.baselineSec / 2);
+      const a = Math.max(0, i - half);
+      const b = Math.min(n, i + half);
+      const { mean, std } = b - a >= cfg.minBaselineSec ? stats(a, b) : global;
+      out[i] = ((x[i] ?? 0) - mean) / std;
+      continue;
+    }
     const a = Math.max(0, i - cfg.baselineSec);
     const { mean, std } = i - a >= cfg.minBaselineSec ? stats(a, i) : global;
     out[i] = ((x[i] ?? 0) - mean) / std;
@@ -132,12 +161,16 @@ export function rollingZ(
 
 const round = (v: number, d = 2) => Math.round(v * 10 ** d) / 10 ** d;
 
+/**
+ * @param loudness 초마다 소리 크기 (RMS dB, 0번째 = 수집 시작). 녹화 파일을 분석했을 때만 (ADR-044)
+ */
 export function analyze(
   events: readonly ChatEvent[],
   durationSec: number,
   cfg: ScoreConfig = DEFAULT_CONFIG,
+  loudness?: readonly number[],
 ): Analysis {
-  const duration = Math.max(durationSec, ...events.map((e) => e.t), 0);
+  const duration = Math.max(durationSec, ...events.map((e) => e.t), loudness?.length ?? 0, 0);
   const ps = perSecond(events, duration);
   const w = cfg.windowSec;
   const sums = {
@@ -154,13 +187,26 @@ export function analyze(
     subscription: rollingZ(sums.subscription, cfg),
   };
   const n = ps.chat.length;
+  // 소리 크기: 10초 평균 dB → 지난 5분 기준 z-score. 소리는 장면과 같은 때라 지연 보정을 하지 않는다
+  const loud = loudness?.length
+    ? (() => {
+        const db = new Float64Array(n);
+        for (let i = 0; i < n; i++) db[i] = Math.max(QUIET_DB, loudness[i] ?? QUIET_DB);
+        const mean = windowSum(db, w).map((v, i) => v / Math.min(w, n - i));
+        return { mean, z: rollingZ(mean, cfg, true) };
+      })()
+    : null;
+  // 채팅은 장면보다 lagSec 늦게 반응한다. 채팅 신호를 그만큼 앞으로 당겨 소리와 같은 시각에 맞춘다
+  const lag = Math.round(cfg.lagSec);
+  const at = (x: Series, i: number) => x[i + lag] ?? 0;
   const score = new Float64Array(n);
   for (let i = 0; i < n; i++) {
     score[i] =
-      cfg.weights.chat * (z.chat[i] ?? 0) +
-      cfg.weights.reaction * (z.reaction[i] ?? 0) +
-      cfg.weights.donation * (z.donation[i] ?? 0) +
-      cfg.weights.subscription * (z.subscription[i] ?? 0);
+      cfg.weights.chat * at(z.chat, i) +
+      cfg.weights.reaction * at(z.reaction, i) +
+      cfg.weights.donation * at(z.donation, i) +
+      cfg.weights.subscription * at(z.subscription, i) +
+      (loud ? cfg.weights.loudness * (loud.z[i] ?? 0) : 0);
   }
 
   // 큰 점수부터 고르고, 이미 고른 피크와 가까우면 건너뛴다
@@ -170,26 +216,27 @@ export function analyze(
   const peaks: number[] = [];
   for (const i of order) {
     if ((score[i] ?? 0) < cfg.threshold || peaks.length >= cfg.topN) break;
-    // 창 안에 채팅이 거의 없으면(조용한 방송의 한두 줄) 후보로 보지 않는다
-    if ((sums.chat[i] ?? 0) + (sums.donationCount[i] ?? 0) + (sums.subscription[i] ?? 0) < 3)
-      continue;
+    // 소리 없이 채팅만 볼 때: 창 안에 채팅이 거의 없으면(조용한 방송의 한두 줄) 후보로 보지 않는다
+    const events3 = at(sums.chat, i) + at(sums.donationCount, i) + at(sums.subscription, i) >= 3;
+    if (!loud && !events3) continue;
     if (peaks.every((p) => Math.abs(p - i) >= cfg.minGapSec)) peaks.push(i);
   }
 
   type Seg = Omit<Candidate, 'rank'>;
   const segs: Seg[] = peaks.map((i) => {
-    // 창 가운데에서 채팅 지연만큼 앞으로 (장면이 일어난 때)
-    const peak = Math.max(0, Math.min(duration, i + w / 2 - cfg.lagSec));
+    // 창 가운데가 장면이 일어난 때 (채팅 신호는 이미 지연만큼 당겼다)
+    const peak = Math.max(0, Math.min(duration, i + w / 2));
     return {
       start: Math.max(0, peak - cfg.beforeSec),
       end: Math.min(duration, peak + cfg.afterSec),
       peak,
       score: round(score[i] ?? 0),
       counts: {
-        chat: sums.chat[i] ?? 0,
-        reaction: sums.reaction[i] ?? 0,
-        donation: sums.donationCount[i] ?? 0,
-        subscription: sums.subscription[i] ?? 0,
+        chat: at(sums.chat, i),
+        reaction: at(sums.reaction, i),
+        donation: at(sums.donationCount, i),
+        subscription: at(sums.subscription, i),
+        ...(loud ? { loudness: round(loud.mean[i] ?? QUIET_DB, 1) } : {}),
       },
     };
   });
@@ -222,9 +269,17 @@ export function analyze(
     for (let j = i; j < Math.min(n, i + 10); j++) s += ps.chat[j] ?? 0;
     chatPer10s.push(s);
   }
+  const loudPer10s = loud
+    ? Array.from({ length: Math.ceil(n / 10) }, (_, k) => {
+        const part = Array.from({ length: Math.min(10, n - k * 10) }, (_, j) =>
+          Math.max(QUIET_DB, loudness?.[k * 10 + j] ?? QUIET_DB),
+        );
+        return round(part.reduce((a, b) => a + b, 0) / part.length, 1);
+      })
+    : undefined;
   const total = (x: Series) => x.reduce((a, b) => a + b, 0);
   return {
-    version: `score-v1/kw-v${KEYWORDS_VERSION}`,
+    version: `score-v1/kw-v${KEYWORDS_VERSION}${loud ? '/loud-v1' : ''}`,
     durationSec: round(duration, 1),
     totals: {
       chat: total(ps.chat),
@@ -234,5 +289,6 @@ export function analyze(
     },
     candidates,
     chatPer10s,
+    ...(loudPer10s ? { loudPer10s } : {}),
   };
 }

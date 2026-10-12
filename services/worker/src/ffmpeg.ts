@@ -19,7 +19,9 @@ export type OutputKind =
   | 'rotate'
   | 'rotate-fast'
   /** 하이라이트 모드 B: 스트리머 녹화 파일에서 후보 구간만 잘라 MP4로 (ADR-043) */
-  | 'clip';
+  | 'clip'
+  /** 하이라이트 모드 C: 녹화 파일의 1초 단위 소리 크기(RMS dB)를 JSON으로 (ADR-044) */
+  | 'loudness';
 
 export const isRotate = (kind: OutputKind) => kind === 'rotate' || kind === 'rotate-fast';
 
@@ -126,6 +128,7 @@ export const EXTENSION: Record<OutputKind, string> = {
   rotate: 'mp4',
   'rotate-fast': 'mp4',
   clip: 'mp4',
+  loudness: 'json',
 };
 export const MIME: Record<OutputKind, string> = {
   gif: 'image/gif',
@@ -138,7 +141,50 @@ export const MIME: Record<OutputKind, string> = {
   rotate: 'video/mp4',
   'rotate-fast': 'video/mp4',
   clip: 'video/mp4',
+  loudness: 'application/json',
 };
+
+/**
+ * 1초마다 소리 크기(RMS, dB)를 텍스트로 (모드 C). 영상은 풀지 않고 소리만 8kHz로 줄여 잰다.
+ * output은 ametadata가 쓰는 텍스트 파일 경로다 (경로에 ':'가 없어야 한다, Lambda /tmp는 괜찮다).
+ */
+function loudnessArgs(input: string, output: string): string[] {
+  return [
+    '-hide_banner',
+    '-nostdin',
+    '-y',
+    '-i',
+    input,
+    '-vn',
+    '-map',
+    '0:a:0',
+    '-af',
+    `aresample=8000,asetnsamples=n=8000:p=0,astats=metadata=1:reset=1,ametadata=mode=print:key=lavfi.astats.Overall.RMS_level:file=${output}`,
+    '-f',
+    'null',
+    '-',
+  ];
+}
+
+/** ametadata 출력 → 초마다 RMS dB. 소리가 없으면(-inf) -120 */
+export function parseRms(text: string): number[] {
+  const out: number[] = [];
+  let at = -1;
+  for (const line of text.split('\n')) {
+    const t = /pts_time:([\d.]+)/.exec(line);
+    if (t) {
+      at = Math.floor(Number(t[1]));
+      continue;
+    }
+    const v = /RMS_level=(-?[\d.]+|-inf|inf|nan)/.exec(line);
+    if (v && at >= 0) {
+      const db = Number(v[1]);
+      while (out.length < at) out.push(-120);
+      out[at] = Number.isFinite(db) ? Math.max(-120, Math.round(db * 10) / 10) : -120;
+    }
+  }
+  return out;
+}
 
 /** 클립 최대 길이 (초). 움짤 도구 원본으로 넘기기 좋은 길이 */
 export const CLIP_MAX_SECONDS = 60;
@@ -260,6 +306,7 @@ export function ffmpegArgs(
   if (isAudio(kind)) return audioArgs(kind, p, input, output);
   if (isRotate(kind)) return rotateArgs(kind, p, src, input, output);
   if (kind === 'clip') return clipArgs(p, input, output);
+  if (kind === 'loudness') return loudnessArgs(input, output);
   const head = [
     '-hide_banner',
     '-nostdin',
@@ -403,6 +450,11 @@ export function checkInput(
       return 'MP4 · MOV · WebM · MP3 · M4A · WAV 파일만 쓸 수 있어요.';
     }
     if (p.start >= probe.duration) return '구간이 파일 길이를 넘었어요. 구간을 다시 골라 주세요.';
+    return null;
+  }
+  if (kind === 'loudness') {
+    if (!probe) return '녹화 파일을 읽을 수 없어요.';
+    if (!probe.audio) return '녹화 파일에 소리가 없어요.';
     return null;
   }
   if (kind === 'clip') {

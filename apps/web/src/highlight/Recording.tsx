@@ -23,11 +23,15 @@ type Props = {
   candidates: readonly Candidate[];
   offset: number;
   onOffset: (sec: number) => void;
+  /** 모드 C는 시각이 녹화 파일 기준이라 맞출 것이 없다 */
+  syncable?: boolean;
+  /** 올린 녹화 파일의 소리 크기로 (다시) 분석하는 버튼 (ADR-044) */
+  sound?: { label: string; busy: boolean; onClick: () => void };
 };
 
 const gb = (n: number) => `${(n / 1024 ** 3).toFixed(n >= 10 * 1024 ** 3 ? 0 : 1)}GB`;
 
-export function Recording({ id, candidates, offset, onOffset }: Props) {
+export function Recording({ id, candidates, offset, onOffset, syncable = true, sound }: Props) {
   const [file, setFile] = useState<File | null>(null);
   const [src, setSrc] = useState<string | null>(null);
   const [server, setServer] = useState<RecordingView | null | undefined>(undefined);
@@ -123,9 +127,10 @@ export function Recording({ id, candidates, offset, onOffset }: Props) {
 
   return (
     <section className={styles.box} aria-label="녹화 파일">
-      <h3 className={styles.heading}>녹화 파일로 장면 확인하기</h3>
+      <h3 className={styles.heading}>녹화 파일</h3>
       <p className={styles.meta}>
-        OBS 등으로 녹화한 파일을 고르면 이 기기에서 바로 후보 장면을 재생해요. 올리지 않아도 돼요.
+        OBS·프리즘 등으로 녹화한 파일을 고르면 이 기기에서 바로 재생해요. 후보 장면 확인은 올리지
+        않아도 돼요.
       </p>
       <label className={styles.pick}>
         <input
@@ -154,20 +159,22 @@ export function Recording({ id, candidates, offset, onOffset }: Props) {
               </button>
             ))}
           </div>
-          <div className={styles.sync} role="group" aria-label="시각 맞추기">
-            <span className={styles.meta}>장면이 어긋나면</span>
-            {[-5, -1, 1, 5].map((d) => (
-              <button
-                key={d}
-                type="button"
-                className={styles.chip}
-                onClick={() => onOffset(Math.max(0, offset + d))}
-              >
-                {d > 0 ? `+${d}초` : `${d}초`}
-              </button>
-            ))}
-            <span className={styles.meta}>지금 {clock(offset)}만큼 더해요</span>
-          </div>
+          {syncable && (
+            <div className={styles.sync} role="group" aria-label="시각 맞추기">
+              <span className={styles.meta}>장면이 어긋나면</span>
+              {[-5, -1, 1, 5].map((d) => (
+                <button
+                  key={d}
+                  type="button"
+                  className={styles.chip}
+                  onClick={() => onOffset(Math.max(0, offset + d))}
+                >
+                  {d > 0 ? `+${d}초` : `${d}초`}
+                </button>
+              ))}
+              <span className={styles.meta}>지금 {clock(offset)}만큼 더해요</span>
+            </div>
+          )}
         </>
       )}
 
@@ -177,7 +184,17 @@ export function Recording({ id, candidates, offset, onOffset }: Props) {
             <p className={styles.meta}>
               올린 녹화 파일 {gb(server.size)} · 2일 뒤 자동으로 지워져요
             </p>
-            <Clips id={id} candidates={candidates} offset={offset} />
+            {sound && (
+              <button
+                type="button"
+                className={styles.primary}
+                disabled={sound.busy}
+                onClick={sound.onClick}
+              >
+                {sound.busy ? '소리를 분석하고 있어요…' : sound.label}
+              </button>
+            )}
+            {candidates.length > 0 && <Clips id={id} candidates={candidates} offset={offset} />}
             <button type="button" className={styles.ghost} onClick={() => void remove()}>
               올린 파일 지우기
             </button>
@@ -196,7 +213,7 @@ export function Recording({ id, candidates, offset, onOffset }: Props) {
           file && (
             <>
               <p className={styles.meta}>
-                후보 장면을 클립·움짤로 만들려면 녹화 파일을 올려야 해요 ({gb(file.size)},
+                소리 분석이나 클립·움짤을 만들려면 녹화 파일을 올려야 해요 ({gb(file.size)},
                 20GB까지).
                 {resumable && ' 올리다 멈춘 파일이에요. 이어서 올려요.'}
               </p>

@@ -100,12 +100,12 @@
 | PK | SK | 주요 속성 |
 | --- | --- | --- |
 | `UPLOAD#<id>` | `META` | inputKey(`in/<id>`), contentType, fileSize, createdAt, ttl(1일, 원본 수명 주기와 같게) |
-| `JOB#<id>` | `META` | type(gif·webp·mp4·audio·rotate·subtitle·audiogram·clip), status(queued·processing·done·failed), params, uploadId, inputKey, inputBucket(clip은 recordings, ADR-043), fileSize, outputKey, outputBytes, ffmpegMs, retain, retainUntil, deleteTokenHash, error, createdAt, ttl |
+| `JOB#<id>` | `META` | type(gif·webp·mp4·audio·rotate·subtitle·audiogram·clip), status(queued·processing·done·failed), params, uploadId, inputKey, inputBucket(clip·loudness는 recordings, ADR-043·044), analysis(loudness가 끝나면 분석 큐로), fileSize, outputKey, outputBytes, ffmpegMs, retain, retainUntil, deleteTokenHash, error, createdAt, ttl |
 | `LINK#<id>` | `META` | platform, videoId, start, end, createdAt |
 | `CONN#<플랫폼>#<채널ID>` | `META` | platform, channelId, channelName, scope, connectedAt (토큰은 SSM SecureString `/fitcut/dev/streamer/<플랫폼>/<채널ID>`, ADR-039) |
 | `SESS#<세션 해시>` | `META` | platform, channelId, ttl(7일) — 스트리머 세션. 쿠키 값 자체는 저장하지 않는다 |
 | `OAUTH#<state>` | `META` | ttl(10분) — 플랫폼 로그인 state, 콜백에서 한 번만 지운다 |
-| `CONN#chzzk#<채널ID>` | `BCAST#<방송ID>` | status(starting·collecting·done·failed), requestedAt, startedAt, endedAt, chat·donation·subscriptionCount, heartbeatAt, lastEventAt, stopRequested, stopReason, taskArn, ttl(90일), 분석 결과(analysisStatus, analyzedAt, analysisVersion, durationSec, reactionCount, candidates 최대 10개, chatPer10s, ADR-041) — 방송 ID는 `YYYYMMDDhhmmss-<6자리>`(UTC), ADR-040 |
+| `CONN#chzzk#<채널ID>` | `BCAST#<방송ID>` | status(starting·collecting·done·failed), requestedAt, startedAt, endedAt, chat·donation·subscriptionCount, heartbeatAt, lastEventAt, stopRequested, stopReason, taskArn, ttl(90일), source(file이면 모드 C, 수집기 없음), recording(모드 B·C 녹화 파일 상태), 분석 결과(analysisStatus running·done, analyzedAt, analysisVersion, durationSec, reactionCount, candidates 최대 10개, chatPer10s, loudPer10s, ADR-041·044) — 방송 ID는 `YYYYMMDDhhmmss-<6자리>`(UTC), ADR-040 |
 | `QUOTA#chzzk#<채널ID>#<yyyymmdd>` | `COLLECT` | count(하루 수집 시작 횟수, 3번까지), ttl |
 | `BCAST#<id>` | `CAND#<순번>` | start, end, score, signals, title |
 | `QUOTA#<IP해시>#<yyyymmdd>` | `COUNT` | count(잡), uploads(업로드) (원자적 증가, 조건부), ttl |

@@ -15,6 +15,8 @@
  * POST·GET·DELETE /api/streamer/broadcasts/{id}/recording, …/recording/parts, …/recording/complete
  *        : 모드 B 녹화 파일 멀티파트 올리기 (recording.ts)
  * POST   /api/streamer/broadcasts/{id}/clips  : 녹화 파일에서 구간 클립 잡 만들기 (clips.ts)
+ * POST   /api/streamer/broadcasts/{id}/loudness : 녹화 파일 소리 크기 → 분석 (모드 C·B, ADR-044)
+ * POST   /api/streamer/broadcasts {source:'file'} : 채팅 없이 녹화 파일만 분석할 기록
  */
 import { ECSClient } from '@aws-sdk/client-ecs';
 import { S3Client } from '@aws-sdk/client-s3';
@@ -367,7 +369,8 @@ export function makeHandler(deps: Deps) {
       case 'POST /api/streamer/broadcasts/{id}/recording/parts':
       case 'POST /api/streamer/broadcasts/{id}/recording/complete':
       case 'DELETE /api/streamer/broadcasts/{id}/recording':
-      case 'POST /api/streamer/broadcasts/{id}/clips': {
+      case 'POST /api/streamer/broadcasts/{id}/clips':
+      case 'POST /api/streamer/broadcasts/{id}/loudness': {
         const s = await session(event);
         if (!s) return error(401, 'no_session', '채널 연결을 다시 해 주세요.');
         try {
@@ -375,13 +378,21 @@ export function makeHandler(deps: Deps) {
             return json(200, { broadcasts: await broadcasts.list(s.channelId) });
           }
           if (event.routeKey === 'POST /api/streamer/broadcasts') {
-            return json(201, { broadcast: await broadcasts.start(s.channelId) });
+            // { source: 'file' }이면 채팅 없이 녹화 파일만 분석할 기록 (모드 C)
+            const broadcast =
+              parseBody(event.body).source === 'file'
+                ? await broadcasts.createFile(s.channelId)
+                : await broadcasts.start(s.channelId);
+            return json(201, { broadcast });
           }
           const id = event.pathParameters?.id ?? '';
           if (!BROADCAST_ID.test(id)) return error(404, 'not_found', '방송 기록이 없어요.');
           if (event.routeKey.includes('/recording')) return recording(event, s.channelId, id);
           if (event.routeKey.endsWith('/clips')) {
             return json(201, await clips.create(s.channelId, id, parseBody(event.body)));
+          }
+          if (event.routeKey.endsWith('/loudness')) {
+            return json(201, await clips.loudness(s.channelId, id, parseBody(event.body)));
           }
           if (event.routeKey.startsWith('GET')) {
             return json(200, { broadcast: await broadcasts.detail(s.channelId, id) });

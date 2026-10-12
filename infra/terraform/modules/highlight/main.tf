@@ -178,6 +178,7 @@ resource "aws_apigatewayv2_route" "api" {
     "POST /api/streamer/broadcasts/{id}/recording/parts",
     "POST /api/streamer/broadcasts/{id}/recording/complete",
     "POST /api/streamer/broadcasts/{id}/clips",
+    "POST /api/streamer/broadcasts/{id}/loudness",
   ])
   api_id    = var.api_id
   route_key = each.key

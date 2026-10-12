@@ -525,6 +525,13 @@ data "aws_iam_policy_document" "analysis" {
     resources = ["${aws_s3_bucket.chat.arn}/chat/*"]
   }
 
+  # 워커가 만든 소리 크기 JSON (모드 B·C, ADR-044)
+  statement {
+    sid       = "ReadLoudness"
+    actions   = ["s3:GetObject"]
+    resources = ["${var.outputs_bucket_arn}/out/*"]
+  }
+
   # 방송 기록(BCAST#)을 읽고 분석 결과를 쓴다
   statement {
     sid       = "Table"
@@ -559,9 +566,10 @@ resource "aws_lambda_function" "analysis" {
 
   environment {
     variables = {
-      CHAT_BUCKET  = aws_s3_bucket.chat.bucket
-      TABLE_NAME   = var.table_name
-      NODE_OPTIONS = "--enable-source-maps"
+      CHAT_BUCKET    = aws_s3_bucket.chat.bucket
+      TABLE_NAME     = var.table_name
+      OUTPUTS_BUCKET = var.outputs_bucket
+      NODE_OPTIONS   = "--enable-source-maps"
     }
   }
 

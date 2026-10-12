@@ -94,3 +94,12 @@ variable "analysis_timeout_seconds" {
   type    = number
   default = 120
 }
+
+variable "outputs_bucket" {
+  type        = string
+  description = "워커 결과 버킷 (분석 Lambda가 소리 크기 JSON을 읽는다)"
+}
+
+variable "outputs_bucket_arn" {
+  type = string
+}

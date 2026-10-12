@@ -9,7 +9,14 @@ export type Candidate = {
   end: number;
   peak: number;
   score: number;
-  counts: { chat: number; reaction: number; donation: number; subscription: number };
+  counts: {
+    chat: number;
+    reaction: number;
+    donation: number;
+    subscription: number;
+    /** 피크 창의 평균 소리 크기 (dB). 녹화 파일 소리를 분석했을 때만 */
+    loudness?: number;
+  };
 };
 
 /** 초 → 0:05:07 (1시간 미만이면 05:07). 유튜브 댓글 시각 링크가 이 모양을 알아본다 */

@@ -14,6 +14,7 @@ const ddbMock = mockClient(ddb);
 const B = '20261012090000-abcdef';
 const handler = makeHandler({
   bucket: 'chat',
+  outputsBucket: 'outputs',
   table: 't',
   s3,
   ddb,
@@ -94,5 +95,47 @@ describe('analyze handler', () => {
     const r = await handler(sqs([{ channelId: 'ch1', broadcastId: B }]));
     expect(r.batchItemFailures).toEqual([]);
     expect(s3Mock.commandCalls(ListObjectsV2Command)).toHaveLength(0);
+  });
+
+  it('소리 크기가 있으면 함께 쓰고 그래프도 남긴다 (모드 C: 채팅 없음)', async () => {
+    ddbMock.on(GetCommand).resolves({ Item: { source: 'file' } });
+    ddbMock.on(UpdateCommand).resolves({});
+    s3Mock.on(ListObjectsV2Command).resolves({ Contents: [] });
+    const rmsDb = Array.from({ length: 600 }, (_, i) => (i >= 300 && i < 306 ? -8 : -30));
+    const key = 'out/0b8f4c56-1d7e-4c3b-9a55-2f0d6c1e9a10.json';
+    s3Mock.on(GetObjectCommand, { Bucket: 'outputs', Key: key }).resolves({
+      Body: { transformToString: async () => JSON.stringify({ v: 1, rmsDb }) } as never,
+    });
+    const r = await handler(sqs([{ channelId: 'ch1', broadcastId: B, loudnessKey: key }]));
+    expect(r.batchItemFailures).toEqual([]);
+    const v = ddbMock.commandCalls(UpdateCommand)[0]?.args[0].input.ExpressionAttributeValues ?? {};
+    expect(v[':v']).toBe('score-v1/kw-v1/loud-v1');
+    expect((v[':c'] as { peak: number }[])[0]?.peak).toBeGreaterThan(295);
+    expect((v[':l'] as number[]).length).toBe(61);
+  });
+
+  it('소리 크기 키가 우리가 만든 모양이 아니면 무시한다', async () => {
+    ddbMock.on(GetCommand).resolves({ Item: {} });
+    ddbMock.on(UpdateCommand).resolves({});
+    s3Mock.on(ListObjectsV2Command).resolves({ Contents: [] });
+    await handler(sqs([{ channelId: 'ch1', broadcastId: B, loudnessKey: '../secret' }]));
+    expect(s3Mock.commandCalls(GetObjectCommand)).toHaveLength(0);
+  });
+
+  it('채팅이 있는 방송: 녹화 파일이 먼저 시작한 만큼(offset) 소리를 당겨 채팅과 맞춘다', async () => {
+    ddbMock.on(GetCommand).resolves({ Item: {} });
+    ddbMock.on(UpdateCommand).resolves({});
+    s3Mock.on(ListObjectsV2Command).resolves({ Contents: [] });
+    // 녹화 파일 기준 400초에 큰 소리, 녹화가 수집보다 100초 먼저 시작 → 채팅 기준 300초
+    const rmsDb = Array.from({ length: 900 }, (_, i) => (i >= 400 && i < 406 ? -8 : -30));
+    const key = 'out/0b8f4c56-1d7e-4c3b-9a55-2f0d6c1e9a10.json';
+    s3Mock.on(GetObjectCommand, { Bucket: 'outputs', Key: key }).resolves({
+      Body: { transformToString: async () => JSON.stringify({ v: 1, rmsDb }) } as never,
+    });
+    await handler(sqs([{ channelId: 'ch1', broadcastId: B, loudnessKey: key, offsetSec: 100 }]));
+    const v = ddbMock.commandCalls(UpdateCommand)[0]?.args[0].input.ExpressionAttributeValues ?? {};
+    const peak = (v[':c'] as { peak: number }[])[0]?.peak ?? 0;
+    expect(peak).toBeGreaterThan(295);
+    expect(peak).toBeLessThan(312);
   });
 });

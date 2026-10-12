@@ -247,4 +247,17 @@ describe('stop·list', () => {
     ddbMock.on(GetCommand).resolves({});
     await expect(b.detail(CH, '20261012090000-abcdef')).rejects.toMatchObject({ status: 404 });
   });
+
+  it('녹화 파일만 분석할 기록: 수집기를 띄우지 않고 끝난 상태로, 하루 개수 확인', async () => {
+    updates(() => ({}));
+    const r = await b.createFile(CH);
+    expect(r).toMatchObject({ status: 'done', source: 'file', chatCount: 0 });
+    expect(ecsMock.commandCalls(RunTaskCommand)).toHaveLength(0);
+    const quota = ddbMock.commandCalls(UpdateCommand)[0]?.args[0].input;
+    expect(quota?.Key?.SK).toBe('FILE');
+    expect(ddbMock.commandCalls(PutCommand)[0]?.args[0].input.Item).toMatchObject({
+      SK: `BCAST#${r.id}`,
+      source: 'file',
+    });
+  });
 });

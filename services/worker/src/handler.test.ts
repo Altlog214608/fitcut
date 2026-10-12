@@ -49,6 +49,7 @@ function handler(exec: Deps['exec']) {
       FFMPEG_PATH: 'ffmpeg',
       FFPROBE_PATH: 'ffprobe',
       EVENTS_QUEUE_URL: 'events-queue',
+      ANALYSIS_QUEUE_URL: 'analysis-queue',
       AWS_LAMBDA_FUNCTION_MEMORY_SIZE: '2048',
     },
     ddb,
@@ -134,6 +135,50 @@ describe('워커', () => {
     ]);
     const put = s3Mock.commandCalls(PutObjectCommand)[0]?.args[0].input;
     expect(put).toMatchObject({ Key: `out/${ID}.mp4`, ContentType: 'video/mp4' });
+  });
+
+  it('소리 크기: 초마다 dB를 JSON으로 올리고 하이라이트 분석을 맡긴다 (모드 C)', async () => {
+    const loud = {
+      ...job,
+      kind: 'loudness',
+      inputKey: 'rec/ch1/b1/u1',
+      inputBucket: 'recordings',
+      params: { start: 0, end: 0, fps: 0, width: 0 },
+      analysis: { channelId: 'ch1', broadcastId: '20261012090000-abcdef' },
+    };
+    ddbMock.on(UpdateCommand).resolvesOnce({ Attributes: loud }).resolves({});
+    const exec: Deps['exec'] = async (bin, args) => {
+      if (bin === 'ffprobe') {
+        const withAudio = JSON.parse(mp4Probe) as { streams: object[] };
+        withAudio.streams.push({ codec_type: 'audio', codec_name: 'aac', channels: 2 });
+        return { stdout: JSON.stringify(withAudio), ms: 5 };
+      }
+      const af = args[args.indexOf('-af') + 1] ?? '';
+      const file = af.split('file=')[1] ?? '';
+      await writeFile(
+        file,
+        [
+          'frame:0 pts:0 pts_time:0',
+          'lavfi.astats.Overall.RMS_level=-30.0',
+          'frame:1 pts:8000 pts_time:1',
+          'lavfi.astats.Overall.RMS_level=-12.5',
+        ].join(String.fromCharCode(10)),
+      );
+      return { stdout: '', ms: 900 };
+    };
+    const res = await handler(exec)(event(message), fresh);
+    expect(res.batchItemFailures).toEqual([]);
+    const put = s3Mock.commandCalls(PutObjectCommand)[0]?.args[0].input;
+    expect(put).toMatchObject({ Key: `out/${ID}.json`, ContentType: 'application/json' });
+    const msg = sqsMock
+      .commandCalls(SendMessageCommand)
+      .map((c) => c.args[0].input)
+      .find((i) => i.QueueUrl === 'analysis-queue');
+    expect(JSON.parse(String(msg?.MessageBody))).toEqual({
+      channelId: 'ch1',
+      broadcastId: '20261012090000-abcdef',
+      loudnessKey: `out/${ID}.json`,
+    });
   });
 
   it('보관하지 않은 잡은 보관 버킷에 올리지 않는다', async () => {

@@ -129,3 +129,42 @@ describe('analyze', () => {
     expect(r.version).toBe('score-v1/kw-v1');
   });
 });
+
+describe('analyze: 소리 크기 (모드 C, ADR-044)', () => {
+  /** 초마다 dB: 평소 base, [from, to) 구간만 loud */
+  const db = (n: number, base: number, from: number, to: number, loud: number) =>
+    Array.from({ length: n }, (_, i) => (i >= from && i < to ? loud : base + ((i * 7) % 3) * 0.3));
+
+  it('채팅 없이 소리만: 크게 튄 순간을 후보로, 지연 보정 없이', () => {
+    const r = analyze([], 0, DEFAULT_CONFIG, db(900, -30, 400, 406, -8));
+    expect(r.durationSec).toBe(900);
+    expect(r.candidates.length).toBeGreaterThanOrEqual(1);
+    const top = r.candidates[0];
+    expect(top?.peak).toBeGreaterThanOrEqual(395);
+    expect(top?.peak).toBeLessThanOrEqual(410);
+    expect(top?.counts.loudness).toBeGreaterThan(-25);
+    expect(r.version).toBe('score-v1/kw-v1/loud-v1');
+    // 0~900초 → 채팅 그래프와 같이 91칸
+    expect(r.loudPer10s).toHaveLength(91);
+  });
+
+  it('소리가 평탄하면 후보가 없다', () => {
+    const r = analyze([], 0, DEFAULT_CONFIG, db(900, -30, 0, 0, 0));
+    expect(r.candidates).toEqual([]);
+  });
+
+  it('무음(-inf → -120) 구간 뒤에 말소리가 시작돼도 그것만으로 크게 튀지 않는다', () => {
+    const quietThenTalk = Array.from({ length: 900 }, (_, i) => (i < 300 ? -120 : -32));
+    const r = analyze([], 0, DEFAULT_CONFIG, quietThenTalk);
+    expect(r.candidates.length).toBeLessThanOrEqual(1);
+  });
+
+  it('채팅과 소리가 같은 장면을 가리키면 그 장면이 1위', () => {
+    const events = [...steady(0, 900, 1), ...steady(605, 615, 10, 'ㅋㅋㅋ')];
+    const r = analyze(events, 900, DEFAULT_CONFIG, db(900, -30, 600, 606, -10));
+    const top = r.candidates[0];
+    expect(top?.peak).toBeGreaterThanOrEqual(595);
+    expect(top?.peak).toBeLessThanOrEqual(612);
+    expect(top?.counts.reaction).toBeGreaterThan(20);
+  });
+});

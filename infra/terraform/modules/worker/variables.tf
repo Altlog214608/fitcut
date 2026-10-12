@@ -94,3 +94,12 @@ variable "recordings_bucket" {
 variable "recordings_bucket_arn" {
   type = string
 }
+
+variable "analysis_queue_url" {
+  type        = string
+  description = "하이라이트 분석 큐 (모드 C 소리 크기가 끝나면)"
+}
+
+variable "analysis_queue_arn" {
+  type = string
+}
