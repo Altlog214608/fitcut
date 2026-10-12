@@ -41,6 +41,18 @@ export type Broadcast = {
   subscriptionCount: number;
   stopRequested?: boolean;
   stopReason?: string;
+  /** 분석이 끝났으면 'done' (ADR-041) */
+  analysisStatus?: 'done';
+};
+
+/** 분석 결과까지 (한 방송을 열 때) */
+export type BroadcastDetail = Broadcast & {
+  analyzedAt?: string;
+  analysisVersion?: string;
+  durationSec?: number;
+  reactionCount?: number;
+  candidates: unknown[];
+  chatPer10s: number[];
 };
 
 /** 채널 하나가 하루(서울)에 시작할 수 있는 수집 횟수. 공개 데모 비용 상한 (docs/HIGHLIGHT.md 데모와 비용) */
@@ -94,8 +106,24 @@ function publicBroadcast(item: Record<string, unknown>): Broadcast {
     subscriptionCount: Number(item.subscriptionCount ?? 0),
     ...(item.stopRequested ? { stopRequested: true } : {}),
     ...(item.stopReason ? { stopReason: pick<string>('stopReason') } : {}),
+    ...(item.analysisStatus === 'done' ? { analysisStatus: 'done' as const } : {}),
   };
 }
+
+/** 목록에서는 무거운 분석 결과(후보, 그래프)를 읽지 않는다 */
+const LIST_FIELDS = [
+  'id',
+  '#s',
+  'requestedAt',
+  'startedAt',
+  'endedAt',
+  'chatCount',
+  'donationCount',
+  'subscriptionCount',
+  'stopRequested',
+  'stopReason',
+  'analysisStatus',
+].join(', ');
 
 const conditionFailed = (e: unknown) =>
   (e as { name?: string }).name === 'ConditionalCheckFailedException';
@@ -110,11 +138,28 @@ export function makeBroadcasts(deps: BroadcastDeps) {
         TableName: T,
         KeyConditionExpression: 'PK = :pk AND begins_with(SK, :sk)',
         ExpressionAttributeValues: { ':pk': `CONN#chzzk#${channelId}`, ':sk': 'BCAST#' },
+        ExpressionAttributeNames: { '#s': 'status' },
+        ProjectionExpression: LIST_FIELDS,
         ScanIndexForward: false,
         Limit: 20,
       }),
     );
     return (r.Items ?? []).map(publicBroadcast);
+  }
+
+  async function detail(channelId: string, id: string): Promise<BroadcastDetail> {
+    const item = (await ddb.send(new GetCommand({ TableName: T, Key: bcastKey(channelId, id) })))
+      .Item;
+    if (!item) throw new BroadcastError(404, 'not_found', '방송 기록이 없어요.');
+    return {
+      ...publicBroadcast(item),
+      ...(item.analyzedAt ? { analyzedAt: String(item.analyzedAt) } : {}),
+      ...(item.analysisVersion ? { analysisVersion: String(item.analysisVersion) } : {}),
+      ...(item.durationSec !== undefined ? { durationSec: Number(item.durationSec) } : {}),
+      ...(item.reactionCount !== undefined ? { reactionCount: Number(item.reactionCount) } : {}),
+      candidates: Array.isArray(item.candidates) ? (item.candidates as unknown[]) : [],
+      chatPer10s: Array.isArray(item.chatPer10s) ? (item.chatPer10s as number[]) : [],
+    };
   }
 
   async function takeDailySlot(channelId: string) {
@@ -318,5 +363,5 @@ export function makeBroadcasts(deps: BroadcastDeps) {
     }
   }
 
-  return { list, start, stop, stopActive };
+  return { list, detail, start, stop, stopActive };
 }

@@ -154,6 +154,7 @@ resource "aws_apigatewayv2_route" "api" {
     "DELETE /api/streamer/connection",
     "GET /api/streamer/broadcasts",
     "POST /api/streamer/broadcasts",
+    "GET /api/streamer/broadcasts/{id}",
     "POST /api/streamer/broadcasts/{id}/stop",
   ])
   api_id    = var.api_id

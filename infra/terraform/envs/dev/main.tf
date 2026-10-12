@@ -40,6 +40,12 @@ data "archive_file" "chat_sink" {
   output_path = "${path.module}/.build/chat-sink.zip"
 }
 
+data "archive_file" "analysis" {
+  type        = "zip"
+  source_dir  = "${path.module}/../../../../services/highlight/dist/analyze"
+  output_path = "${path.module}/.build/analysis.zip"
+}
+
 data "archive_file" "highlight_api" {
   type        = "zip"
   source_dir  = "${path.module}/../../../../services/highlight/dist/api"
@@ -177,5 +183,7 @@ module "collector" {
   chzzk_secret_param    = local.chzzk_secret_param
   sink_zip              = data.archive_file.chat_sink.output_path
   sink_zip_hash         = data.archive_file.chat_sink.output_base64sha256
+  analysis_zip          = data.archive_file.analysis.output_path
+  analysis_zip_hash     = data.archive_file.analysis.output_base64sha256
   workload_boundary_arn = local.workload_boundary_arn
 }

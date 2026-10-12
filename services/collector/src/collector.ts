@@ -36,6 +36,8 @@ export type SocketLike = {
 export type Env = {
   TABLE_NAME: string;
   QUEUE_URL: string;
+  /** 끝나면 분석을 맡길 큐 (ADR-041) */
+  ANALYSIS_QUEUE_URL: string;
   TOKEN_PREFIX: string;
   CHZZK_CLIENT_ID: string;
   CHZZK_SECRET_PARAM: string;
@@ -60,6 +62,9 @@ export type Deps = {
 const REFRESH_MARGIN_MS = 9 * 60 * 60 * 1000;
 
 type Counts = { chat: number; donation: number; subscription: number };
+
+/** 채팅 저장 큐의 배치 창(60초) + 재시도 여유 */
+export const ANALYSIS_DELAY_SECONDS = 180;
 
 export async function runCollector(deps: Deps): Promise<StopReason | 'not_starting'> {
   const { env, ddb } = deps;
@@ -334,6 +339,23 @@ export async function runCollector(deps: Deps): Promise<StopReason | 'not_starti
         }),
       ),
     );
+    // 채팅 저장 Lambda가 남은 이벤트를 다 쓴 뒤에 돌도록 3분 늦춰 분석을 맡긴다
+    if (counts.chat + counts.donation + counts.subscription > 0) {
+      await quietly(
+        () =>
+          deps.sqs.send(
+            new SendMessageCommand({
+              QueueUrl: env.ANALYSIS_QUEUE_URL,
+              MessageBody: JSON.stringify({
+                channelId: env.CHANNEL_ID,
+                broadcastId: env.BROADCAST_ID,
+              }),
+              DelaySeconds: ANALYSIS_DELAY_SECONDS,
+            }),
+          ),
+        'analysis enqueue failed',
+      );
+    }
     deps.log('collector finished', { reason: r, ...counts, dropped: batcher.dropped });
     return r;
   }

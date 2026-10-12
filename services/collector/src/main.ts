@@ -14,6 +14,7 @@ import { DEFAULT_LIMITS } from './rules';
 const NAMES = [
   'TABLE_NAME',
   'QUEUE_URL',
+  'ANALYSIS_QUEUE_URL',
   'TOKEN_PREFIX',
   'CHZZK_CLIENT_ID',
   'CHZZK_SECRET_PARAM',

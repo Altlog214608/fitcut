@@ -12,6 +12,7 @@ import {
   StreamerError,
   type Broadcast,
 } from './streamer';
+import { Result } from './Result';
 import styles from './Collection.module.css';
 
 const POLL_MS = 10_000;
@@ -36,6 +37,7 @@ export function Collection() {
   const [items, setItems] = useState<Broadcast[] | null>(null);
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
+  const [openId, setOpenId] = useState<string | null>(null);
 
   const load = useCallback(async () => {
     try {
@@ -154,6 +156,17 @@ export function Collection() {
                   {count(b.subscriptionCount)}
                 </span>
                 <span className={styles.meta}>{stopReasonText(b.stopReason)}</span>
+                {b.chatCount + b.donationCount + b.subscriptionCount > 0 && (
+                  <button
+                    type="button"
+                    className={styles.ghost}
+                    aria-expanded={openId === b.id}
+                    onClick={() => setOpenId((cur) => (cur === b.id ? null : b.id))}
+                  >
+                    {openId === b.id ? '결과 닫기' : '하이라이트 보기'}
+                  </button>
+                )}
+                {openId === b.id && <Result id={b.id} />}
               </li>
             ))}
         </ul>
