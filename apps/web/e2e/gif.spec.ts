@@ -190,3 +190,61 @@ test('워치 화면용: 갤럭시 워치는 화면 크기 GIF, 애플워치는 M
   await expect(page.getByText(/만들었어요 · 416 × 496/)).toBeVisible();
   expect(fake.jobBodies.at(-1)).toMatchObject({ kind: 'mp4', width: 416, height: 496 });
 });
+
+test('보관에 동의하면 내 작업 기록에 남고, 거기서 지울 수 있다 (F16)', async ({ page }) => {
+  await fakeServer(page);
+  const created: Record<string, unknown>[] = [];
+  const deleted: (string | undefined)[] = [];
+  // 나중에 건 route가 먼저 받는다
+  await page.route('**/api/jobs', async (route) => {
+    const body = route.request().postDataJSON() as Record<string, unknown>;
+    created.push(body);
+    await route.fulfill({
+      status: 201,
+      json: {
+        job: {
+          id: JOB_ID,
+          status: 'done',
+          kind: body.kind,
+          params: body,
+          outputBytes: GIF.length,
+          downloadUrl: '/fake-result.gif',
+          retain: true,
+          retainUntil: new Date(Date.now() + 30 * 86_400_000).toISOString(),
+        },
+        deleteToken: 'token-123',
+      },
+    });
+  });
+  await page.route(`**/api/jobs/${JOB_ID}`, (route) => {
+    if (route.request().method() !== 'DELETE') return route.fallback();
+    deleted.push(route.request().headers()['x-delete-token']);
+    return route.fulfill({ status: 204 });
+  });
+
+  await openClip(page);
+  const consent = page.getByRole('checkbox', { name: /30일 동안 보관하기/ });
+  await expect(consent).not.toBeChecked();
+  await consent.check();
+  await expect(page.getByText(/서비스 품질을 살피는 데만 써요/)).toBeVisible();
+  await page.getByRole('button', { name: 'GIF 만들기' }).click();
+  await expect(page.getByText(/만들었어요/)).toBeVisible();
+  expect(created[0]).toMatchObject({ retain: true });
+
+  await page.getByRole('link', { name: '내 작업 기록' }).first().click();
+  await expect(page.getByRole('heading', { name: '내 작업 기록' })).toBeVisible();
+  await expect(page.getByText(/30일 뒤 자동 삭제/)).toBeVisible();
+  page.once('dialog', (d) => void d.accept());
+  await page.getByRole('button', { name: '지우기' }).click();
+  await expect(page.getByText('지웠어요.')).toBeVisible();
+  await expect(page.getByText(/보관 중인 작업이 없어요/)).toBeVisible();
+  expect(deleted).toEqual(['token-123']);
+});
+
+test('보관에 동의하지 않으면 retain을 보내지 않는다', async ({ page }) => {
+  const fake = await fakeServer(page);
+  await openClip(page);
+  await page.getByRole('button', { name: 'GIF 만들기' }).click();
+  await expect(page.getByText(/만들었어요/)).toBeVisible();
+  expect(fake.jobBodies[0]).not.toHaveProperty('retain');
+});

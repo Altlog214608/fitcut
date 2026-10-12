@@ -1,6 +1,6 @@
 import { DynamoDBClient } from '@aws-sdk/client-dynamodb';
 import { GetObjectCommand, PutObjectCommand, S3Client } from '@aws-sdk/client-s3';
-import { DynamoDBDocumentClient, UpdateCommand } from '@aws-sdk/lib-dynamodb';
+import { DynamoDBDocumentClient, PutCommand, UpdateCommand } from '@aws-sdk/lib-dynamodb';
 import { SendMessageCommand, SQSClient } from '@aws-sdk/client-sqs';
 import type { SQSEvent } from 'aws-lambda';
 import { mockClient } from 'aws-sdk-client-mock';
@@ -23,6 +23,7 @@ const job = {
   kind: 'gif',
   params: { start: 0.5, end: 3, fps: 15, width: 480 },
   inputKey: 'in/7d2e9a41-5b6c-4f8d-8e1a-3c9b0f2d4e6a',
+  createdAt: '2026-10-12T03:00:00.000Z',
 };
 const mp4Probe = JSON.stringify({
   format: { format_name: 'mov,mp4,m4a,3gp,3g2,mj2', duration: '4.0' },
@@ -43,6 +44,7 @@ function handler(exec: Deps['exec']) {
       TABLE_NAME: 't',
       UPLOADS_BUCKET: 'up',
       OUTPUTS_BUCKET: 'out',
+      RETAINED_BUCKET: 'keep',
       FFMPEG_PATH: 'ffmpeg',
       FFPROBE_PATH: 'ffprobe',
       EVENTS_QUEUE_URL: 'events-queue',
@@ -96,6 +98,42 @@ describe('워커', () => {
     const done = updates().at(-1);
     expect(done?.ExpressionAttributeValues).toEqual(
       expect.objectContaining({ ':v0': 'done', ':v1': `out/${ID}.gif`, ':v2': 2048, ':v3': 1234 }),
+    );
+  });
+
+  it('보관하지 않은 잡은 보관 버킷에 올리지 않는다', async () => {
+    ddbMock.on(UpdateCommand).resolvesOnce({ Attributes: job }).resolves({});
+    await handler(fakeExec(mp4Probe))(event(message), fresh);
+    expect(s3Mock.commandCalls(PutObjectCommand)).toHaveLength(1);
+    expect(ddbMock.commandCalls(PutCommand)).toHaveLength(0);
+  });
+
+  it('보관 동의한 잡은 원본·결과를 보관 버킷에 두고 관리자 목록에 올린다', async () => {
+    const retainUntil = '2026-11-11T03:00:00.000Z';
+    ddbMock
+      .on(UpdateCommand)
+      .resolvesOnce({ Attributes: { ...job, retain: true, retainUntil } })
+      .resolves({});
+    ddbMock.on(PutCommand).resolves({});
+    await handler(fakeExec(mp4Probe))(event(message), fresh);
+    const puts = s3Mock.commandCalls(PutObjectCommand).map((c) => c.args[0].input);
+    expect(puts.map((x) => [x.Bucket, x.Key])).toEqual([
+      ['out', `out/${ID}.gif`],
+      ['keep', `jobs/${ID}/input`],
+      ['keep', `jobs/${ID}/output.gif`],
+    ]);
+    expect(ddbMock.commandCalls(PutCommand)[0]?.args[0].input.Item).toMatchObject({
+      PK: 'RETAINED',
+      SK: `2026-10-12T03:00:00.000Z#${ID}`,
+      jobId: ID,
+      kind: 'gif',
+      inputBytes: 5,
+      outputBytes: 2048,
+      retainUntil,
+      ttl: new Date(retainUntil).getTime() / 1000,
+    });
+    expect(updates().at(-1)?.ExpressionAttributeValues).toEqual(
+      expect.objectContaining({ ':v3': `jobs/${ID}/input`, ':v4': `jobs/${ID}/output.gif` }),
     );
   });
 

@@ -98,7 +98,7 @@ data "aws_iam_policy_document" "worker" {
 
   statement {
     sid       = "Jobs"
-    actions   = ["dynamodb:UpdateItem"]
+    actions   = ["dynamodb:UpdateItem", "dynamodb:PutItem"]
     resources = [var.table_arn]
   }
 
@@ -112,6 +112,13 @@ data "aws_iam_policy_document" "worker" {
     sid       = "WriteOutputs"
     actions   = ["s3:PutObject"]
     resources = ["${var.outputs_bucket_arn}/out/*"]
+  }
+
+  # 보관 동의한 잡의 원본·결과 (F16)
+  statement {
+    sid       = "WriteRetained"
+    actions   = ["s3:PutObject"]
+    resources = ["${var.retained_bucket_arn}/jobs/*"]
   }
 }
 
@@ -147,6 +154,7 @@ resource "aws_lambda_function" "worker" {
       TABLE_NAME       = var.table_name
       UPLOADS_BUCKET   = var.uploads_bucket
       OUTPUTS_BUCKET   = var.outputs_bucket
+      RETAINED_BUCKET  = var.retained_bucket
       EVENTS_QUEUE_URL = var.events_queue_url
     }
   }
@@ -197,6 +205,7 @@ resource "aws_lambda_function" "bench" {
       TABLE_NAME       = var.table_name
       UPLOADS_BUCKET   = var.uploads_bucket
       OUTPUTS_BUCKET   = var.outputs_bucket
+      RETAINED_BUCKET  = var.retained_bucket
       EVENTS_QUEUE_URL = var.events_queue_url
     }
   }

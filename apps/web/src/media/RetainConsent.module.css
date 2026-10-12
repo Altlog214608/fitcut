@@ -1,0 +1,43 @@
+.box {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+}
+
+.trust {
+  display: flex;
+  align-items: center;
+  gap: var(--space-1);
+  font-size: var(--text-small);
+  color: var(--color-slate);
+}
+
+.trust svg {
+  color: var(--color-accent-ink);
+  flex: none;
+}
+
+.check {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: var(--text-small);
+  color: var(--color-slate);
+  cursor: pointer;
+}
+
+.check input {
+  width: 18px;
+  height: 18px;
+  accent-color: var(--color-accent);
+}
+
+.note {
+  font-size: var(--text-small);
+  color: var(--color-slate);
+  line-height: 1.5;
+}
+
+.note a {
+  color: var(--color-accent-ink);
+}

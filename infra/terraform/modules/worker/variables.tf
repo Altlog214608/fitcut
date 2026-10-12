@@ -76,3 +76,12 @@ variable "events_queue_url" {
 variable "events_queue_arn" {
   type = string
 }
+
+variable "retained_bucket" {
+  type        = string
+  description = "보관 동의한 잡의 원본·결과 버킷 (30일)"
+}
+
+variable "retained_bucket_arn" {
+  type = string
+}

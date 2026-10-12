@@ -9,6 +9,7 @@ import { SAVE_METHOD } from '../lib/inApp';
 import { openShare } from '../lib/save';
 import { contentTypeOf } from './api';
 import { useMediaJob } from '../media/useMediaJob';
+import { RetainConsent } from '../media/RetainConsent';
 import { estimateBytes, formatBytes, outputSize, type Size } from './estimate';
 import { DEFAULT_FPS, fpsFromFrameTimes } from './frameRate';
 import styles from './GifTool.module.css';
@@ -673,10 +674,7 @@ export function GifTool({ initialFile }: { initialFile: File | null }) {
               {saveError}
             </p>
           )}
-          <p className={styles.trust}>
-            <ShieldCheck size={18} strokeWidth={1.75} />
-            올린 파일은 보통 1~2일 안에 자동으로 삭제돼요
-          </p>
+          <RetainConsent checked={media.retain} onChange={media.setRetain} disabled={busy} />
         </div>
       </div>
     </div>

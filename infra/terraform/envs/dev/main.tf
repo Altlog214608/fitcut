@@ -80,6 +80,8 @@ module "worker" {
   uploads_bucket_arn    = module.api.uploads_bucket_arn
   outputs_bucket        = module.api.outputs_bucket
   outputs_bucket_arn    = module.api.outputs_bucket_arn
+  retained_bucket       = module.api.retained_bucket
+  retained_bucket_arn   = module.api.retained_bucket_arn
   events_queue_url      = module.events.queue_url
   events_queue_arn      = module.events.queue_arn
 }

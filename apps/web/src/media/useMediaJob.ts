@@ -21,6 +21,7 @@ import {
 import { track } from '../lib/analytics';
 import { SAVE_METHOD } from '../lib/inApp';
 import { download, openDownloadUrl, openShare } from '../lib/save';
+import { addMyJob } from './myJobs';
 
 /** 이보다 오래 걸리면 멈춘 것으로 보고 다시 만들게 한다 (워커 최대 10분 + 여유) */
 const POLL_LIMIT_MS = 15 * 60 * 1000;
@@ -29,7 +30,8 @@ const URL_FRESH_MS = 9 * 60 * 1000;
 /** 다른 출처의 결과를 미리 받아 둔다 (아이폰 공유 화면·인앱 저장은 누른 순간 파일이 있어야 한다) */
 const NEEDS_BLOB = SAVE_METHOD === 'share' || SAVE_METHOD === 'data-url';
 
-export type MediaRequest = Omit<JobRequest, 'uploadId'>;
+export type MediaRequest = Omit<JobRequest, 'uploadId' | 'retain'>;
+type Request = MediaRequest & { retain?: boolean };
 export type Tool = 'gif' | 'audio' | 'rotate';
 
 export type UploadView =
@@ -53,7 +55,7 @@ const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 export function useMediaJob(file: File | null, tool: Tool, key: string) {
   const abortUpload = useRef<(() => void) | null>(null);
   /** 올리는 중에 '만들기'를 누르면 여기 두었다가 올리기가 끝나면 만든다 */
-  const pending = useRef<{ key: string; request: MediaRequest } | null>(null);
+  const pending = useRef<{ key: string; request: Request } | null>(null);
   /** 파일을 바꾸거나 다시 만들면 지난 조회를 멈춘다 */
   const runToken = useRef(0);
 
@@ -63,6 +65,8 @@ export function useMediaJob(file: File | null, tool: Tool, key: string) {
   const [elapsed, setElapsed] = useState(0);
   const [shareFile, setShareFile] = useState<File | null>(null);
   const [saveError, setSaveError] = useState<string | null>(null);
+  /** 작업 파일 30일 보관 동의 (F16). 기본 꺼짐 */
+  const [retain, setRetain] = useState(false);
 
   const up: UploadView =
     upload && upload.file === file && upload.attempt === attempt ? upload : { state: 'starting' };
@@ -70,12 +74,22 @@ export function useMediaJob(file: File | null, tool: Tool, key: string) {
   const busy =
     making?.phase === 'pending' || making?.phase === 'creating' || making?.phase === 'running';
 
-  async function run(uploadId: string, runKey: string, req: MediaRequest) {
+  async function run(uploadId: string, runKey: string, req: Request) {
     const token = ++runToken.current;
     const live = () => runToken.current === token;
     setMaking({ phase: 'creating', key: runKey });
     try {
-      let job = await createJob({ uploadId, ...req });
+      const created = await createJob({ uploadId, ...req });
+      let job = created.job;
+      if (created.deleteToken && job.retainUntil) {
+        addMyJob({
+          id: job.id,
+          kind: job.kind,
+          createdAt: new Date().toISOString(),
+          retainUntil: job.retainUntil,
+          token: created.deleteToken,
+        });
+      }
       const started = Date.now();
       let misses = 0;
       for (let i = 0; job.status === 'queued' || job.status === 'processing'; i += 1) {
@@ -174,7 +188,8 @@ export function useMediaJob(file: File | null, tool: Tool, key: string) {
   }, [runningJob]);
 
   /** 만들기. 올리는 중이면 끝나는 대로 만든다 */
-  function make(request: MediaRequest) {
+  function make(base: MediaRequest) {
+    const request: Request = retain ? { ...base, retain: true } : base;
     setShareFile(null);
     setSaveError(null);
     if (up.state === 'done') {
@@ -241,6 +256,8 @@ export function useMediaJob(file: File | null, tool: Tool, key: string) {
     make,
     reset,
     clearResult: () => setMaking(null),
+    retain,
+    setRetain,
     save,
   };
 }

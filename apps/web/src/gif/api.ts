@@ -6,7 +6,7 @@ import { JOB_LIMITS, type JobKind } from '@fitcut/shared';
 
 export type Upload = { id: string; url: string; fields: Record<string, string> };
 
-export type JobStatus = 'queued' | 'processing' | 'done' | 'failed';
+export type JobStatus = 'queued' | 'processing' | 'done' | 'failed' | 'deleted';
 export type Job = {
   id: string;
   status: JobStatus;
@@ -16,6 +16,9 @@ export type Job = {
   outputBytes?: number;
   /** done일 때만. 10분 동안 쓸 수 있다 */
   downloadUrl?: string;
+  /** 30일 보관에 동의한 잡 (F16) */
+  retain?: boolean;
+  retainUntil?: string;
 };
 
 export type JobRequest = {
@@ -32,6 +35,8 @@ export type JobRequest = {
   /** 세로로 돌리기만 (F21): 시계 방향 각도, 좌우 반전 */
   rotate?: 90 | 180 | 270;
   flip?: boolean;
+  /** 작업 파일 30일 보관 동의 (F16, 기본 꺼짐) */
+  retain?: boolean;
 };
 
 export type AudioOptions = {
@@ -131,12 +136,35 @@ export function sendFile(
   return { done, abort: () => xhr.abort() };
 }
 
-export async function createJob(request: JobRequest): Promise<Job> {
-  const { job } = await call<{ job: Job }>('/api/jobs', {
+/** 보관 동의하면 삭제 열쇠를 한 번만 준다. 이 브라우저의 "내 작업 기록"에만 둔다 */
+export async function createJob(request: JobRequest): Promise<{ job: Job; deleteToken?: string }> {
+  return call<{ job: Job; deleteToken?: string }>('/api/jobs', {
     method: 'POST',
     body: JSON.stringify(request),
   });
-  return job;
+}
+
+/** 보관한 작업 지우기 (F16). 원본·결과·보관본이 바로 지워진다 */
+export async function deleteJob(id: string, token: string): Promise<void> {
+  let res: Response;
+  try {
+    res = await fetch(`/api/jobs/${encodeURIComponent(id)}`, {
+      method: 'DELETE',
+      headers: { 'x-delete-token': token },
+    });
+  } catch {
+    throw new ApiError(NETWORK, 'network', 0);
+  }
+  // 이미 지워졌거나 기간이 끝난 작업도 지운 것으로 본다
+  if (res.ok || res.status === 404) return;
+  const body = (await res.json().catch(() => null)) as {
+    error?: { code: string; message: string };
+  } | null;
+  throw new ApiError(
+    body?.error?.message ?? '잠시 후 다시 시도해 주세요.',
+    body?.error?.code ?? 'server',
+    res.status,
+  );
 }
 
 export async function getJob(id: string): Promise<Job> {

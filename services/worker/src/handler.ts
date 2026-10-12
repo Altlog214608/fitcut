@@ -4,12 +4,13 @@
  * 1) 잡을 processing으로 바꾼다 (이미 처리 중이거나 끝났으면 건너뛴다)
  * 2) 원본을 /tmp로 받아 ffprobe로 확인 (확장자를 믿지 않는다)
  * 3) ffmpeg로 만들고 결과를 outputs 버킷에 올린다
- * 4) 잡을 done(결과 위치·크기·처리 시간) 또는 failed(화면에 보일 이유)로 바꾼다
+ * 4) 보관 동의한 잡이면 원본·결과를 보관 버킷(30일)에 두고 관리자 목록(RETAINED)에 올린다 (F16, ADR-009)
+ * 5) 잡을 done(결과 위치·크기·처리 시간) 또는 failed(화면에 보일 이유)로 바꾼다
  * 입력 문제(형식·길이)는 다시 시도해도 같으므로 실패로 끝내고, 그 밖의 오류는 SQS가 다시 보내게 던진다.
  */
 import { DynamoDBClient } from '@aws-sdk/client-dynamodb';
 import { GetObjectCommand, PutObjectCommand, S3Client } from '@aws-sdk/client-s3';
-import { DynamoDBDocumentClient, UpdateCommand } from '@aws-sdk/lib-dynamodb';
+import { DynamoDBDocumentClient, PutCommand, UpdateCommand } from '@aws-sdk/lib-dynamodb';
 import { SendMessageCommand, SQSClient } from '@aws-sdk/client-sqs';
 import type { SQSBatchResponse, SQSEvent } from 'aws-lambda';
 import { createReadStream, createWriteStream } from 'node:fs';
@@ -34,6 +35,8 @@ export type Env = {
   TABLE_NAME: string;
   UPLOADS_BUCKET: string;
   OUTPUTS_BUCKET: string;
+  /** 보관 동의한 잡의 원본·결과 (30일 수명 주기) */
+  RETAINED_BUCKET: string;
   FFMPEG_PATH: string;
   FFPROBE_PATH: string;
   /** 사용 이벤트 큐 (없으면 이벤트를 보내지 않는다) */
@@ -42,7 +45,16 @@ export type Env = {
   AWS_LAMBDA_FUNCTION_MEMORY_SIZE?: string;
 };
 
-type Job = { id: string; status: string; kind: OutputKind; params: Params; inputKey: string };
+type Job = {
+  id: string;
+  status: string;
+  kind: OutputKind;
+  params: Params;
+  inputKey: string;
+  createdAt: string;
+  retain?: boolean;
+  retainUntil?: string;
+};
 
 /** 이보다 오래 processing이면 멈춘 것으로 본다 (Lambda 최대 실행 시간 15분보다 길게) */
 const STALE_MS = 20 * 60 * 1000;
@@ -129,6 +141,50 @@ export function makeHandler(deps: Deps) {
     );
   }
 
+  /** 보관 동의한 잡: 원본·결과를 보관 버킷에 두고 관리자 목록에 올린다. 파일명은 저장하지 않는다 */
+  async function retain(job: Job, input: string, output: string, outputBytes: number) {
+    const keys = {
+      retainedInputKey: `jobs/${job.id}/input`,
+      retainedOutputKey: `jobs/${job.id}/output.${EXTENSION[job.kind]}`,
+    };
+    const { size: inputBytes } = await stat(input);
+    await s3.send(
+      new PutObjectCommand({
+        Bucket: env.RETAINED_BUCKET,
+        Key: keys.retainedInputKey,
+        Body: createReadStream(input),
+        ContentLength: inputBytes,
+      }),
+    );
+    await s3.send(
+      new PutObjectCommand({
+        Bucket: env.RETAINED_BUCKET,
+        Key: keys.retainedOutputKey,
+        Body: createReadStream(output),
+        ContentLength: outputBytes,
+        ContentType: MIME[job.kind],
+      }),
+    );
+    const until = job.retainUntil ?? new Date(Date.now() + 30 * 86_400_000).toISOString();
+    await ddb.send(
+      new PutCommand({
+        TableName: env.TABLE_NAME,
+        Item: {
+          PK: 'RETAINED',
+          SK: `${job.createdAt}#${job.id}`,
+          jobId: job.id,
+          kind: job.kind,
+          inputBytes,
+          outputBytes,
+          retainUntil: until,
+          ...keys,
+          ttl: Math.floor(new Date(until).getTime() / 1000),
+        },
+      }),
+    );
+    return keys;
+  }
+
   /** 사용 이벤트(job_succeeded·job_failed). 실패해도 잡은 그대로 둔다 */
   async function emit(event: Record<string, unknown>) {
     if (!env.EVENTS_QUEUE_URL) return;
@@ -201,10 +257,12 @@ export function makeHandler(deps: Deps) {
           ContentType: MIME[job.kind],
         }),
       );
+      const retained = job.retain ? await retain(job, input, output, size) : {};
       await finish(id, {
         status: 'done',
         outputKey,
         outputBytes: size,
+        ...retained,
         ffmpegMs: made.ms,
         finishedAt: new Date().toISOString(),
       });
@@ -254,6 +312,7 @@ function env(): Env {
     'TABLE_NAME',
     'UPLOADS_BUCKET',
     'OUTPUTS_BUCKET',
+    'RETAINED_BUCKET',
     'FFMPEG_PATH',
     'FFPROBE_PATH',
   ] as const;
