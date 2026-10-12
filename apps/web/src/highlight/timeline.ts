@@ -43,6 +43,9 @@ export function timelineText(candidates: readonly Candidate[], offsetSec: number
 /** 편집용 마커 파일 (모드 A). 시각은 offset을 더한 다시보기 기준 */
 export type MarkerFormat = 'csv' | 'srt' | 'audacity';
 
+/** 바이트 순서 표시 (U+FEFF). 소스에 글자로 두면 보이지 않아 코드로 쓴다 */
+const BOM = String.fromCharCode(0xfeff);
+
 const byTime = (candidates: readonly Candidate[]) =>
   [...candidates].sort((a, b) => a.start - b.start);
 
@@ -105,5 +108,5 @@ export function markerFile(
       ].join(','),
     ),
   ];
-  return { text: `﻿${rows.join('\r\n')}\r\n`, ext: 'csv', type: 'text/csv' };
+  return { text: `${BOM}${rows.join('\r\n')}\r\n`, ext: 'csv', type: 'text/csv' };
 }

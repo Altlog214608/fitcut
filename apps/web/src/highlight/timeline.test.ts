@@ -63,8 +63,8 @@ describe('markerFile', () => {
   it('CSV: BOM, 머리줄, 시:분:초와 초', () => {
     const { text, type } = markerFile(list, 0, 'csv');
     expect(type).toBe('text/csv');
-    const lines = text.replace('﻿', '').trim().split('\r\n');
-    expect(text.startsWith('﻿')).toBe(true);
+    const lines = text.replace(String.fromCharCode(0xfeff), '').trim().split('\r\n');
+    expect(text.startsWith(String.fromCharCode(0xfeff))).toBe(true);
     expect(lines[0]).toBe('순서,시작,끝,장면,시작(초),끝(초),점수,채팅,반응,후원,구독');
     expect(lines[1]).toBe('1,0:02:00,0:02:25,0:02:15,120.0,145.0,3,10,5,0,0');
     expect(lines).toHaveLength(3);
