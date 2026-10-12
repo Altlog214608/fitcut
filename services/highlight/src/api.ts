@@ -7,8 +7,12 @@
  * GET    /api/streamer/chzzk/callback : 코드 → 토큰 → 채널 확인 → 저장 → /highlight로 돌아간다
  * GET    /api/streamer/me             : 연결된 채널 { connection: {...} | null }
  * POST   /api/streamer/logout         : 이 브라우저의 세션만 끝낸다 (연결은 유지)
- * DELETE /api/streamer/connection     : 연결 해제. 플랫폼 토큰 폐기, 저장한 토큰·연결 정보 삭제
+ * DELETE /api/streamer/connection     : 연결 해제. 수집 중이면 멈추고, 플랫폼 토큰 폐기, 저장한 토큰·연결 정보 삭제
+ * GET    /api/streamer/broadcasts            : 최근 방송 수집 기록 20개
+ * POST   /api/streamer/broadcasts            : 수집 시작 (Fargate 수집기, ADR-040)
+ * POST   /api/streamer/broadcasts/{id}/stop  : 수집 종료 요청
  */
+import { ECSClient } from '@aws-sdk/client-ecs';
 import { DynamoDBClient } from '@aws-sdk/client-dynamodb';
 import {
   DeleteParameterCommand,
@@ -25,6 +29,7 @@ import {
 } from '@aws-sdk/lib-dynamodb';
 import type { APIGatewayProxyEventV2, APIGatewayProxyStructuredResultV2 } from 'aws-lambda';
 import { createHash, randomBytes, timingSafeEqual } from 'node:crypto';
+import { BROADCAST_ID, BroadcastError, makeBroadcasts, type CollectorEnv } from './broadcasts';
 import {
   authorizeUrl,
   currentUser,
@@ -32,9 +37,9 @@ import {
   revokeToken,
   type ChzzkTokens,
   type Fetch,
-} from './chzzk';
+} from '@fitcut/chzzk';
 
-export type Env = {
+export type Env = CollectorEnv & {
   TABLE_NAME: string;
   ORIGIN_PARAM: string;
   CHZZK_CLIENT_ID: string;
@@ -48,6 +53,7 @@ export type Deps = {
   env: Env;
   ddb: DynamoDBDocumentClient;
   ssm: SSMClient;
+  ecs: ECSClient;
   fetch: Fetch;
   now: () => Date;
 };
@@ -109,6 +115,7 @@ const connKey = (channelId: string) => ({ PK: `CONN#chzzk#${channelId}`, SK: 'ME
 
 export function makeHandler(deps: Deps) {
   const { env, ddb, ssm } = deps;
+  const broadcasts = makeBroadcasts({ env, ddb, ecs: deps.ecs, now: deps.now });
 
   const cache = new Map<string, Promise<string>>();
   const secret = (name: string) => {
@@ -246,6 +253,7 @@ export function makeHandler(deps: Deps) {
     event: APIGatewayProxyEventV2,
     s: Session,
   ): Promise<APIGatewayProxyStructuredResultV2> {
+    await broadcasts.stopActive(s.channelId);
     const name = tokenParam(s.channelId);
     try {
       const r = await ssm.send(new GetParameterCommand({ Name: name, WithDecryption: true }));
@@ -290,6 +298,26 @@ export function makeHandler(deps: Deps) {
         if (!s) return error(401, 'no_session', '채널 연결을 다시 해 주세요.');
         return disconnect(event, s);
       }
+      case 'GET /api/streamer/broadcasts':
+      case 'POST /api/streamer/broadcasts':
+      case 'POST /api/streamer/broadcasts/{id}/stop': {
+        const s = await session(event);
+        if (!s) return error(401, 'no_session', '채널 연결을 다시 해 주세요.');
+        try {
+          if (event.routeKey.startsWith('GET')) {
+            return json(200, { broadcasts: await broadcasts.list(s.channelId) });
+          }
+          if (event.routeKey === 'POST /api/streamer/broadcasts') {
+            return json(201, { broadcast: await broadcasts.start(s.channelId) });
+          }
+          const id = event.pathParameters?.id ?? '';
+          if (!BROADCAST_ID.test(id)) return error(404, 'not_found', '방송 기록이 없어요.');
+          return json(200, { broadcast: await broadcasts.stop(s.channelId, id) });
+        } catch (e) {
+          if (e instanceof BroadcastError) return error(e.status, e.code, e.message);
+          throw e;
+        }
+      }
       default:
         return error(404, 'not_found', '없는 주소예요.');
     }
@@ -298,38 +326,28 @@ export function makeHandler(deps: Deps) {
 
 let real: ReturnType<typeof makeHandler> | null = null;
 
+const ENV_NAMES = [
+  'TABLE_NAME',
+  'ORIGIN_PARAM',
+  'CHZZK_CLIENT_ID',
+  'CHZZK_SECRET_PARAM',
+  'TOKEN_PREFIX',
+  'REDIRECT_URI',
+  'CLUSTER',
+  'TASK_FAMILY',
+  'SUBNETS',
+  'SECURITY_GROUP',
+] as const;
+
 export const handler = (event: APIGatewayProxyEventV2) => {
-  const {
-    TABLE_NAME,
-    ORIGIN_PARAM,
-    CHZZK_CLIENT_ID,
-    CHZZK_SECRET_PARAM,
-    TOKEN_PREFIX,
-    REDIRECT_URI,
-  } = process.env;
-  if (
-    !TABLE_NAME ||
-    !ORIGIN_PARAM ||
-    !CHZZK_CLIENT_ID ||
-    !CHZZK_SECRET_PARAM ||
-    !TOKEN_PREFIX ||
-    !REDIRECT_URI
-  ) {
-    throw new Error(
-      'env TABLE_NAME, ORIGIN_PARAM, CHZZK_CLIENT_ID, CHZZK_SECRET_PARAM, TOKEN_PREFIX, REDIRECT_URI are required',
-    );
-  }
+  const missing = ENV_NAMES.filter((n) => !process.env[n]);
+  if (missing.length) throw new Error(`env ${missing.join(', ')} required`);
+  const env = Object.fromEntries(ENV_NAMES.map((n) => [n, process.env[n] as string])) as Env;
   real ??= makeHandler({
-    env: {
-      TABLE_NAME,
-      ORIGIN_PARAM,
-      CHZZK_CLIENT_ID,
-      CHZZK_SECRET_PARAM,
-      TOKEN_PREFIX,
-      REDIRECT_URI,
-    },
+    env,
     ddb: DynamoDBDocumentClient.from(new DynamoDBClient({})),
     ssm: new SSMClient({}),
+    ecs: new ECSClient({}),
     fetch: (input, init) => fetch(input, init),
     now: () => new Date(),
   });

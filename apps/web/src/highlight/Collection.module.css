@@ -1,0 +1,110 @@
+.section {
+  display: grid;
+  gap: var(--space-2);
+}
+
+.heading {
+  font-size: var(--text-body);
+  font-weight: 700;
+}
+
+.start,
+.live {
+  display: grid;
+  gap: var(--space-2);
+  padding: 20px;
+  border-radius: var(--radius-control);
+  background: var(--color-paper);
+  line-height: 1.6;
+}
+
+.liveHead {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--color-accent);
+}
+
+.counts {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 8px;
+}
+
+.counts div {
+  display: grid;
+  gap: 2px;
+  padding: 12px;
+  border-radius: var(--radius-control);
+  background: var(--color-bg);
+}
+
+.counts dt {
+  font-size: var(--text-small);
+  color: var(--color-slate);
+}
+
+.counts dd {
+  font-size: var(--text-body);
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+
+.meta {
+  font-size: var(--text-caption);
+  color: var(--color-slate);
+}
+
+.primary {
+  height: var(--button-height);
+  border: 0;
+  border-radius: var(--radius-button);
+  background: var(--color-accent);
+  color: var(--color-on-accent);
+  font: inherit;
+  font-size: var(--text-body);
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.ghost {
+  justify-self: start;
+  height: 40px;
+  padding: 0 14px;
+  border: 1px solid var(--color-line);
+  border-radius: var(--radius-control);
+  background: var(--color-bg);
+  color: var(--color-ink);
+  font: inherit;
+  font-size: var(--text-caption);
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.primary:disabled,
+.ghost:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+
+.list {
+  display: grid;
+  gap: var(--space-1);
+  padding: 0;
+  list-style: none;
+}
+
+.item {
+  display: grid;
+  gap: 2px;
+  padding: 14px 16px;
+  border-radius: var(--radius-control);
+  background: var(--color-paper);
+}

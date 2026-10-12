@@ -1,5 +1,5 @@
 /**
- * 치지직 Open API 중 채널 연결에 쓰는 부분 (공식 문서 chzzk.gitbook.io/chzzk, 2026-10-12 확인).
+ * 치지직 인증·사용자 API (공식 문서 chzzk.gitbook.io/chzzk, 2026-10-12 확인).
  * - 인증 코드: https://chzzk.naver.com/account-interlock (Open API와 다른 도메인)
  * - 토큰 발급·갱신·삭제: POST https://openapi.chzzk.naver.com/auth/v1/token(/revoke), JSON 본문
  * - 응답은 { code, message, content } 로 감싸져 온다
@@ -35,7 +35,7 @@ export function authorizeUrl(clientId: string, redirectUri: string, state: strin
   return `${AUTH_URL}?${q.toString()}`;
 }
 
-async function call<T>(fetchFn: Fetch, path: string, init: RequestInit): Promise<T> {
+export async function call<T>(fetchFn: Fetch, path: string, init: RequestInit): Promise<T> {
   const r = await fetchFn(`${API_BASE}${path}`, {
     ...init,
     headers: { 'content-type': 'application/json', ...init.headers },

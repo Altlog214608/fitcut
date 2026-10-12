@@ -4,14 +4,17 @@
   "type": "module",
   "description": "방송 하이라이트: 스트리머 채널 연결(치지직 OAuth)과 분석 (docs/HIGHLIGHT.md)",
   "scripts": {
-    "build": "esbuild src/api.ts --bundle --platform=node --target=node24 --format=esm --minify --sourcemap --outfile=dist/api/index.mjs --banner:js=\"import { createRequire } from 'module'; const require = createRequire(import.meta.url);\"",
+    "build": "esbuild src/api.ts --bundle --platform=node --target=node24 --format=esm --minify --sourcemap --outfile=dist/api/index.mjs --banner:js=\"import { createRequire } from 'module'; const require = createRequire(import.meta.url);\" && esbuild src/chatSink.ts --bundle --platform=node --target=node24 --format=esm --minify --sourcemap --outfile=dist/chat-sink/index.mjs --banner:js=\"import { createRequire } from 'module'; const require = createRequire(import.meta.url);\"",
     "typecheck": "tsc -p tsconfig.json",
     "test": "vitest run"
   },
   "dependencies": {
     "@aws-sdk/client-dynamodb": "^3.1148.0",
+    "@aws-sdk/client-ecs": "^3.1148.0",
+    "@aws-sdk/client-s3": "^3.1148.0",
     "@aws-sdk/client-ssm": "^3.1148.0",
-    "@aws-sdk/lib-dynamodb": "^3.1148.0"
+    "@aws-sdk/lib-dynamodb": "^3.1148.0",
+    "@fitcut/chzzk": "workspace:*"
   },
   "devDependencies": {
     "@types/aws-lambda": "^8.10.164",

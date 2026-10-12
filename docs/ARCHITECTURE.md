@@ -105,7 +105,8 @@
 | `CONN#<플랫폼>#<채널ID>` | `META` | platform, channelId, channelName, scope, connectedAt (토큰은 SSM SecureString `/fitcut/dev/streamer/<플랫폼>/<채널ID>`, ADR-039) |
 | `SESS#<세션 해시>` | `META` | platform, channelId, ttl(7일) — 스트리머 세션. 쿠키 값 자체는 저장하지 않는다 |
 | `OAUTH#<state>` | `META` | ttl(10분) — 플랫폼 로그인 state, 콜백에서 한 번만 지운다 |
-| `BCAST#<id>` | `META` | platform, channelId, startedAt, endedAt, collector(task·webhook), eventCount, analysisStatus |
+| `CONN#chzzk#<채널ID>` | `BCAST#<방송ID>` | status(starting·collecting·done·failed), requestedAt, startedAt, endedAt, chat·donation·subscriptionCount, heartbeatAt, lastEventAt, stopRequested, stopReason, taskArn, ttl(90일) — 방송 ID는 `YYYYMMDDhhmmss-<6자리>`(UTC), ADR-040 |
+| `QUOTA#chzzk#<채널ID>#<yyyymmdd>` | `COLLECT` | count(하루 수집 시작 횟수, 3번까지), ttl |
 | `BCAST#<id>` | `CAND#<순번>` | start, end, score, signals, title |
 | `QUOTA#<IP해시>#<yyyymmdd>` | `COUNT` | count(잡), uploads(업로드) (원자적 증가, 조건부), ttl |
 | `AUDIT#<yyyymm>` | `<시각>#<관리자>` | action(view·download·delete), target |

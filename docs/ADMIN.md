@@ -20,6 +20,8 @@
 | 스트리머 채널 연결 (채널 ID·이름, 연결 시각) | DynamoDB `CONN#` | 연결 해제할 때까지 |
 | 스트리머 플랫폼 토큰 | SSM SecureString (aws/ssm 키, ADR-039) | 연결 해제할 때까지 (해제 시 플랫폼에서도 폐기) |
 | 스트리머 세션 (쿠키 값의 해시) | DynamoDB `SESS#` | 7일 (TTL) |
+| 방송 채팅·후원·구독 이벤트 (내용, 시각, 금액. 닉네임·작성자 ID 없음) | S3 chat (gzip JSON Lines, ADR-040) | 90일 자동 삭제 |
+| 방송 수집 기록 (시작·끝 시각, 개수) | DynamoDB `CONN#…/BCAST#` | 90일 (TTL) |
 
 ## 사용 이벤트
 

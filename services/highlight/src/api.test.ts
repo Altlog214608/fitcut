@@ -1,4 +1,5 @@
 import { DynamoDBClient } from '@aws-sdk/client-dynamodb';
+import { ECSClient } from '@aws-sdk/client-ecs';
 import {
   DeleteParameterCommand,
   GetParameterCommand,
@@ -16,12 +17,13 @@ import type { APIGatewayProxyEventV2 } from 'aws-lambda';
 import { mockClient } from 'aws-sdk-client-mock';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { makeHandler, readCookie } from './api';
-import type { Fetch } from './chzzk';
+import type { Fetch } from '@fitcut/chzzk';
 
 const ddb = DynamoDBDocumentClient.from(new DynamoDBClient({ region: 'ap-northeast-2' }));
 const ssm = new SSMClient({ region: 'ap-northeast-2' });
 const ddbMock = mockClient(ddb);
 const ssmMock = mockClient(ssm);
+const ecs = new ECSClient({ region: 'ap-northeast-2' });
 const NOW = new Date('2026-10-12T09:00:00Z');
 const NOW_S = NOW.getTime() / 1000;
 const CHANNEL = '909501f048b44cf0d5c1d28aaaaaaaa1';
@@ -35,9 +37,14 @@ const handler = makeHandler({
     CHZZK_SECRET_PARAM: '/fitcut/dev/chzzk/client-secret',
     TOKEN_PREFIX: '/fitcut/dev/streamer/',
     REDIRECT_URI: 'https://fitcut.example/api/streamer/chzzk/callback',
+    CLUSTER: 'cluster',
+    TASK_FAMILY: 'fitcut-dev-collector',
+    SUBNETS: 'subnet-a,subnet-b',
+    SECURITY_GROUP: 'sg-1',
   },
   ddb,
   ssm,
+  ecs,
   fetch: fetchMock,
   now: () => NOW,
 });
@@ -339,5 +346,23 @@ describe('streamer api', () => {
     expect(r.statusCode).toBe(204);
     expect(ddbMock.commandCalls(DeleteCommand)).toHaveLength(1);
     expect(ssmMock.commandCalls(DeleteParameterCommand)).toHaveLength(0);
+  });
+
+  describe('broadcasts', () => {
+    it('세션이 없으면 401', async () => {
+      const r = await handler(event('POST /api/streamer/broadcasts'));
+      expect(r.statusCode).toBe(401);
+    });
+
+    it('잘못된 방송 ID는 404', async () => {
+      ddbMock
+        .on(GetCommand)
+        .resolves({ Item: { channelId: CHANNEL, platform: 'chzzk', ttl: NOW_S + 100 } });
+      const r = await handler({
+        ...event('POST /api/streamer/broadcasts/{id}/stop', { cookies: ['fitcut_s=raw'] }),
+        pathParameters: { id: '../x' },
+      } as unknown as APIGatewayProxyEventV2);
+      expect(r.statusCode).toBe(404);
+    });
   });
 });

@@ -1,9 +1,10 @@
 /**
- * 하이라이트 (M5). 지금은 채널 연결까지: 치지직 로그인 → 연결됨 표시 → 연결 해제.
- * 수집·분석 화면은 다음 작업에서 붙는다 (docs/ROADMAP.md M5).
+ * 하이라이트 (M5): 치지직 채널 연결 → 방송 중 채팅 수집.
+ * 분석·결과 화면은 다음 작업에서 붙는다 (docs/ROADMAP.md M5).
  */
 import { useEffect, useState } from 'react';
 import { Link, useSearchParams } from 'react-router';
+import { Collection } from '../highlight/Collection';
 import {
   CHZZK_LOGIN_PATH,
   callbackMessage,
@@ -119,8 +120,11 @@ export function HighlightPage() {
         </p>
       )}
 
+      {connection && <Collection />}
+
       <p className={styles.hint}>
-        채팅 수집과 하이라이트 분석은 만들고 있어요. <Link to="/privacy">개인정보 처리방침</Link>
+        하이라이트 분석은 만들고 있어요. 채팅 원본은 90일 동안 보관해요.{' '}
+        <Link to="/privacy">개인정보 처리방침</Link>
       </p>
     </div>
   );

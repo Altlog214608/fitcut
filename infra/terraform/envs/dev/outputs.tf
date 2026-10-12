@@ -39,3 +39,7 @@ output "chzzk_redirect_uri" {
   description = "치지직 앱의 로그인 리디렉션 URL과 같아야 한다"
   value       = module.highlight.redirect_uri
 }
+
+output "collector_repository_url" {
+  value = module.collector.repository_url
+}

@@ -1,4 +1,4 @@
-# 방송 하이라이트: 스트리머 채널 연결 API (M5, docs/HIGHLIGHT.md, ADR-015·039)
+# 방송 하이라이트: 스트리머 채널 연결·수집 시작/종료 API (M5, docs/HIGHLIGHT.md, ADR-015·039·040)
 # 치지직 OAuth → 우리 세션(HttpOnly 쿠키). 플랫폼 토큰은 채널마다 SSM SecureString 하나 (aws/ssm 키, 고정 비용 없음)
 # 클라이언트 시크릿은 사용자가 로컬에서 SSM에 넣는다 (저장소·상태 파일에 두지 않는다)
 
@@ -39,11 +39,34 @@ data "aws_iam_policy_document" "api" {
     resources = ["${aws_cloudwatch_log_group.api.arn}:*"]
   }
 
-  # 세션(SESS#), 로그인 state(OAUTH#), 연결 정보(CONN#)
+  # 세션(SESS#), 로그인 state(OAUTH#), 연결 정보(CONN#), 방송 기록(BCAST#), 하루 횟수(QUOTA#)
   statement {
     sid       = "Table"
-    actions   = ["dynamodb:GetItem", "dynamodb:PutItem", "dynamodb:DeleteItem"]
+    actions   = ["dynamodb:GetItem", "dynamodb:PutItem", "dynamodb:DeleteItem", "dynamodb:UpdateItem", "dynamodb:Query"]
     resources = [var.table_arn]
+  }
+
+  # 방송 수집 시작: 수집기 태스크만 이 클러스터에서 띄운다 (ADR-040)
+  statement {
+    sid       = "RunCollector"
+    actions   = ["ecs:RunTask"]
+    resources = [var.collector.task_definition_arn_prefix]
+    condition {
+      test     = "ArnEquals"
+      variable = "ecs:cluster"
+      values   = [var.collector.cluster_arn]
+    }
+  }
+
+  statement {
+    sid       = "PassCollectorRoles"
+    actions   = ["iam:PassRole"]
+    resources = [var.collector.task_role_arn, var.collector.execution_role_arn]
+    condition {
+      test     = "StringEquals"
+      variable = "iam:PassedToService"
+      values   = ["ecs-tasks.amazonaws.com"]
+    }
   }
 
   statement {
@@ -104,6 +127,10 @@ resource "aws_lambda_function" "api" {
       CHZZK_SECRET_PARAM = var.chzzk_secret_param
       TOKEN_PREFIX       = local.token_prefix
       REDIRECT_URI       = "${var.site_origin}/api/streamer/chzzk/callback"
+      CLUSTER            = var.collector.cluster_arn
+      TASK_FAMILY        = var.collector.task_family
+      SUBNETS            = join(",", var.collector.subnet_ids)
+      SECURITY_GROUP     = var.collector.security_group_id
       NODE_OPTIONS       = "--enable-source-maps"
     }
   }
@@ -125,6 +152,9 @@ resource "aws_apigatewayv2_route" "api" {
     "GET /api/streamer/me",
     "POST /api/streamer/logout",
     "DELETE /api/streamer/connection",
+    "GET /api/streamer/broadcasts",
+    "POST /api/streamer/broadcasts",
+    "POST /api/streamer/broadcasts/{id}/stop",
   ])
   api_id    = var.api_id
   route_key = each.key
