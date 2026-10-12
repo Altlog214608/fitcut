@@ -83,4 +83,22 @@ describe('clips', () => {
       status: 429,
     });
   });
+
+  it('소리 분석: 녹화 파일 전체 loudness 잡에 분석 대상을 붙이고, 방송은 분석 중으로', async () => {
+    ddbMock.on(GetCommand).resolves({ Item: { recording: uploaded } });
+    const r = await clips.loudness('ch1', B, { offset: 125.4 });
+    const job = ddbMock.commandCalls(PutCommand)[0]?.args[0].input.Item;
+    expect(job).toMatchObject({
+      PK: `JOB#${r.jobId}`,
+      kind: 'loudness',
+      inputBucket: 'recordings',
+      inputKey: uploaded.key,
+      analysis: { channelId: 'ch1', broadcastId: B, offsetSec: 125 },
+    });
+    const ups = ddbMock.commandCalls(UpdateCommand).map((c) => c.args[0].input);
+    expect(ups.find((u) => u.Key?.SK === 'LOUD')).toBeTruthy();
+    expect(ups.find((u) => u.Key?.SK === `BCAST#${B}`)?.ExpressionAttributeValues).toEqual({
+      ':s': 'running',
+    });
+  });
 });

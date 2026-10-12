@@ -360,3 +360,86 @@ test('녹화 파일: 고르면 바로 후보 장면을 재생하고, 조각으�
   await expect(page).toHaveURL(/\/gif$/);
   await expect(page.locator('video').first()).toBeVisible();
 });
+
+test('모드 C: 녹화 파일만으로 찾기 → 올리기 → 소리 크기 분석 → 후보', async ({ page }) => {
+  await page.clock.install();
+  await page.route('**/api/streamer/me', (route) => route.fulfill({ json: { connection } }));
+  const b = {
+    id: '20261012110000-eeeeee',
+    status: 'done',
+    source: 'file',
+    requestedAt: '2026-10-12T11:00:00.000Z',
+    chatCount: 0,
+    donationCount: 0,
+    subscriptionCount: 0,
+  };
+  let created = false;
+  let analysis: 'none' | 'running' | 'done' = 'none';
+  let soundBody: unknown = null;
+  await page.route('**/api/streamer/broadcasts', (route) => {
+    if (route.request().method() === 'POST') {
+      created = true;
+      expect(route.request().postDataJSON()).toEqual({ source: 'file' });
+      return route.fulfill({ status: 201, json: { broadcast: b } });
+    }
+    return route.fulfill({ json: { broadcasts: created ? [b] : [] } });
+  });
+  await page.route(`**/api/streamer/broadcasts/${b.id}`, (route) =>
+    route.fulfill({
+      json: {
+        broadcast:
+          analysis === 'done'
+            ? {
+                ...b,
+                analysisStatus: 'done',
+                chatPer10s: [0, 0, 0],
+                loudPer10s: [-30, -9, -30],
+                candidates: [
+                  {
+                    rank: 1,
+                    start: 2,
+                    end: 27,
+                    peak: 17,
+                    score: 5,
+                    counts: { chat: 0, reaction: 0, donation: 0, subscription: 0, loudness: -9 },
+                  },
+                ],
+              }
+            : {
+                ...b,
+                ...(analysis === 'running' ? { analysisStatus: 'running' } : {}),
+                chatPer10s: [],
+                candidates: [],
+              },
+      },
+    }),
+  );
+  await page.route(`**/api/streamer/broadcasts/${b.id}/recording`, (route) =>
+    route.fulfill({
+      json: { recording: { status: 'uploaded', size: 1000, partSize: 1000, partCount: 1 } },
+    }),
+  );
+  await page.route(`**/api/streamer/broadcasts/${b.id}/loudness`, (route) => {
+    soundBody = route.request().postDataJSON();
+    analysis = 'running';
+    return route.fulfill({ status: 201, json: { jobId: 'j1' } });
+  });
+
+  await page.goto('/highlight');
+  await page.getByRole('button', { name: '채팅 없이 녹화 파일만으로 찾기' }).click();
+  await expect(page.getByText('녹화 파일만 분석 (채팅 없음)')).toBeVisible();
+  // 모드 C는 시각이 녹화 파일 기준이라 시각 맞추기가 없다
+  await page.locator('input[type=file]').setInputFiles(CLIP);
+  await expect(page.getByRole('group', { name: '시각 맞추기' })).toHaveCount(0);
+
+  await page.getByRole('button', { name: '소리 크기로 후보 찾기' }).click();
+  expect(soundBody).toEqual({ offset: 0 });
+  await expect(page.getByText('녹화 파일의 소리를 분석하고 있어요')).toBeVisible();
+
+  analysis = 'done';
+  await page.clock.fastForward(16_000);
+  const list = page.getByRole('list', { name: '하이라이트 후보' });
+  await expect(list).toContainText('00:02 – 00:27');
+  await expect(list).toContainText('소리 -9dB');
+  await expect(page.getByRole('img', { name: /소리 크기 그래프/ })).toBeVisible();
+});

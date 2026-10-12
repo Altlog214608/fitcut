@@ -41,8 +41,10 @@ export type Broadcast = {
   subscriptionCount: number;
   stopRequested?: boolean;
   stopReason?: string;
-  /** 분석이 끝났으면 'done' (ADR-041) */
-  analysisStatus?: 'done';
+  /** 분석 중이면 'running', 끝났으면 'done' (ADR-041·044) */
+  analysisStatus?: 'running' | 'done';
+  /** 'file'이면 채팅 없이 녹화 파일만 분석하는 기록 (모드 C, ADR-044) */
+  source?: 'file';
 };
 
 /** 분석 결과까지 (한 방송을 열 때) */
@@ -53,10 +55,13 @@ export type BroadcastDetail = Broadcast & {
   reactionCount?: number;
   candidates: unknown[];
   chatPer10s: number[];
+  loudPer10s?: number[];
 };
 
 /** 채널 하나가 하루(서울)에 시작할 수 있는 수집 횟수. 공개 데모 비용 상한 (docs/HIGHLIGHT.md 데모와 비용) */
 export const DAILY_STARTS = 3;
+/** 채널 하나가 하루에 만들 수 있는 녹화 파일 분석 기록 (모드 C) */
+export const DAILY_FILES = 5;
 /** 이 시간 동안 수집기 소식이 없으면 멈춘 것으로 보고 새 수집을 허용한다 */
 const STALE_MS = 5 * 60 * 1000;
 const KEEP_SECONDS = 90 * 24 * 60 * 60;
@@ -106,7 +111,10 @@ function publicBroadcast(item: Record<string, unknown>): Broadcast {
     subscriptionCount: Number(item.subscriptionCount ?? 0),
     ...(item.stopRequested ? { stopRequested: true } : {}),
     ...(item.stopReason ? { stopReason: pick<string>('stopReason') } : {}),
-    ...(item.analysisStatus === 'done' ? { analysisStatus: 'done' as const } : {}),
+    ...(item.analysisStatus === 'done' || item.analysisStatus === 'running'
+      ? { analysisStatus: item.analysisStatus }
+      : {}),
+    ...(item.source === 'file' ? { source: 'file' as const } : {}),
   };
 }
 
@@ -123,6 +131,7 @@ const LIST_FIELDS = [
   'stopRequested',
   'stopReason',
   'analysisStatus',
+  'source',
 ].join(', ');
 
 const conditionFailed = (e: unknown) =>
@@ -159,6 +168,7 @@ export function makeBroadcasts(deps: BroadcastDeps) {
       ...(item.reactionCount !== undefined ? { reactionCount: Number(item.reactionCount) } : {}),
       candidates: Array.isArray(item.candidates) ? (item.candidates as unknown[]) : [],
       chatPer10s: Array.isArray(item.chatPer10s) ? (item.chatPer10s as number[]) : [],
+      ...(Array.isArray(item.loudPer10s) ? { loudPer10s: item.loudPer10s as number[] } : {}),
     };
   }
 
@@ -363,5 +373,54 @@ export function makeBroadcasts(deps: BroadcastDeps) {
     }
   }
 
-  return { list, detail, start, stop, stopActive };
+  /**
+   * 모드 C: 채팅 없이 녹화 파일만 분석할 기록을 만든다. 수집기를 띄우지 않는다.
+   * 녹화 파일 올리기·소리 크기 분석은 다른 방송 기록과 같은 경로를 쓴다
+   */
+  async function createFile(channelId: string): Promise<Broadcast> {
+    const now = deps.now();
+    try {
+      await ddb.send(
+        new UpdateCommand({
+          TableName: T,
+          Key: { PK: `QUOTA#chzzk#${channelId}#${seoulDay(now)}`, SK: 'FILE' },
+          UpdateExpression: 'ADD #c :one SET #t = if_not_exists(#t, :ttl)',
+          ConditionExpression: 'attribute_not_exists(#c) OR #c < :max',
+          ExpressionAttributeNames: { '#c': 'count', '#t': 'ttl' },
+          ExpressionAttributeValues: {
+            ':one': 1,
+            ':max': DAILY_FILES,
+            ':ttl': Math.floor(now.getTime() / 1000) + 2 * 86400,
+          },
+        }),
+      );
+    } catch (e) {
+      if (conditionFailed(e)) {
+        throw new BroadcastError(
+          429,
+          'daily_limit',
+          `녹화 파일 분석은 하루 ${DAILY_FILES}번까지 시작할 수 있어요.`,
+        );
+      }
+      throw e;
+    }
+    const id = newBroadcastId(now);
+    const item = {
+      ...bcastKey(channelId, id),
+      id,
+      platform: 'chzzk',
+      channelId,
+      source: 'file',
+      status: 'done',
+      requestedAt: now.toISOString(),
+      chatCount: 0,
+      donationCount: 0,
+      subscriptionCount: 0,
+      ttl: Math.floor(now.getTime() / 1000) + KEEP_SECONDS,
+    };
+    await ddb.send(new PutCommand({ TableName: T, Item: item }));
+    return publicBroadcast(item);
+  }
+
+  return { list, detail, start, createFile, stop, stopActive };
 }

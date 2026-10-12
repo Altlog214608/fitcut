@@ -38,3 +38,11 @@ output "chat_bucket" {
 output "chat_bucket_arn" {
   value = aws_s3_bucket.chat.arn
 }
+
+output "analysis_queue_url" {
+  value = aws_sqs_queue.analysis.url
+}
+
+output "analysis_queue_arn" {
+  value = aws_sqs_queue.analysis.arn
+}

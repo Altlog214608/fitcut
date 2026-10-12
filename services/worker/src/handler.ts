@@ -15,7 +15,7 @@ import { DynamoDBDocumentClient, PutCommand, UpdateCommand } from '@aws-sdk/lib-
 import { SendMessageCommand, SQSClient } from '@aws-sdk/client-sqs';
 import type { SQSBatchResponse, SQSEvent } from 'aws-lambda';
 import { createReadStream, createWriteStream } from 'node:fs';
-import { mkdtemp, rm, stat } from 'node:fs/promises';
+import { mkdtemp, readFile, rm, stat, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { pipeline } from 'node:stream/promises';
@@ -27,6 +27,7 @@ import {
   ffmpegArgs,
   ffprobeArgs,
   parseProbe,
+  parseRms,
   type OutputKind,
   type Params,
 } from './ffmpeg';
@@ -40,6 +41,8 @@ export type Env = {
   RETAINED_BUCKET: string;
   /** 하이라이트 녹화 파일 (모드 B 클립 입력, ADR-043) */
   RECORDINGS_BUCKET: string;
+  /** 하이라이트 분석 큐 (모드 C 소리 크기가 끝나면, ADR-044). 없으면 보내지 않는다 */
+  ANALYSIS_QUEUE_URL?: string;
   FFMPEG_PATH: string;
   FFPROBE_PATH: string;
   /** 사용 이벤트 큐 (없으면 이벤트를 보내지 않는다) */
@@ -54,8 +57,10 @@ type Job = {
   kind: OutputKind;
   params: Params;
   inputKey: string;
-  /** 'recordings'면 녹화 파일 버킷에서 서명 주소로 범위만 읽는다 (clip) */
+  /** 'recordings'면 녹화 파일 버킷에서 서명 주소로 범위만 읽는다 (clip, loudness) */
   inputBucket?: 'recordings';
+  /** 끝나면 하이라이트 분석을 맡긴다 (loudness, ADR-044) */
+  analysis?: { channelId: string; broadcastId: string; offsetSec?: number };
   createdAt: string;
   retain?: boolean;
   retainUntil?: string;
@@ -257,11 +262,17 @@ export function makeHandler(deps: Deps) {
       };
 
       // Lambda가 끝나기 20초 전에는 멈춰서 실패를 기록할 시간을 남긴다
+      // 소리 크기는 ffmpeg가 텍스트로 쓰고, 여기서 JSON으로 바꾼다
+      const rmsText = join(dir, 'rms.txt');
       const made = await deps.exec(
         env.FFMPEG_PATH,
-        ffmpegArgs(job.kind, job.params, source, output, src),
+        ffmpegArgs(job.kind, job.params, source, job.kind === 'loudness' ? rmsText : output, src),
         Math.max(10_000, remainingMs() - 20_000),
       );
+      if (job.kind === 'loudness') {
+        const rmsDb = parseRms(await readFile(rmsText, 'utf8').catch(() => ''));
+        await writeFile(output, JSON.stringify({ v: 1, rmsDb }));
+      }
       const { size } = await stat(output);
       const outputKey = `out/${id}.${EXTENSION[job.kind]}`;
       await s3.send(
@@ -274,6 +285,14 @@ export function makeHandler(deps: Deps) {
         }),
       );
       const retained = job.retain ? await retain(job, input, output, size) : {};
+      if (job.analysis && env.ANALYSIS_QUEUE_URL) {
+        await deps.sqs.send(
+          new SendMessageCommand({
+            QueueUrl: env.ANALYSIS_QUEUE_URL,
+            MessageBody: JSON.stringify({ ...job.analysis, loudnessKey: outputKey }),
+          }),
+        );
+      }
       await finish(id, {
         status: 'done',
         outputKey,
@@ -335,6 +354,9 @@ function env(): Env {
   ] as const;
   const out: Env = {
     ...(process.env.EVENTS_QUEUE_URL ? { EVENTS_QUEUE_URL: process.env.EVENTS_QUEUE_URL } : {}),
+    ...(process.env.ANALYSIS_QUEUE_URL
+      ? { ANALYSIS_QUEUE_URL: process.env.ANALYSIS_QUEUE_URL }
+      : {}),
     ...(process.env.AWS_LAMBDA_FUNCTION_MEMORY_SIZE
       ? { AWS_LAMBDA_FUNCTION_MEMORY_SIZE: process.env.AWS_LAMBDA_FUNCTION_MEMORY_SIZE }
       : {}),

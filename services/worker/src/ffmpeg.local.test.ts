@@ -7,7 +7,7 @@ import { mkdtempSync, readFileSync, rmSync, statSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
-import { ffmpegArgs, ffprobeArgs, parseProbe } from './ffmpeg';
+import { ffmpegArgs, ffprobeArgs, parseProbe, parseRms } from './ffmpeg';
 
 const FFMPEG = process.env.FFMPEG_PATH ?? 'ffmpeg';
 const FFPROBE = process.env.FFPROBE_PATH ?? 'ffprobe';
@@ -377,5 +377,24 @@ describe.skipIf(!enabled)('실제 ffmpeg로 녹화 파일 클립 (하이라이�
     expect(p?.video?.codec).toBe('h264');
     expect(p?.audio?.codec).toBe('aac');
     expect(Math.abs((p?.duration ?? 0) - 4.5)).toBeLessThan(0.1);
+  });
+});
+
+describe.skipIf(!enabled)('실제 ffmpeg로 소리 크기 (하이라이트 모드 C)', () => {
+  it('10초 영상 → 10개 안팎의 초 단위 dB', () => {
+    // 필터 인자의 경로에 ':'가 있으면 안 된다 (Windows 드라이브 문자). 상대 경로로 쓰고 작업 폴더를 맞춘다
+    const out = 'rms.txt';
+    execFileSync(
+      FFMPEG,
+      ffmpegArgs('loudness', { start: 0, end: 0, fps: 0, width: 0 }, input, out),
+      {
+        cwd: dir,
+      },
+    );
+    const rms = parseRms(readFileSync(join(dir, out), 'utf8'));
+    expect(rms.length).toBeGreaterThanOrEqual(10);
+    expect(rms.length).toBeLessThanOrEqual(11);
+    // 시험 영상의 사인파는 일정한 크기다
+    expect(Math.max(...rms.slice(1, 9)) - Math.min(...rms.slice(1, 9))).toBeLessThan(1);
   });
 });

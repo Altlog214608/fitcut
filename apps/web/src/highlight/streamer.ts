@@ -47,7 +47,9 @@ export type Broadcast = {
   subscriptionCount: number;
   stopRequested?: boolean;
   stopReason?: string;
-  analysisStatus?: 'done';
+  analysisStatus?: 'running' | 'done';
+  /** 채팅 없이 녹화 파일만 분석하는 기록 (모드 C) */
+  source?: 'file';
 };
 
 export type BroadcastDetail = Broadcast & {
@@ -57,10 +59,18 @@ export type BroadcastDetail = Broadcast & {
   candidates: Candidate[];
   /** 10초마다 채팅 수 (그래프) */
   chatPer10s: number[];
+  /** 10초마다 평균 소리 크기 (dB). 녹화 파일 소리를 분석했을 때만 */
+  loudPer10s?: number[];
 };
 
-async function call<T>(path: string, method = 'GET'): Promise<T> {
-  const r = await fetch(path, { method, credentials: 'same-origin' });
+async function call<T>(path: string, method = 'GET', body?: unknown): Promise<T> {
+  const r = await fetch(path, {
+    method,
+    credentials: 'same-origin',
+    ...(body === undefined
+      ? {}
+      : { headers: { 'content-type': 'application/json' }, body: JSON.stringify(body) }),
+  });
   if (!r.ok) {
     const body = (await r.json().catch(() => null)) as { error?: { message?: string } } | null;
     throw new StreamerError(body?.error?.message ?? '잠시 후 다시 시도해 주세요.');
@@ -73,6 +83,18 @@ export const listBroadcasts = () =>
 
 export const startBroadcast = () =>
   call<{ broadcast: Broadcast }>('/api/streamer/broadcasts', 'POST').then((r) => r.broadcast);
+
+/** 모드 C: 채팅 없이 녹화 파일만 분석할 기록 */
+export const startFileAnalysis = () =>
+  call<{ broadcast: Broadcast }>('/api/streamer/broadcasts', 'POST', { source: 'file' }).then(
+    (r) => r.broadcast,
+  );
+
+/** 녹화 파일 소리 크기로 (다시) 분석. offset: 녹화 파일 시각 = 채팅 시각 + offset (모드 C는 0) */
+export const analyzeSound = (id: string, offset: number) =>
+  call<{ jobId: string }>(`/api/streamer/broadcasts/${encodeURIComponent(id)}/loudness`, 'POST', {
+    offset,
+  });
 
 export const stopBroadcast = (id: string) =>
   call<{ broadcast: Broadcast }>(

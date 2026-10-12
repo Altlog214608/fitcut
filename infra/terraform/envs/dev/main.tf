@@ -106,6 +106,8 @@ module "worker" {
   retained_bucket_arn   = module.api.retained_bucket_arn
   recordings_bucket     = module.highlight.recordings_bucket
   recordings_bucket_arn = module.highlight.recordings_bucket_arn
+  analysis_queue_url    = module.collector.analysis_queue_url
+  analysis_queue_arn    = module.collector.analysis_queue_arn
   events_queue_url      = module.events.queue_url
   events_queue_arn      = module.events.queue_arn
 }
@@ -185,6 +187,8 @@ module "collector" {
   token_prefix          = "/fitcut/dev/streamer/"
   chzzk_client_id       = local.chzzk_client_id
   chzzk_secret_param    = local.chzzk_secret_param
+  outputs_bucket        = module.api.outputs_bucket
+  outputs_bucket_arn    = module.api.outputs_bucket_arn
   sink_zip              = data.archive_file.chat_sink.output_path
   sink_zip_hash         = data.archive_file.chat_sink.output_base64sha256
   analysis_zip          = data.archive_file.analysis.output_path

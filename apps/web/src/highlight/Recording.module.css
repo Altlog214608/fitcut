@@ -140,3 +140,8 @@
   opacity: 0.5;
   cursor: default;
 }
+
+.primary:disabled {
+  opacity: 0.5;
+  cursor: default;
+}

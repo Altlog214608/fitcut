@@ -7,6 +7,7 @@ import {
   isActive,
   listBroadcasts,
   startBroadcast,
+  startFileAnalysis,
   stopBroadcast,
   stopReasonText,
   StreamerError,
@@ -70,6 +71,21 @@ export function Collection() {
     const t = window.setInterval(() => void load(), POLL_MS);
     return () => window.clearInterval(t);
   }, [active, load]);
+
+  /** 모드 C: 녹화 파일만 분석할 기록을 만들고 바로 연다 */
+  async function startFile() {
+    setBusy(true);
+    setMessage(null);
+    try {
+      const b = await startFileAnalysis();
+      await load();
+      setOpenId(b.id);
+    } catch (e) {
+      setMessage(e instanceof StreamerError ? e.message : '잠시 후 다시 시도해 주세요.');
+    } finally {
+      setBusy(false);
+    }
+  }
 
   async function run(action: () => Promise<unknown>) {
     setBusy(true);
@@ -135,6 +151,17 @@ export function Collection() {
             수집 시작
           </button>
           <p className={styles.meta}>하루 3번까지, 한 번에 최대 8시간 수집해요.</p>
+          <button
+            type="button"
+            className={styles.ghost}
+            disabled={busy || items === null}
+            onClick={() => void startFile()}
+          >
+            채팅 없이 녹화 파일만으로 찾기
+          </button>
+          <p className={styles.meta}>
+            수집하지 못한 방송이나 음성 방송은 녹화 파일의 소리 크기로 후보를 찾을 수 있어요.
+          </p>
         </div>
       )}
 
@@ -151,12 +178,19 @@ export function Collection() {
             .map((b) => (
               <li key={b.id} className={styles.item}>
                 <b>{timeText(b.startedAt ?? b.requestedAt)}</b>
-                <span className={styles.meta}>
-                  채팅 {count(b.chatCount)} · 후원 {count(b.donationCount)} · 구독{' '}
-                  {count(b.subscriptionCount)}
-                </span>
-                <span className={styles.meta}>{stopReasonText(b.stopReason)}</span>
-                {b.chatCount + b.donationCount + b.subscriptionCount > 0 && (
+                {b.source === 'file' ? (
+                  <span className={styles.meta}>녹화 파일만 분석 (채팅 없음)</span>
+                ) : (
+                  <>
+                    <span className={styles.meta}>
+                      채팅 {count(b.chatCount)} · 후원 {count(b.donationCount)} · 구독{' '}
+                      {count(b.subscriptionCount)}
+                    </span>
+                    <span className={styles.meta}>{stopReasonText(b.stopReason)}</span>
+                  </>
+                )}
+                {(b.source === 'file' ||
+                  b.chatCount + b.donationCount + b.subscriptionCount > 0) && (
                   <button
                     type="button"
                     className={styles.ghost}

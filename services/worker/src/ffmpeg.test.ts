@@ -5,6 +5,7 @@ import {
   ffmpegArgs,
   nextRotation,
   parseProbe,
+  parseRms,
   seconds,
   type Probe,
 } from './ffmpeg';
@@ -214,5 +215,38 @@ describe('클립 (하이라이트 모드 B)', () => {
     expect(checkInput({ ...probe, video: null }, p, 'clip')).toContain('영상');
     expect(checkInput(probe, { ...p, end: 3700 }, 'clip')).toContain('1분');
     expect(checkInput(probe, { ...p, start: 7300, end: 7310 }, 'clip')).toContain('길이');
+  });
+});
+
+describe('소리 크기 (하이라이트 모드 C)', () => {
+  it('ametadata 출력을 초마다 dB로, -inf는 -120, 빠진 초는 -120', () => {
+    const text = [
+      'frame:0    pts:0       pts_time:0',
+      'lavfi.astats.Overall.RMS_level=-47.096378',
+      'frame:1    pts:8000    pts_time:1',
+      'lavfi.astats.Overall.RMS_level=-inf',
+      'frame:3    pts:24000   pts_time:3',
+      'lavfi.astats.Overall.RMS_level=-21.15',
+      '',
+    ].join('\n');
+    expect(parseRms(text)).toEqual([-47.1, -120, -120, -21.1]);
+  });
+
+  it('영상은 풀지 않고 소리만 1초 단위로 잰다', () => {
+    const a = ffmpegArgs(
+      'loudness',
+      { start: 0, end: 0, fps: 0, width: 0 },
+      'https://s3/rec',
+      '/tmp/rms.txt',
+    );
+    expect(a).toContain('-vn');
+    expect(a[a.indexOf('-af') + 1]).toContain('astats=metadata=1:reset=1');
+    expect(a[a.indexOf('-af') + 1]).toContain('file=/tmp/rms.txt');
+    expect(a.slice(-3)).toEqual(['-f', 'null', '-']);
+  });
+
+  it('소리가 없으면 안내', () => {
+    const probe: Probe = { format: 'matroska,webm', duration: 60, video: null, audio: null };
+    expect(checkInput(probe, { start: 0, end: 0, fps: 0, width: 0 }, 'loudness')).toContain('소리');
   });
 });

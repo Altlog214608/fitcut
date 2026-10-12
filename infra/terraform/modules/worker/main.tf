@@ -127,6 +127,13 @@ data "aws_iam_policy_document" "worker" {
     actions   = ["s3:GetObject"]
     resources = ["${var.recordings_bucket_arn}/rec/*"]
   }
+
+  # 하이라이트 모드 C: 소리 크기를 다 재면 분석을 맡긴다 (ADR-044)
+  statement {
+    sid       = "AnalysisQueue"
+    actions   = ["sqs:SendMessage"]
+    resources = [var.analysis_queue_arn]
+  }
 }
 
 resource "aws_iam_role_policy" "worker" {
@@ -158,12 +165,13 @@ resource "aws_lambda_function" "worker" {
 
   environment {
     variables = {
-      TABLE_NAME        = var.table_name
-      UPLOADS_BUCKET    = var.uploads_bucket
-      OUTPUTS_BUCKET    = var.outputs_bucket
-      RETAINED_BUCKET   = var.retained_bucket
-      RECORDINGS_BUCKET = var.recordings_bucket
-      EVENTS_QUEUE_URL  = var.events_queue_url
+      TABLE_NAME         = var.table_name
+      UPLOADS_BUCKET     = var.uploads_bucket
+      OUTPUTS_BUCKET     = var.outputs_bucket
+      RETAINED_BUCKET    = var.retained_bucket
+      RECORDINGS_BUCKET  = var.recordings_bucket
+      ANALYSIS_QUEUE_URL = var.analysis_queue_url
+      EVENTS_QUEUE_URL   = var.events_queue_url
     }
   }
 
@@ -210,12 +218,13 @@ resource "aws_lambda_function" "bench" {
 
   environment {
     variables = {
-      TABLE_NAME        = var.table_name
-      UPLOADS_BUCKET    = var.uploads_bucket
-      OUTPUTS_BUCKET    = var.outputs_bucket
-      RETAINED_BUCKET   = var.retained_bucket
-      RECORDINGS_BUCKET = var.recordings_bucket
-      EVENTS_QUEUE_URL  = var.events_queue_url
+      TABLE_NAME         = var.table_name
+      UPLOADS_BUCKET     = var.uploads_bucket
+      OUTPUTS_BUCKET     = var.outputs_bucket
+      RETAINED_BUCKET    = var.retained_bucket
+      RECORDINGS_BUCKET  = var.recordings_bucket
+      ANALYSIS_QUEUE_URL = var.analysis_queue_url
+      EVENTS_QUEUE_URL   = var.events_queue_url
     }
   }
 
