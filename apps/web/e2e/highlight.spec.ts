@@ -1,4 +1,7 @@
 import { expect, test } from '@playwright/test';
+import { fileURLToPath } from 'node:url';
+
+const CLIP = fileURLToPath(new URL('./fixtures/clip.webm', import.meta.url));
 
 /**
  * 하이라이트: 치지직 채널 연결 (M5). 스트리머 API는 가짜로 둔다.
@@ -222,4 +225,81 @@ test('분석 전이면 기다려 달라고 안내한다', async ({ page }) => {
   await page.goto('/highlight');
   await page.getByRole('button', { name: '하이라이트 보기' }).click();
   await expect(page.getByText('분석하고 있어요')).toBeVisible();
+});
+
+test('녹화 파일: 고르면 바로 후보 장면을 재생하고, 조각으로 나눠 올린다', async ({ page }) => {
+  await page.route('**/api/streamer/me', (route) => route.fulfill({ json: { connection } }));
+  const b = {
+    id: '20261011120000-dddddd',
+    status: 'done',
+    requestedAt: '2026-10-11T12:00:00.000Z',
+    chatCount: 100,
+    donationCount: 0,
+    subscriptionCount: 0,
+    stopReason: 'requested',
+    analysisStatus: 'done',
+  };
+  await page.route('**/api/streamer/broadcasts', (route) =>
+    route.fulfill({ json: { broadcasts: [b] } }),
+  );
+  await page.route(`**/api/streamer/broadcasts/${b.id}`, (route) =>
+    route.fulfill({
+      json: {
+        broadcast: {
+          ...b,
+          chatPer10s: [1, 2],
+          candidates: [
+            {
+              rank: 1,
+              start: 1,
+              end: 3,
+              peak: 2,
+              score: 4,
+              counts: { chat: 9, reaction: 5, donation: 0, subscription: 0 },
+            },
+          ],
+        },
+      },
+    }),
+  );
+  let server: Record<string, unknown> | null = null;
+  const put: string[] = [];
+  await page.route(`**/api/streamer/broadcasts/${b.id}/recording`, async (route) => {
+    const method = route.request().method();
+    if (method === 'GET') return route.fulfill({ json: { recording: server } });
+    const body = route.request().postDataJSON() as { size: number; name: string };
+    // 작은 파일도 조각 2개로 나눠 보게 조각 크기를 작게 준다
+    const partSize = Math.ceil(body.size / 2);
+    server = { status: 'uploading', size: body.size, partSize, partCount: 2 };
+    return route.fulfill({ status: 201, json: { recording: server } });
+  });
+  await page.route(`**/api/streamer/broadcasts/${b.id}/recording/parts`, (route) => {
+    const { partNumbers } = route.request().postDataJSON() as { partNumbers: number[] };
+    return route.fulfill({
+      json: {
+        parts: partNumbers.map((n) => ({ partNumber: n, url: `https://s3.example/part/${n}` })),
+      },
+    });
+  });
+  await page.route('https://s3.example/part/*', (route) => {
+    put.push(`${route.request().method()} ${route.request().url().split('/').at(-1)}`);
+    return route.fulfill({ status: 200, headers: { 'access-control-allow-origin': '*' } });
+  });
+  await page.route(`**/api/streamer/broadcasts/${b.id}/recording/complete`, (route) => {
+    server = { ...server, status: 'uploaded' };
+    return route.fulfill({ json: { recording: server } });
+  });
+
+  await page.goto('/highlight');
+  await page.getByRole('button', { name: '하이라이트 보기' }).click();
+  await page.locator('input[type=file]').setInputFiles(CLIP);
+  await expect(page.locator('video')).toBeVisible();
+  await expect(page.getByRole('button', { name: '▶ 1. 00:01' })).toBeVisible();
+  await page.getByRole('button', { name: '+5초' }).click();
+  await expect(page.getByRole('button', { name: '▶ 1. 00:06' })).toBeVisible();
+
+  await page.getByRole('button', { name: '녹화 파일 올리기' }).click();
+  await expect(page.getByRole('status')).toContainText('녹화 파일을 올렸어요');
+  expect(put.sort()).toEqual(['PUT 1', 'PUT 2']);
+  await expect(page.getByRole('button', { name: '올린 파일 지우기' })).toBeVisible();
 });
