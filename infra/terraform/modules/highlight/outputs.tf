@@ -6,3 +6,11 @@ output "redirect_uri" {
 output "token_prefix" {
   value = local.token_prefix
 }
+
+output "recordings_bucket" {
+  value = aws_s3_bucket.recordings.bucket
+}
+
+output "recordings_bucket_arn" {
+  value = aws_s3_bucket.recordings.arn
+}

@@ -3,6 +3,7 @@
  * 시각은 수집 시작 기준이라, 방송을 켠 뒤 수집을 누르기까지 걸린 시간을 넣으면 다시보기 시각이 된다.
  */
 import { useEffect, useState } from 'react';
+import { Recording } from './Recording';
 import { getBroadcast, StreamerError, type BroadcastDetail } from './streamer';
 import { SAVE_METHOD } from '../lib/inApp';
 import { download } from '../lib/save';
@@ -161,6 +162,12 @@ export function Result({ id }: { id: string }) {
             자막(SRT)은 프리미어·다빈치 리졸브·캡컷에서 자막 트랙으로 불러오면 후보 구간에 글자가
             떠서 마커처럼 쓸 수 있어요.
           </p>
+          <Recording
+            id={detail.id}
+            candidates={detail.candidates}
+            offset={shift}
+            onOffset={(sec) => setOffsetText(clock(sec))}
+          />
         </>
       )}
       <p className={styles.meta}>

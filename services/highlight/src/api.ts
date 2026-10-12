@@ -12,8 +12,11 @@
  * POST   /api/streamer/broadcasts            : 수집 시작 (Fargate 수집기, ADR-040)
  * GET    /api/streamer/broadcasts/{id}       : 방송 하나와 분석 결과 (후보, 10초 단위 채팅 수)
  * POST   /api/streamer/broadcasts/{id}/stop  : 수집 종료 요청
+ * POST·GET·DELETE /api/streamer/broadcasts/{id}/recording, …/recording/parts, …/recording/complete
+ *        : 모드 B 녹화 파일 멀티파트 올리기 (recording.ts)
  */
 import { ECSClient } from '@aws-sdk/client-ecs';
+import { S3Client } from '@aws-sdk/client-s3';
 import { DynamoDBClient } from '@aws-sdk/client-dynamodb';
 import {
   DeleteParameterCommand,
@@ -31,6 +34,7 @@ import {
 import type { APIGatewayProxyEventV2, APIGatewayProxyStructuredResultV2 } from 'aws-lambda';
 import { createHash, randomBytes, timingSafeEqual } from 'node:crypto';
 import { BROADCAST_ID, BroadcastError, makeBroadcasts, type CollectorEnv } from './broadcasts';
+import { makeRecordings } from './recording';
 import {
   authorizeUrl,
   currentUser,
@@ -41,6 +45,8 @@ import {
 } from '@fitcut/chzzk';
 
 export type Env = CollectorEnv & {
+  /** 모드 B 녹화 파일 버킷 (ADR-042) */
+  RECORDINGS_BUCKET: string;
   TABLE_NAME: string;
   ORIGIN_PARAM: string;
   CHZZK_CLIENT_ID: string;
@@ -55,6 +61,7 @@ export type Deps = {
   ddb: DynamoDBDocumentClient;
   ssm: SSMClient;
   ecs: ECSClient;
+  s3: S3Client;
   fetch: Fetch;
   now: () => Date;
 };
@@ -97,6 +104,17 @@ const sameSecret = (a: string | undefined, b: string) => {
   return x.length === y.length && timingSafeEqual(x, y);
 };
 
+/** JSON 본문. 없거나 깨졌으면 빈 객체 (각 함수가 값을 다시 검사한다) */
+export function parseBody(body: string | undefined): Record<string, unknown> {
+  if (!body) return {};
+  try {
+    const v: unknown = JSON.parse(body);
+    return v && typeof v === 'object' && !Array.isArray(v) ? (v as Record<string, unknown>) : {};
+  } catch {
+    return {};
+  }
+}
+
 export function cookie(name: string, value: string, path: string, maxAge: number): string {
   return `${name}=${value}; Path=${path}; Max-Age=${maxAge}; HttpOnly; Secure; SameSite=Lax`;
 }
@@ -117,6 +135,13 @@ const connKey = (channelId: string) => ({ PK: `CONN#chzzk#${channelId}`, SK: 'ME
 export function makeHandler(deps: Deps) {
   const { env, ddb, ssm } = deps;
   const broadcasts = makeBroadcasts({ env, ddb, ecs: deps.ecs, now: deps.now });
+  const recordings = makeRecordings({
+    table: env.TABLE_NAME,
+    bucket: env.RECORDINGS_BUCKET,
+    ddb,
+    s3: deps.s3,
+    now: deps.now,
+  });
 
   const cache = new Map<string, Promise<string>>();
   const secret = (name: string) => {
@@ -275,6 +300,27 @@ export function makeHandler(deps: Deps) {
     return { statusCode: 204, headers: noStore, cookies: [clearSession] };
   }
 
+  async function recording(
+    event: APIGatewayProxyEventV2,
+    channelId: string,
+    id: string,
+  ): Promise<APIGatewayProxyStructuredResultV2> {
+    const body = parseBody(event.body);
+    switch (event.routeKey) {
+      case 'POST /api/streamer/broadcasts/{id}/recording':
+        return json(201, { recording: await recordings.create(channelId, id, body) });
+      case 'GET /api/streamer/broadcasts/{id}/recording':
+        return json(200, await recordings.status(channelId, id));
+      case 'POST /api/streamer/broadcasts/{id}/recording/parts':
+        return json(200, await recordings.presign(channelId, id, body.partNumbers));
+      case 'POST /api/streamer/broadcasts/{id}/recording/complete':
+        return json(200, { recording: await recordings.complete(channelId, id) });
+      default:
+        await recordings.remove(channelId, id);
+        return { statusCode: 204, headers: noStore };
+    }
+  }
+
   return async (event: APIGatewayProxyEventV2): Promise<APIGatewayProxyStructuredResultV2> => {
     if (!sameSecret(event.headers['x-origin-verify'], await secret(env.ORIGIN_PARAM))) {
       return error(403, 'forbidden', '허용되지 않은 요청이에요.');
@@ -302,7 +348,12 @@ export function makeHandler(deps: Deps) {
       case 'GET /api/streamer/broadcasts':
       case 'POST /api/streamer/broadcasts':
       case 'GET /api/streamer/broadcasts/{id}':
-      case 'POST /api/streamer/broadcasts/{id}/stop': {
+      case 'POST /api/streamer/broadcasts/{id}/stop':
+      case 'POST /api/streamer/broadcasts/{id}/recording':
+      case 'GET /api/streamer/broadcasts/{id}/recording':
+      case 'POST /api/streamer/broadcasts/{id}/recording/parts':
+      case 'POST /api/streamer/broadcasts/{id}/recording/complete':
+      case 'DELETE /api/streamer/broadcasts/{id}/recording': {
         const s = await session(event);
         if (!s) return error(401, 'no_session', '채널 연결을 다시 해 주세요.');
         try {
@@ -314,6 +365,7 @@ export function makeHandler(deps: Deps) {
           }
           const id = event.pathParameters?.id ?? '';
           if (!BROADCAST_ID.test(id)) return error(404, 'not_found', '방송 기록이 없어요.');
+          if (event.routeKey.includes('/recording')) return recording(event, s.channelId, id);
           if (event.routeKey.startsWith('GET')) {
             return json(200, { broadcast: await broadcasts.detail(s.channelId, id) });
           }
@@ -342,6 +394,7 @@ const ENV_NAMES = [
   'TASK_FAMILY',
   'SUBNETS',
   'SECURITY_GROUP',
+  'RECORDINGS_BUCKET',
 ] as const;
 
 export const handler = (event: APIGatewayProxyEventV2) => {
@@ -353,6 +406,7 @@ export const handler = (event: APIGatewayProxyEventV2) => {
     ddb: DynamoDBDocumentClient.from(new DynamoDBClient({})),
     ssm: new SSMClient({}),
     ecs: new ECSClient({}),
+    s3: new S3Client({}),
     fetch: (input, init) => fetch(input, init),
     now: () => new Date(),
   });

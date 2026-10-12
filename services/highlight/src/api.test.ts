@@ -1,5 +1,6 @@
 import { DynamoDBClient } from '@aws-sdk/client-dynamodb';
 import { ECSClient } from '@aws-sdk/client-ecs';
+import { S3Client } from '@aws-sdk/client-s3';
 import {
   DeleteParameterCommand,
   GetParameterCommand,
@@ -41,10 +42,12 @@ const handler = makeHandler({
     TASK_FAMILY: 'fitcut-dev-collector',
     SUBNETS: 'subnet-a,subnet-b',
     SECURITY_GROUP: 'sg-1',
+    RECORDINGS_BUCKET: 'rec',
   },
   ddb,
   ssm,
   ecs,
+  s3: new S3Client({ region: 'ap-northeast-2' }),
   fetch: fetchMock,
   now: () => NOW,
 });

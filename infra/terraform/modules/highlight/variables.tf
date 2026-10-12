@@ -80,3 +80,9 @@ variable "collector" {
     security_group_id          = string
   })
 }
+
+variable "recording_days" {
+  type        = number
+  default     = 2
+  description = "녹화 파일 보관 일수 (모드 B, 후보 자르기·분석이 끝나면 쓰지 않는다)"
+}

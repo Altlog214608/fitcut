@@ -69,6 +69,13 @@ data "aws_iam_policy_document" "api" {
     }
   }
 
+  # 녹화 파일 멀티파트: 만들기·조각 서명·목록·합치기·크기 확인·지우기 (CompleteMultipartUpload는 PutObject 권한)
+  statement {
+    sid       = "Recordings"
+    actions   = ["s3:PutObject", "s3:AbortMultipartUpload", "s3:ListMultipartUploadParts", "s3:GetObject", "s3:DeleteObject"]
+    resources = ["${aws_s3_bucket.recordings.arn}/rec/*"]
+  }
+
   statement {
     sid       = "ReadSecrets"
     actions   = ["ssm:GetParameter"]
@@ -131,6 +138,7 @@ resource "aws_lambda_function" "api" {
       TASK_FAMILY        = var.collector.task_family
       SUBNETS            = join(",", var.collector.subnet_ids)
       SECURITY_GROUP     = var.collector.security_group_id
+      RECORDINGS_BUCKET  = aws_s3_bucket.recordings.bucket
       NODE_OPTIONS       = "--enable-source-maps"
     }
   }
@@ -156,6 +164,11 @@ resource "aws_apigatewayv2_route" "api" {
     "POST /api/streamer/broadcasts",
     "GET /api/streamer/broadcasts/{id}",
     "POST /api/streamer/broadcasts/{id}/stop",
+    "POST /api/streamer/broadcasts/{id}/recording",
+    "GET /api/streamer/broadcasts/{id}/recording",
+    "DELETE /api/streamer/broadcasts/{id}/recording",
+    "POST /api/streamer/broadcasts/{id}/recording/parts",
+    "POST /api/streamer/broadcasts/{id}/recording/complete",
   ])
   api_id    = var.api_id
   route_key = each.key
@@ -168,4 +181,104 @@ resource "aws_lambda_permission" "api" {
   function_name = aws_lambda_function.api.function_name
   principal     = "apigateway.amazonaws.com"
   source_arn    = "${var.api_execution_arn}/*/*"
+}
+
+# ---------- 모드 B 녹화 파일 (ADR-042) ----------
+# 스트리머가 멀티파트로 올린다 (조각 32MiB, 20GB까지). 2일 뒤 지운다. 파일 이름은 저장하지 않는다
+
+resource "random_id" "recordings" {
+  byte_length = 4
+}
+
+resource "aws_s3_bucket" "recordings" {
+  bucket = "${var.name_prefix}-recordings-${random_id.recordings.hex}"
+  tags   = local.tags
+}
+
+resource "aws_s3_bucket_server_side_encryption_configuration" "recordings" {
+  bucket = aws_s3_bucket.recordings.id
+
+  rule {
+    apply_server_side_encryption_by_default {
+      sse_algorithm = "AES256"
+    }
+  }
+}
+
+resource "aws_s3_bucket_public_access_block" "recordings" {
+  bucket = aws_s3_bucket.recordings.id
+
+  block_public_acls       = true
+  block_public_policy     = true
+  ignore_public_acls      = true
+  restrict_public_buckets = true
+}
+
+resource "aws_s3_bucket_ownership_controls" "recordings" {
+  bucket = aws_s3_bucket.recordings.id
+
+  rule {
+    object_ownership = "BucketOwnerEnforced"
+  }
+}
+
+resource "aws_s3_bucket_lifecycle_configuration" "recordings" {
+  bucket = aws_s3_bucket.recordings.id
+
+  rule {
+    id     = "expire-after-${var.recording_days}-days"
+    status = "Enabled"
+
+    filter {
+      prefix = "rec/"
+    }
+
+    expiration {
+      days = var.recording_days
+    }
+
+    # 다 올리지 못한 조각도 같은 날 정리한다 (조각도 저장 비용이 든다)
+    abort_incomplete_multipart_upload {
+      days_after_initiation = var.recording_days
+    }
+  }
+}
+
+# 화면이 서명 주소로 조각을 바로 올린다
+resource "aws_s3_bucket_cors_configuration" "recordings" {
+  bucket = aws_s3_bucket.recordings.id
+
+  cors_rule {
+    allowed_methods = ["PUT"]
+    allowed_origins = [var.site_origin]
+    allowed_headers = ["*"]
+    expose_headers  = ["ETag"]
+    max_age_seconds = 3600
+  }
+}
+
+data "aws_iam_policy_document" "recordings_tls_only" {
+  statement {
+    sid       = "DenyInsecureTransport"
+    effect    = "Deny"
+    actions   = ["s3:*"]
+    resources = [aws_s3_bucket.recordings.arn, "${aws_s3_bucket.recordings.arn}/*"]
+
+    principals {
+      type        = "*"
+      identifiers = ["*"]
+    }
+
+    condition {
+      test     = "Bool"
+      variable = "aws:SecureTransport"
+      values   = ["false"]
+    }
+  }
+}
+
+resource "aws_s3_bucket_policy" "recordings" {
+  bucket     = aws_s3_bucket.recordings.id
+  policy     = data.aws_iam_policy_document.recordings_tls_only.json
+  depends_on = [aws_s3_bucket_public_access_block.recordings]
 }
