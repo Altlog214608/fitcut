@@ -109,6 +109,8 @@ module "admin" {
   table_arn             = module.api.table_arn
   origin_param_name     = module.api.origin_param_name
   origin_param_arn      = module.api.origin_param_arn
+  retained_bucket       = module.api.retained_bucket
+  retained_bucket_arn   = module.api.retained_bucket_arn
   lambda_zip            = data.archive_file.admin_api.output_path
   lambda_zip_hash       = data.archive_file.admin_api.output_base64sha256
   workload_boundary_arn = local.workload_boundary_arn

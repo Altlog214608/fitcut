@@ -98,8 +98,15 @@ data "aws_iam_policy_document" "api" {
 
   statement {
     sid       = "Table"
-    actions   = ["dynamodb:BatchGetItem", "dynamodb:Query", "dynamodb:PutItem"]
+    actions   = ["dynamodb:BatchGetItem", "dynamodb:Query", "dynamodb:PutItem", "dynamodb:GetItem", "dynamodb:UpdateItem", "dynamodb:DeleteItem"]
     resources = [var.table_arn]
+  }
+
+  # 보관 동의 파일: 5분 열람 주소와 삭제 (F16). 열람·삭제는 모두 감사 로그에 남긴다
+  statement {
+    sid       = "RetainedFiles"
+    actions   = ["s3:GetObject", "s3:DeleteObject"]
+    resources = ["${var.retained_bucket_arn}/jobs/*"]
   }
 
   statement {
@@ -135,9 +142,10 @@ resource "aws_lambda_function" "api" {
 
   environment {
     variables = {
-      TABLE_NAME   = var.table_name
-      ORIGIN_PARAM = var.origin_param_name
-      NODE_OPTIONS = "--enable-source-maps"
+      TABLE_NAME      = var.table_name
+      ORIGIN_PARAM    = var.origin_param_name
+      RETAINED_BUCKET = var.retained_bucket
+      NODE_OPTIONS    = "--enable-source-maps"
     }
   }
 
@@ -167,7 +175,13 @@ resource "aws_apigatewayv2_integration" "admin" {
 }
 
 resource "aws_apigatewayv2_route" "admin" {
-  for_each           = toset(["GET /api/admin/stats", "GET /api/admin/audit"])
+  for_each = toset([
+    "GET /api/admin/stats",
+    "GET /api/admin/audit",
+    "GET /api/admin/retained",
+    "GET /api/admin/retained/{id}",
+    "DELETE /api/admin/retained/{id}",
+  ])
   api_id             = var.api_id
   route_key          = each.key
   target             = "integrations/${aws_apigatewayv2_integration.admin.id}"
