@@ -120,6 +120,13 @@ data "aws_iam_policy_document" "worker" {
     actions   = ["s3:PutObject"]
     resources = ["${var.retained_bucket_arn}/jobs/*"]
   }
+
+  # 하이라이트 모드 B 클립: 녹화 파일을 서명 주소로 필요한 범위만 읽는다 (ADR-043)
+  statement {
+    sid       = "ReadRecordings"
+    actions   = ["s3:GetObject"]
+    resources = ["${var.recordings_bucket_arn}/rec/*"]
+  }
 }
 
 resource "aws_iam_role_policy" "worker" {
@@ -151,11 +158,12 @@ resource "aws_lambda_function" "worker" {
 
   environment {
     variables = {
-      TABLE_NAME       = var.table_name
-      UPLOADS_BUCKET   = var.uploads_bucket
-      OUTPUTS_BUCKET   = var.outputs_bucket
-      RETAINED_BUCKET  = var.retained_bucket
-      EVENTS_QUEUE_URL = var.events_queue_url
+      TABLE_NAME        = var.table_name
+      UPLOADS_BUCKET    = var.uploads_bucket
+      OUTPUTS_BUCKET    = var.outputs_bucket
+      RETAINED_BUCKET   = var.retained_bucket
+      RECORDINGS_BUCKET = var.recordings_bucket
+      EVENTS_QUEUE_URL  = var.events_queue_url
     }
   }
 
@@ -202,11 +210,12 @@ resource "aws_lambda_function" "bench" {
 
   environment {
     variables = {
-      TABLE_NAME       = var.table_name
-      UPLOADS_BUCKET   = var.uploads_bucket
-      OUTPUTS_BUCKET   = var.outputs_bucket
-      RETAINED_BUCKET  = var.retained_bucket
-      EVENTS_QUEUE_URL = var.events_queue_url
+      TABLE_NAME        = var.table_name
+      UPLOADS_BUCKET    = var.uploads_bucket
+      OUTPUTS_BUCKET    = var.outputs_bucket
+      RETAINED_BUCKET   = var.retained_bucket
+      RECORDINGS_BUCKET = var.recordings_bucket
+      EVENTS_QUEUE_URL  = var.events_queue_url
     }
   }
 

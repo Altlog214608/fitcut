@@ -366,3 +366,16 @@ describe.skipIf(!enabled)('실제 ffmpeg로 세로로 돌리기 (F21)', () => {
     expect(d).toBeLessThan(8);
   });
 });
+
+describe.skipIf(!enabled)('실제 ffmpeg로 녹화 파일 클립 (하이라이트 모드 B)', () => {
+  it('구간만 잘라 720p 이하 MP4, 길이 그대로, 소리 있음', () => {
+    const out = join(dir, 'clip.mp4');
+    execFileSync(FFMPEG, ffmpegArgs('clip', { start: 2, end: 6.5, fps: 30, width: 0 }, input, out));
+    const p = probe(out);
+    expect(p?.format).toContain('mp4');
+    expect(p?.video?.height).toBe(720);
+    expect(p?.video?.codec).toBe('h264');
+    expect(p?.audio?.codec).toBe('aac');
+    expect(Math.abs((p?.duration ?? 0) - 4.5)).toBeLessThan(0.1);
+  });
+});

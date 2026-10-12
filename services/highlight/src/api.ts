@@ -14,9 +14,11 @@
  * POST   /api/streamer/broadcasts/{id}/stop  : 수집 종료 요청
  * POST·GET·DELETE /api/streamer/broadcasts/{id}/recording, …/recording/parts, …/recording/complete
  *        : 모드 B 녹화 파일 멀티파트 올리기 (recording.ts)
+ * POST   /api/streamer/broadcasts/{id}/clips  : 녹화 파일에서 구간 클립 잡 만들기 (clips.ts)
  */
 import { ECSClient } from '@aws-sdk/client-ecs';
 import { S3Client } from '@aws-sdk/client-s3';
+import { SQSClient } from '@aws-sdk/client-sqs';
 import { DynamoDBClient } from '@aws-sdk/client-dynamodb';
 import {
   DeleteParameterCommand,
@@ -34,6 +36,7 @@ import {
 import type { APIGatewayProxyEventV2, APIGatewayProxyStructuredResultV2 } from 'aws-lambda';
 import { createHash, randomBytes, timingSafeEqual } from 'node:crypto';
 import { BROADCAST_ID, BroadcastError, makeBroadcasts, type CollectorEnv } from './broadcasts';
+import { makeClips } from './clips';
 import { makeRecordings } from './recording';
 import {
   authorizeUrl,
@@ -47,6 +50,8 @@ import {
 export type Env = CollectorEnv & {
   /** 모드 B 녹화 파일 버킷 (ADR-042) */
   RECORDINGS_BUCKET: string;
+  /** 워커 큐: 클립 잡 (ADR-043) */
+  WORKER_QUEUE_URL: string;
   TABLE_NAME: string;
   ORIGIN_PARAM: string;
   CHZZK_CLIENT_ID: string;
@@ -62,6 +67,7 @@ export type Deps = {
   ssm: SSMClient;
   ecs: ECSClient;
   s3: S3Client;
+  sqs: SQSClient;
   fetch: Fetch;
   now: () => Date;
 };
@@ -135,6 +141,13 @@ const connKey = (channelId: string) => ({ PK: `CONN#chzzk#${channelId}`, SK: 'ME
 export function makeHandler(deps: Deps) {
   const { env, ddb, ssm } = deps;
   const broadcasts = makeBroadcasts({ env, ddb, ecs: deps.ecs, now: deps.now });
+  const clips = makeClips({
+    table: env.TABLE_NAME,
+    queueUrl: env.WORKER_QUEUE_URL,
+    ddb,
+    sqs: deps.sqs,
+    now: deps.now,
+  });
   const recordings = makeRecordings({
     table: env.TABLE_NAME,
     bucket: env.RECORDINGS_BUCKET,
@@ -353,7 +366,8 @@ export function makeHandler(deps: Deps) {
       case 'GET /api/streamer/broadcasts/{id}/recording':
       case 'POST /api/streamer/broadcasts/{id}/recording/parts':
       case 'POST /api/streamer/broadcasts/{id}/recording/complete':
-      case 'DELETE /api/streamer/broadcasts/{id}/recording': {
+      case 'DELETE /api/streamer/broadcasts/{id}/recording':
+      case 'POST /api/streamer/broadcasts/{id}/clips': {
         const s = await session(event);
         if (!s) return error(401, 'no_session', '채널 연결을 다시 해 주세요.');
         try {
@@ -366,6 +380,9 @@ export function makeHandler(deps: Deps) {
           const id = event.pathParameters?.id ?? '';
           if (!BROADCAST_ID.test(id)) return error(404, 'not_found', '방송 기록이 없어요.');
           if (event.routeKey.includes('/recording')) return recording(event, s.channelId, id);
+          if (event.routeKey.endsWith('/clips')) {
+            return json(201, await clips.create(s.channelId, id, parseBody(event.body)));
+          }
           if (event.routeKey.startsWith('GET')) {
             return json(200, { broadcast: await broadcasts.detail(s.channelId, id) });
           }
@@ -395,6 +412,7 @@ const ENV_NAMES = [
   'SUBNETS',
   'SECURITY_GROUP',
   'RECORDINGS_BUCKET',
+  'WORKER_QUEUE_URL',
 ] as const;
 
 export const handler = (event: APIGatewayProxyEventV2) => {
@@ -407,6 +425,7 @@ export const handler = (event: APIGatewayProxyEventV2) => {
     ssm: new SSMClient({}),
     ecs: new ECSClient({}),
     s3: new S3Client({}),
+    sqs: new SQSClient({}),
     fetch: (input, init) => fetch(input, init),
     now: () => new Date(),
   });

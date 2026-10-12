@@ -10,6 +10,7 @@
  */
 import { DynamoDBClient } from '@aws-sdk/client-dynamodb';
 import { GetObjectCommand, PutObjectCommand, S3Client } from '@aws-sdk/client-s3';
+import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
 import { DynamoDBDocumentClient, PutCommand, UpdateCommand } from '@aws-sdk/lib-dynamodb';
 import { SendMessageCommand, SQSClient } from '@aws-sdk/client-sqs';
 import type { SQSBatchResponse, SQSEvent } from 'aws-lambda';
@@ -37,6 +38,8 @@ export type Env = {
   OUTPUTS_BUCKET: string;
   /** 보관 동의한 잡의 원본·결과 (30일 수명 주기) */
   RETAINED_BUCKET: string;
+  /** 하이라이트 녹화 파일 (모드 B 클립 입력, ADR-043) */
+  RECORDINGS_BUCKET: string;
   FFMPEG_PATH: string;
   FFPROBE_PATH: string;
   /** 사용 이벤트 큐 (없으면 이벤트를 보내지 않는다) */
@@ -51,6 +54,8 @@ type Job = {
   kind: OutputKind;
   params: Params;
   inputKey: string;
+  /** 'recordings'면 녹화 파일 버킷에서 서명 주소로 범위만 읽는다 (clip) */
+  inputBucket?: 'recordings';
   createdAt: string;
   retain?: boolean;
   retainUntil?: string;
@@ -69,6 +74,8 @@ export type Deps = {
   sqs: SQSClient;
   /** 실행 (테스트에서 바꿔 끼운다) */
   exec: typeof run;
+  /** 녹화 파일 서명 주소 (테스트에서 바꿔 끼운다) */
+  presign: (bucket: string, key: string) => Promise<string>;
 };
 
 /** 서울 arm64 Lambda 단가(GB초, AWS Pricing API 2026-10-10). 잡 비용 추정용 (ADR-002) */
@@ -226,12 +233,21 @@ export function makeHandler(deps: Deps) {
     const input = join(dir, 'in');
     const output = join(dir, `out.${EXTENSION[job.kind]}`);
     try {
-      const obj = await s3.send(
-        new GetObjectCommand({ Bucket: env.UPLOADS_BUCKET, Key: job.inputKey }),
-      );
-      await pipeline(obj.Body as Readable, createWriteStream(input));
+      // 녹화 파일(수 GB)은 받지 않고 서명 주소를 ffmpeg에 준다. -ss를 앞에 둬서 필요한 범위만 읽는다
+      const source =
+        job.inputBucket === 'recordings'
+          ? await deps.presign(env.RECORDINGS_BUCKET, job.inputKey)
+          : input;
+      if (source === input) {
+        const obj = await s3.send(
+          new GetObjectCommand({ Bucket: env.UPLOADS_BUCKET, Key: job.inputKey }),
+        );
+        await pipeline(obj.Body as Readable, createWriteStream(input));
+      }
 
-      const probe = await deps.exec(env.FFPROBE_PATH, ffprobeArgs(input), 60_000).catch(() => null);
+      const probe = await deps
+        .exec(env.FFPROBE_PATH, ffprobeArgs(source), 60_000)
+        .catch(() => null);
       const parsed = probe ? parseProbe(probe.stdout) : null;
       const problem = checkInput(parsed, job.params, job.kind);
       if (problem) throw new InputError(problem);
@@ -243,7 +259,7 @@ export function makeHandler(deps: Deps) {
       // Lambda가 끝나기 20초 전에는 멈춰서 실패를 기록할 시간을 남긴다
       const made = await deps.exec(
         env.FFMPEG_PATH,
-        ffmpegArgs(job.kind, job.params, input, output, src),
+        ffmpegArgs(job.kind, job.params, source, output, src),
         Math.max(10_000, remainingMs() - 20_000),
       );
       const { size } = await stat(output);
@@ -313,6 +329,7 @@ function env(): Env {
     'UPLOADS_BUCKET',
     'OUTPUTS_BUCKET',
     'RETAINED_BUCKET',
+    'RECORDINGS_BUCKET',
     'FFMPEG_PATH',
     'FFPROBE_PATH',
   ] as const;
@@ -332,14 +349,18 @@ function env(): Env {
 
 let real: ReturnType<typeof makeHandler> | null = null;
 export const handler = (event: SQSEvent, context: { getRemainingTimeInMillis: () => number }) => {
+  const s3 = new S3Client({});
   real ??= makeHandler({
     env: env(),
     ddb: DynamoDBDocumentClient.from(new DynamoDBClient({}), {
       marshallOptions: { removeUndefinedValues: true },
     }),
-    s3: new S3Client({}),
+    s3,
     sqs: new SQSClient({}),
     exec: run,
+    // 클립 하나 만드는 동안만 쓰면 된다 (Lambda 최대 15분)
+    presign: (Bucket, Key) =>
+      getSignedUrl(s3, new GetObjectCommand({ Bucket, Key }), { expiresIn: 900 }),
   });
   return real(event, () => context.getRemainingTimeInMillis());
 };

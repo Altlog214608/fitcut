@@ -302,4 +302,39 @@ test('녹화 파일: 고르면 바로 후보 장면을 재생하고, 조각으�
   await expect(page.getByRole('status')).toContainText('녹화 파일을 올렸어요');
   expect(put.sort()).toEqual(['PUT 1', 'PUT 2']);
   await expect(page.getByRole('button', { name: '올린 파일 지우기' })).toBeVisible();
+
+  // 올린 뒤: 후보 장면 클립 → 움짤 도구로
+  const JOB = '0b8f4c56-1d7e-4c3b-9a55-2f0d6c1e9a10';
+  let clipBody: unknown = null;
+  await page.route(`**/api/streamer/broadcasts/${b.id}/clips`, (route) => {
+    clipBody = route.request().postDataJSON();
+    return route.fulfill({ status: 201, json: { jobId: JOB, start: 6, end: 8 } });
+  });
+  await page.route(`**/api/jobs/${JOB}`, (route) =>
+    route.fulfill({
+      json: {
+        job: {
+          id: JOB,
+          status: 'done',
+          kind: 'clip',
+          params: { start: 6, end: 8, fps: 30, width: 0 },
+          downloadUrl: 'https://s3.example/out/clip.mp4',
+        },
+      },
+    }),
+  );
+  await page.route('https://s3.example/out/clip.mp4', (route) =>
+    route.fulfill({
+      path: CLIP,
+      headers: { 'content-type': 'video/mp4', 'access-control-allow-origin': '*' },
+    }),
+  );
+  const clips = page.getByRole('list', { name: '후보 장면 클립' });
+  await expect(clips).toContainText('1. 00:06 – 00:08');
+  await clips.getByRole('button', { name: '클립 만들기' }).click();
+  // offset(+5초)이 더해진 녹화 파일 시각으로 자른다
+  await expect.poll(() => clipBody).toEqual({ start: 6, end: 8 });
+  await clips.getByRole('button', { name: '움짤로 만들기' }).click();
+  await expect(page).toHaveURL(/\/gif$/);
+  await expect(page.locator('video').first()).toBeVisible();
 });

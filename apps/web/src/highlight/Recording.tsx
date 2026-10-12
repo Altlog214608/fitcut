@@ -3,6 +3,7 @@
  * - 고르는 즉시 이 기기에서 후보 구간을 재생해 본다 (올리지 않아도 된다)
  * - 영상을 보며 시각을 맞춘다 (offset ±1초·±5초)
  * - 후보 구간을 클립·움짤로 만들려면 서버에 올린다. 멀티파트, 끊기면 이어 올리기, 2일 뒤 삭제
+ * - 올린 뒤에는 후보마다 클립 만들기 → 받기·움짤 도구로 (Clips.tsx)
  */
 import { useEffect, useRef, useState } from 'react';
 import {
@@ -12,6 +13,7 @@ import {
   uploadRecording,
   type RecordingView,
 } from './recordingUpload';
+import { Clips } from './Clips';
 import { StreamerError } from './streamer';
 import { clock, type Candidate } from './timeline';
 import styles from './Recording.module.css';
@@ -175,6 +177,7 @@ export function Recording({ id, candidates, offset, onOffset }: Props) {
             <p className={styles.meta}>
               올린 녹화 파일 {gb(server.size)} · 2일 뒤 자동으로 지워져요
             </p>
+            <Clips id={id} candidates={candidates} offset={offset} />
             <button type="button" className={styles.ghost} onClick={() => void remove()}>
               올린 파일 지우기
             </button>

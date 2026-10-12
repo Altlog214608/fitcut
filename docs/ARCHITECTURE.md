@@ -100,7 +100,7 @@
 | PK | SK | 주요 속성 |
 | --- | --- | --- |
 | `UPLOAD#<id>` | `META` | inputKey(`in/<id>`), contentType, fileSize, createdAt, ttl(1일, 원본 수명 주기와 같게) |
-| `JOB#<id>` | `META` | type(gif·webp·mp4·audio·rotate·subtitle·audiogram·clip), status(queued·processing·done·failed), params, uploadId, inputKey, fileSize, outputKey, outputBytes, ffmpegMs, retain, retainUntil, deleteTokenHash, error, createdAt, ttl |
+| `JOB#<id>` | `META` | type(gif·webp·mp4·audio·rotate·subtitle·audiogram·clip), status(queued·processing·done·failed), params, uploadId, inputKey, inputBucket(clip은 recordings, ADR-043), fileSize, outputKey, outputBytes, ffmpegMs, retain, retainUntil, deleteTokenHash, error, createdAt, ttl |
 | `LINK#<id>` | `META` | platform, videoId, start, end, createdAt |
 | `CONN#<플랫폼>#<채널ID>` | `META` | platform, channelId, channelName, scope, connectedAt (토큰은 SSM SecureString `/fitcut/dev/streamer/<플랫폼>/<채널ID>`, ADR-039) |
 | `SESS#<세션 해시>` | `META` | platform, channelId, ttl(7일) — 스트리머 세션. 쿠키 값 자체는 저장하지 않는다 |
