@@ -26,6 +26,7 @@ export function Layout() {
       </main>
       <footer className={styles.footer}>
         <Link to="/my-jobs">내 작업 기록</Link>
+        <Link to="/privacy">개인정보 처리방침</Link>
       </footer>
     </div>
   );
