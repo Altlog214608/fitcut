@@ -14,6 +14,7 @@ import {
   type Tokens,
 } from './cognito';
 import styles from './AdminTool.module.css';
+import { RetainedFiles } from './RetainedFiles';
 import { summarize, usd, type DayStats } from './summary';
 
 type Audit = { at: string; admin: string; action: string; target: string };
@@ -298,6 +299,10 @@ function Dashboard({ tokens, onExpired }: { tokens: Tokens; onExpired: () => voi
           </Section>
         </>
       )}
+
+      <Section title="보관 파일 (동의한 영상·음성, 30일)">
+        <RetainedFiles tokens={tokens} onExpired={onExpired} />
+      </Section>
 
       <Section title="감사 로그 (이번 달)">
         {audit ? (

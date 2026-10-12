@@ -97,3 +97,55 @@ test('비밀번호가 틀리면 이유를 보여준다', async ({ page }) => {
   await page.getByRole('button', { name: '로그인' }).click();
   await expect(page.getByRole('alert')).toHaveText('이메일이나 비밀번호가 맞지 않아요.');
 });
+
+test('보관 파일: 목록을 보고, 파일을 5분 주소로 열고, 지운다 (F16)', async ({ page, context }) => {
+  const JOB = '0b8f4c56-1d7e-4c3b-9a55-2f0d6c1e9a10';
+  // 로그인은 위 테스트에서 확인했다. 이 탭에 토큰을 넣고 시작한다
+  await page.addInitScript(() => {
+    sessionStorage.setItem(
+      'fitcut.admin.tokens',
+      JSON.stringify({ idToken: 'ID', accessToken: 'AC', refreshToken: 'RF', expiresAt: 4e12 }),
+    );
+  });
+  await page.route('**/api/admin/stats?days=7', (route) => route.fulfill({ json: { days: [] } }));
+  const calls: string[] = [];
+  await page.route('**/api/admin/retained**', (route) => {
+    const req = route.request();
+    calls.push(`${req.method()} ${new URL(req.url()).pathname}${new URL(req.url()).search}`);
+    if (req.method() === 'DELETE') return route.fulfill({ status: 204 });
+    if (req.url().includes(JOB))
+      return route.fulfill({ json: { url: '/fake-file', expiresIn: 300 } });
+    return route.fulfill({
+      json: {
+        files: [
+          {
+            id: JOB,
+            kind: 'gif',
+            createdAt: '2026-10-12T03:00:00.000Z',
+            retainUntil: '2026-11-11T03:00:00.000Z',
+            inputBytes: 5_000_000,
+            outputBytes: 1_500_000,
+          },
+        ],
+      },
+    });
+  });
+  await context.route('**/fake-file', (route) => route.fulfill({ body: 'x' }));
+
+  await page.goto('/admin');
+  await page.getByRole('button', { name: '보관 파일 보기' }).click();
+  await expect(page.getByRole('cell', { name: '5.0MB / 1.5MB' })).toBeVisible();
+
+  const popup = page.waitForEvent('popup');
+  await page.getByRole('button', { name: '결과' }).click();
+  await expect(await popup).toHaveURL(/\/fake-file$/);
+
+  page.once('dialog', (d) => void d.accept());
+  await page.getByRole('button', { name: '지우기' }).click();
+  await expect(page.getByText('보관 중인 파일이 없어요.')).toBeVisible();
+  expect(calls).toEqual([
+    'GET /api/admin/retained',
+    `GET /api/admin/retained/${JOB}?file=output`,
+    `DELETE /api/admin/retained/${JOB}`,
+  ]);
+});

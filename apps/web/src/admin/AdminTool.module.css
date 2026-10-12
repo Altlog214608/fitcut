@@ -204,3 +204,10 @@
   border-radius: 5px;
   background: var(--color-accent);
 }
+
+/* 보관 파일 표의 버튼 묶음 */
+.rowActions {
+  display: flex;
+  gap: 6px;
+  justify-content: flex-end;
+}

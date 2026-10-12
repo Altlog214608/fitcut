@@ -5,14 +5,22 @@
  * - 관리자가 무엇을 봤는지 모두 감사 로그(AUDIT#yyyymm)에 남긴다
  * GET /api/admin/stats?days=7|30 : 일별 집계(STATS#날짜), 어제부터 거꾸로
  * GET /api/admin/audit?month=YYYYMM : 감사 로그 최근 100개
+ * GET /api/admin/retained : 보관 동의 파일 목록 (F16, 최신 100개)
+ * GET /api/admin/retained/{id}?file=input|output : 5분짜리 열람 주소
+ * DELETE /api/admin/retained/{id} : 보관 파일 지우기
  */
 import { DynamoDBClient } from '@aws-sdk/client-dynamodb';
+import { DeleteObjectsCommand, GetObjectCommand, S3Client } from '@aws-sdk/client-s3';
+import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
 import { GetParameterCommand, SSMClient } from '@aws-sdk/client-ssm';
 import {
   BatchGetCommand,
+  DeleteCommand,
   DynamoDBDocumentClient,
+  GetCommand,
   PutCommand,
   QueryCommand,
+  UpdateCommand,
 } from '@aws-sdk/lib-dynamodb';
 import type {
   APIGatewayProxyEventV2WithJWTAuthorizer,
@@ -22,11 +30,12 @@ import { timingSafeEqual } from 'node:crypto';
 import { statsKey } from './aggregate';
 import { seoulYesterday } from './stats';
 
-export type Env = { TABLE_NAME: string; ORIGIN_PARAM: string };
+export type Env = { TABLE_NAME: string; ORIGIN_PARAM: string; RETAINED_BUCKET: string };
 export type Deps = {
   env: Env;
   ddb: DynamoDBDocumentClient;
   ssm: SSMClient;
+  s3: S3Client;
   now: () => Date;
 };
 
@@ -57,6 +66,17 @@ export function lastDays(now: Date, n: number): string[] {
     return d.toISOString().slice(0, 10);
   });
 }
+
+const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/;
+/** 관리자 열람 주소는 5분만 쓸 수 있다 (docs/ADMIN.md) */
+const VIEW_SECONDS = 300;
+
+type RetainedJob = {
+  createdAt: string;
+  kind: string;
+  retainedInputKey?: string;
+  retainedOutputKey?: string;
+};
 
 const sameSecret = (a: string | undefined, b: string) => {
   if (!a) return false;
@@ -139,6 +159,73 @@ export function makeHandler(deps: Deps) {
     return json(200, { entries });
   }
 
+  async function retainedList() {
+    const r = await ddb.send(
+      new QueryCommand({
+        TableName: env.TABLE_NAME,
+        KeyConditionExpression: 'PK = :pk',
+        ExpressionAttributeValues: { ':pk': 'RETAINED' },
+        ScanIndexForward: false,
+        Limit: 100,
+      }),
+    );
+    const files = (r.Items ?? []).map((x) => ({
+      id: x.jobId,
+      kind: x.kind,
+      createdAt: String(x.SK).split('#')[0],
+      retainUntil: x.retainUntil,
+      inputBytes: x.inputBytes,
+      outputBytes: x.outputBytes,
+    }));
+    return json(200, { files });
+  }
+
+  async function retainedJob(id: string) {
+    const r = await ddb.send(
+      new GetCommand({ TableName: env.TABLE_NAME, Key: { PK: `JOB#${id}`, SK: 'META' } }),
+    );
+    const job = r.Item as RetainedJob | undefined;
+    return job?.retainedOutputKey ? job : null;
+  }
+
+  async function viewUrl(job: RetainedJob, file: 'input' | 'output') {
+    const key = file === 'input' ? job.retainedInputKey : job.retainedOutputKey;
+    if (!key) return error(404, 'not_found', '보관 파일이 없어요.');
+    const url = await getSignedUrl(
+      deps.s3,
+      new GetObjectCommand({ Bucket: env.RETAINED_BUCKET, Key: key }),
+      { expiresIn: VIEW_SECONDS },
+    );
+    return json(200, { url, expiresIn: VIEW_SECONDS });
+  }
+
+  async function removeRetained(id: string, job: RetainedJob) {
+    const keys = [job.retainedInputKey, job.retainedOutputKey].filter((k): k is string => !!k);
+    await deps.s3.send(
+      new DeleteObjectsCommand({
+        Bucket: env.RETAINED_BUCKET,
+        Delete: { Objects: keys.map((Key) => ({ Key })) },
+      }),
+    );
+    await ddb.send(
+      new UpdateCommand({
+        TableName: env.TABLE_NAME,
+        Key: { PK: `JOB#${id}`, SK: 'META' },
+        UpdateExpression:
+          'SET #s = :deleted REMOVE outputKey, retainedInputKey, retainedOutputKey, deleteTokenHash',
+        ExpressionAttributeNames: { '#s': 'status' },
+        ExpressionAttributeValues: { ':deleted': 'deleted' },
+      }),
+    );
+    await ddb.send(
+      new DeleteCommand({
+        TableName: env.TABLE_NAME,
+        Key: { PK: 'RETAINED', SK: `${job.createdAt}#${id}` },
+      }),
+    );
+    return { statusCode: 204, headers: { 'cache-control': 'no-store' } };
+  }
+
   return async (
     event: APIGatewayProxyEventV2WithJWTAuthorizer,
   ): Promise<APIGatewayProxyStructuredResultV2> => {
@@ -165,6 +252,25 @@ export function makeHandler(deps: Deps) {
         await audit(who, 'view_audit', month);
         return auditLog(month);
       }
+      case 'GET /api/admin/retained':
+        await audit(who, 'list_retained', '-');
+        return retainedList();
+      case 'GET /api/admin/retained/{id}':
+      case 'DELETE /api/admin/retained/{id}': {
+        const id = event.pathParameters?.id ?? '';
+        if (!UUID.test(id)) return error(404, 'not_found', '보관 파일이 없어요.');
+        const job = await retainedJob(id);
+        if (!job) return error(404, 'not_found', '보관 파일이 없어요.');
+        if (event.routeKey.startsWith('DELETE')) {
+          // 지우기 전에 남긴다: 지우다 실패해도 시도한 기록은 있어야 한다
+          await audit(who, 'delete_retained', id);
+          return removeRetained(id, job);
+        }
+        const file = q.file === 'input' ? 'input' : 'output';
+        // 파일을 열 때마다 감사 로그에 남긴다 (F16 수용 기준)
+        await audit(who, 'view_file', `${id}/${file}`);
+        return viewUrl(job, file);
+      }
       default:
         return error(404, 'not_found', '없는 주소예요.');
     }
@@ -175,11 +281,15 @@ let real: ReturnType<typeof makeHandler> | null = null;
 export const handler = (event: APIGatewayProxyEventV2WithJWTAuthorizer) => {
   const TABLE_NAME = process.env.TABLE_NAME;
   const ORIGIN_PARAM = process.env.ORIGIN_PARAM;
-  if (!TABLE_NAME || !ORIGIN_PARAM) throw new Error('env TABLE_NAME, ORIGIN_PARAM are required');
+  const RETAINED_BUCKET = process.env.RETAINED_BUCKET;
+  if (!TABLE_NAME || !ORIGIN_PARAM || !RETAINED_BUCKET) {
+    throw new Error('env TABLE_NAME, ORIGIN_PARAM, RETAINED_BUCKET are required');
+  }
   real ??= makeHandler({
-    env: { TABLE_NAME, ORIGIN_PARAM },
+    env: { TABLE_NAME, ORIGIN_PARAM, RETAINED_BUCKET },
     ddb: DynamoDBDocumentClient.from(new DynamoDBClient({})),
     ssm: new SSMClient({}),
+    s3: new S3Client({}),
     now: () => new Date(),
   });
   return real(event);

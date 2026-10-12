@@ -47,3 +47,12 @@ variable "log_retention_days" {
   type    = number
   default = 14
 }
+
+variable "retained_bucket" {
+  type        = string
+  description = "보관 동의 파일 버킷 (F16)"
+}
+
+variable "retained_bucket_arn" {
+  type = string
+}
