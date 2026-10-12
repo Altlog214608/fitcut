@@ -205,7 +205,8 @@ test('지난 수집의 하이라이트: 그래프, 후보 시각, offset 반영,
   }
 });
 
-test('분석 전이면 기다려 달라고 안내한다', async ({ page }) => {
+test('분석 전이면 기다려 달라고 안내하고, 끝나면 저절로 결과를 보여준다', async ({ page }) => {
+  await page.clock.install();
   await page.route('**/api/streamer/me', (route) => route.fulfill({ json: { connection } }));
   const b = {
     id: '20261012090000-cccccc',
@@ -219,12 +220,33 @@ test('분석 전이면 기다려 달라고 안내한다', async ({ page }) => {
   await page.route('**/api/streamer/broadcasts', (route) =>
     route.fulfill({ json: { broadcasts: [b] } }),
   );
-  await page.route('**/api/streamer/broadcasts/20261012090000-cccccc', (route) =>
-    route.fulfill({ json: { broadcast: { ...b, candidates: [], chatPer10s: [] } } }),
-  );
+  let calls = 0;
+  await page.route('**/api/streamer/broadcasts/20261012090000-cccccc', (route) => {
+    calls += 1;
+    const analyzed =
+      calls > 1
+        ? {
+            analysisStatus: 'done',
+            chatPer10s: [1, 9],
+            candidates: [
+              {
+                rank: 1,
+                start: 3,
+                end: 28,
+                peak: 18,
+                score: 3,
+                counts: { chat: 9, reaction: 6, donation: 0, subscription: 0 },
+              },
+            ],
+          }
+        : { candidates: [], chatPer10s: [] };
+    return route.fulfill({ json: { broadcast: { ...b, ...analyzed } } });
+  });
   await page.goto('/highlight');
   await page.getByRole('button', { name: '하이라이트 보기' }).click();
   await expect(page.getByText('분석하고 있어요')).toBeVisible();
+  await page.clock.fastForward(16_000);
+  await expect(page.getByRole('list', { name: '하이라이트 후보' })).toContainText('00:03 – 00:28');
 });
 
 test('녹화 파일: 고르면 바로 후보 장면을 재생하고, 조각으로 나눠 올린다', async ({ page }) => {

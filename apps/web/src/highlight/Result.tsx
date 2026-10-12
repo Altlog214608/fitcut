@@ -11,6 +11,7 @@ import { clock, markerFile, parseClock, timelineText, type MarkerFormat } from '
 import styles from './Result.module.css';
 
 const count = (n: number) => n.toLocaleString('ko-KR');
+const POLL_MS = 15_000;
 
 const MARKERS: { format: MarkerFormat; label: string }[] = [
   { format: 'csv', label: '표 (CSV)' },
@@ -60,22 +61,34 @@ export function Result({ id }: { id: string }) {
 
   useEffect(() => {
     let alive = true;
-    getBroadcast(id)
-      .then((d) => {
-        if (alive) setDetail(d);
-      })
-      .catch((e: unknown) => {
-        if (alive) setError(e instanceof StreamerError ? e.message : '잠시 후 다시 시도해 주세요.');
-      });
+    let timer: number | undefined;
+    // 분석이 끝나기 전이면 15초마다 다시 본다 (수집이 끝나고 3~4분 뒤 결과가 생긴다)
+    const load = () =>
+      getBroadcast(id)
+        .then((d) => {
+          if (!alive) return;
+          setDetail(d);
+          if (d.analysisStatus !== 'done') timer = window.setTimeout(load, POLL_MS);
+        })
+        .catch((e: unknown) => {
+          if (alive)
+            setError(e instanceof StreamerError ? e.message : '잠시 후 다시 시도해 주세요.');
+        });
+    void load();
     return () => {
       alive = false;
+      window.clearTimeout(timer);
     };
   }, [id]);
 
   if (error) return <p className={styles.meta}>{error}</p>;
   if (!detail) return <p className={styles.meta}>결과를 불러오고 있어요…</p>;
   if (detail.analysisStatus !== 'done') {
-    return <p className={styles.meta}>분석하고 있어요. 수집이 끝나고 3~4분 뒤에 결과가 나와요.</p>;
+    return (
+      <p className={styles.meta}>
+        분석하고 있어요. 수집이 끝나고 3~4분 뒤에 결과가 나오고, 이 화면에 저절로 떠요.
+      </p>
+    );
   }
 
   const offset = parseClock(offsetText);
