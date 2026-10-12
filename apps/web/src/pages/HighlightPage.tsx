@@ -1,8 +1,8 @@
 /**
- * 하이라이트 (M5): 치지직 채널 연결 → 방송 중 채팅 수집.
- * 분석·결과 화면은 다음 작업에서 붙는다 (docs/ROADMAP.md M5).
+ * 하이라이트 (M5): 치지직 채널 연결 → 방송 중 채팅 수집 → 하이라이트 후보.
+ * 연결하지 않은 방문자도 예시 방송 리플레이로 감지 과정을 볼 수 있다 (ADR-045).
  */
-import { useEffect, useState } from 'react';
+import { lazy, Suspense, useEffect, useState } from 'react';
 import { Link, useSearchParams } from 'react-router';
 import { Collection } from '../highlight/Collection';
 import {
@@ -16,6 +16,8 @@ import {
 } from '../highlight/streamer';
 import styles from './HighlightPage.module.css';
 
+const Replay = lazy(() => import('../highlight/Replay').then((m) => ({ default: m.Replay })));
+
 type State = { status: 'loading' } | { status: 'ready'; connection: Connection | null };
 
 const dateText = (iso: string) =>
@@ -26,6 +28,7 @@ export function HighlightPage() {
   const [state, setState] = useState<State>({ status: 'loading' });
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState<string | null>(() => callbackMessage(params.get('error')));
+  const [demo, setDemo] = useState(false);
 
   useEffect(() => {
     // 콜백이 붙인 ?connected·?error는 한 번 보여주고 주소에서 뺀다
@@ -122,9 +125,24 @@ export function HighlightPage() {
 
       {connection && <Collection />}
 
+      <section className={styles.card} aria-label="예시 방송으로 체험하기">
+        <b>예시 방송으로 체험하기</b>
+        <p className={styles.hint}>
+          로그인 없이, 채팅 흐름을 시간 순서대로 재생하며 하이라이트를 찾는 모습을 볼 수 있어요.
+        </p>
+        {demo ? (
+          <Suspense fallback={<p className={styles.hint}>불러오고 있어요…</p>}>
+            <Replay />
+          </Suspense>
+        ) : (
+          <button type="button" className={styles.ghost} onClick={() => setDemo(true)}>
+            예시 방송 열기
+          </button>
+        )}
+      </section>
+
       <p className={styles.hint}>
-        하이라이트 분석은 만들고 있어요. 채팅 원본은 90일 동안 보관해요.{' '}
-        <Link to="/privacy">개인정보 처리방침</Link>
+        채팅 원본은 90일 동안 보관해요. <Link to="/privacy">개인정보 처리방침</Link>
       </p>
     </div>
   );

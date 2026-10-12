@@ -477,6 +477,9 @@ importers:
       '@fitcut/chzzk':
         specifier: workspace:*
         version: link:../../packages/chzzk
+      '@fitcut/shared':
+        specifier: workspace:*
+        version: link:../../packages/shared
     devDependencies:
       '@types/aws-lambda':
         specifier: ^8.10.164

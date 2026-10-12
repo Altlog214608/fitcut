@@ -10,7 +10,7 @@ import { DynamoDBDocumentClient, GetCommand, UpdateCommand } from '@aws-sdk/lib-
 import type { ChatEvent } from '@fitcut/chzzk';
 import type { SQSBatchResponse, SQSEvent } from 'aws-lambda';
 import { gunzipSync } from 'node:zlib';
-import { analyze } from './analysis/score';
+import { analyze } from '@fitcut/shared';
 
 export type Deps = {
   bucket: string;

@@ -1,0 +1,146 @@
+.replay {
+  display: grid;
+  gap: var(--space-2);
+}
+
+.meta {
+  font-size: var(--text-caption);
+  color: var(--color-slate);
+}
+
+.controls {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.primary {
+  height: 40px;
+  padding: 0 18px;
+  border: 0;
+  border-radius: var(--radius-control);
+  background: var(--color-accent);
+  color: var(--color-on-accent);
+  font: inherit;
+  font-size: var(--text-caption);
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.speeds {
+  display: flex;
+  padding: 3px;
+  border-radius: var(--radius-control);
+  background: var(--color-bg);
+}
+
+.speed {
+  height: 34px;
+  padding: 0 12px;
+  border: 0;
+  border-radius: calc(var(--radius-control) - 3px);
+  background: transparent;
+  color: var(--color-slate);
+  font: inherit;
+  font-size: var(--text-caption);
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.speed[aria-pressed='true'] {
+  background: var(--color-accent-soft);
+  color: var(--color-accent-ink);
+}
+
+.ghost {
+  height: 40px;
+  padding: 0 14px;
+  border: 1px solid var(--color-line);
+  border-radius: var(--radius-control);
+  background: var(--color-bg);
+  color: var(--color-ink);
+  font: inherit;
+  font-size: var(--text-caption);
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.status {
+  display: flex;
+  align-items: baseline;
+  flex-wrap: wrap;
+  gap: 4px 10px;
+}
+
+.time {
+  font-variant-numeric: tabular-nums;
+}
+
+.graph {
+  width: 100%;
+  height: 80px;
+  border-radius: var(--radius-control);
+  background: var(--color-bg);
+}
+
+.band {
+  fill: var(--color-accent-soft);
+}
+
+.line {
+  fill: none;
+  stroke: var(--color-accent);
+  stroke-width: 1.5;
+  vector-effect: non-scaling-stroke;
+}
+
+.cursor {
+  stroke: var(--color-slate);
+  stroke-width: 1;
+  stroke-dasharray: 3 3;
+  vector-effect: non-scaling-stroke;
+}
+
+.list {
+  display: grid;
+  gap: 6px;
+  padding: 0;
+  list-style: none;
+}
+
+.item {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 4px 10px;
+  padding: 10px 12px;
+  border-radius: var(--radius-control);
+  background: var(--color-bg);
+}
+
+.badge {
+  padding: 1px 8px;
+  border-radius: 999px;
+  background: var(--color-accent-soft);
+  color: var(--color-accent-ink);
+  font-size: var(--text-small);
+  font-weight: 700;
+}
+
+.summary {
+  display: grid;
+  gap: 6px;
+  padding: 14px;
+  border-radius: var(--radius-control);
+  background: var(--color-accent-soft);
+}
+
+.scenes {
+  display: grid;
+  gap: 2px;
+  margin: 0;
+  padding-left: 18px;
+  font-size: var(--text-caption);
+  font-variant-numeric: tabular-nums;
+}

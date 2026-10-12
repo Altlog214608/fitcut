@@ -1,19 +1,16 @@
-import type { ChatEvent } from '@fitcut/chzzk';
 import { describe, expect, it } from 'vitest';
 import { isReaction } from './keywords';
-import { analyze, DEFAULT_CONFIG, rollingZ, windowSum } from './score';
+import { analyze, DEFAULT_CONFIG, rollingZ, windowSum, type ScoreEvent } from './score';
 
-const chat = (t: number, text = '안녕'): ChatEvent => ({
-  broadcastId: 'b',
+const chat = (t: number, text = '안녕'): ScoreEvent => ({
   t,
-  at: t * 1000,
   type: 'chat',
   text,
 });
 
 /** 매초 rate개 채팅 (결정적: 소수 부분은 주기로 나눈다) */
-function steady(from: number, to: number, rate: number, text = '안녕'): ChatEvent[] {
-  const out: ChatEvent[] = [];
+function steady(from: number, to: number, rate: number, text = '안녕'): ScoreEvent[] {
+  const out: ScoreEvent[] = [];
   for (let t = from; t < to; t++) {
     const k = Math.floor((t + 1) * rate) - Math.floor(t * rate);
     for (let j = 0; j < k; j++) out.push(chat(t + j / (k + 1), text));
@@ -102,13 +99,10 @@ describe('analyze', () => {
   });
 
   it('후원이 몰려도 후보가 된다', () => {
-    const donations: ChatEvent[] = Array.from({ length: 6 }, (_, k) => ({
-      broadcastId: 'b',
+    const donations: ScoreEvent[] = Array.from({ length: 6 }, (_, k) => ({
       t: 500 + k,
-      at: 0,
       type: 'donation',
       amount: 10000,
-      donationType: 'CHAT',
     }));
     const r = analyze([...steady(0, 900, 1), ...steady(500, 506, 4), ...donations], 900);
     const c = r.candidates.find((x) => x.peak > 485 && x.peak < 510);
