@@ -170,7 +170,8 @@ resource "aws_cloudfront_origin_request_policy" "api" {
     header_behavior = "whitelist"
     headers {
       # x-admin-token: 관리자 API의 Cognito 토큰. Authorization은 오리진 요청 정책으로 보낼 수 없어 따로 둔다
-      items = ["CloudFront-Viewer-Address", "Content-Type", "Accept", "x-admin-token"]
+      # x-delete-token: 보관한 작업을 지우는 열쇠 (F16)
+      items = ["CloudFront-Viewer-Address", "Content-Type", "Accept", "x-admin-token", "x-delete-token"]
     }
   }
 
