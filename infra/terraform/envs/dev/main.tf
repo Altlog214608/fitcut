@@ -104,6 +104,8 @@ module "worker" {
   outputs_bucket_arn    = module.api.outputs_bucket_arn
   retained_bucket       = module.api.retained_bucket
   retained_bucket_arn   = module.api.retained_bucket_arn
+  recordings_bucket     = module.highlight.recordings_bucket
+  recordings_bucket_arn = module.highlight.recordings_bucket_arn
   events_queue_url      = module.events.queue_url
   events_queue_arn      = module.events.queue_arn
 }
@@ -152,6 +154,8 @@ module "highlight" {
   site_origin        = "https://${module.web.domain_name}"
   chzzk_client_id    = local.chzzk_client_id
   chzzk_secret_param = local.chzzk_secret_param
+  worker_queue_url   = module.worker.queue_url
+  worker_queue_arn   = module.worker.queue_arn
   collector = {
     cluster_arn                = module.collector.cluster_arn
     task_family                = module.collector.task_family

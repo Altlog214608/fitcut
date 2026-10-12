@@ -1,5 +1,13 @@
 import { describe, expect, it } from 'vitest';
-import { audioFilter, checkInput, ffmpegArgs, nextRotation, parseProbe, seconds } from './ffmpeg';
+import {
+  audioFilter,
+  checkInput,
+  ffmpegArgs,
+  nextRotation,
+  parseProbe,
+  seconds,
+  type Probe,
+} from './ffmpeg';
 
 const p = { start: 1.5, end: 4, fps: 15, width: 480 };
 
@@ -173,5 +181,38 @@ describe('세로로 돌리기 (F21)', () => {
     expect(checkInput(probe(120, 3840, 2160, '60/1'), r, 'rotate')).toContain('빠르게');
     expect(checkInput(probe(500), r, 'rotate-fast')).toBeNull();
     expect(checkInput(probe(700), r, 'rotate-fast')).toContain('10분');
+  });
+});
+
+describe('클립 (하이라이트 모드 B)', () => {
+  const p = { start: 3600, end: 3625, fps: 30, width: 0 };
+
+  it('구간만 읽어 720p 이하 H.264 MP4로, 소리는 있으면', () => {
+    const a = ffmpegArgs('clip', p, 'https://s3/rec?sig', '/tmp/out.mp4');
+    expect(a.slice(a.indexOf('-ss'), a.indexOf('-ss') + 6)).toEqual([
+      '-ss',
+      '3600.000',
+      '-t',
+      '25.000',
+      '-i',
+      'https://s3/rec?sig',
+    ]);
+    expect(a).toContain('0:a:0?');
+    expect(a[a.indexOf('-vf') + 1]).toContain('min(720,ih)');
+    expect(a[a.indexOf('-c:v') + 1]).toBe('libx264');
+    expect(a.at(-1)).toBe('/tmp/out.mp4');
+  });
+
+  it('입력 확인: 영상 없음, 1분 넘음, 길이 밖', () => {
+    const probe: Probe = {
+      format: 'matroska,webm',
+      duration: 7200,
+      video: { codec: 'h264', width: 1920, height: 1080, fps: 60, rotation: 0 },
+      audio: { codec: 'aac', channels: 2 },
+    };
+    expect(checkInput(probe, p, 'clip')).toBeNull();
+    expect(checkInput({ ...probe, video: null }, p, 'clip')).toContain('영상');
+    expect(checkInput(probe, { ...p, end: 3700 }, 'clip')).toContain('1분');
+    expect(checkInput(probe, { ...p, start: 7300, end: 7310 }, 'clip')).toContain('길이');
   });
 });

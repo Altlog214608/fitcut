@@ -45,6 +45,7 @@ function handler(exec: Deps['exec']) {
       UPLOADS_BUCKET: 'up',
       OUTPUTS_BUCKET: 'out',
       RETAINED_BUCKET: 'keep',
+      RECORDINGS_BUCKET: 'rec',
       FFMPEG_PATH: 'ffmpeg',
       FFPROBE_PATH: 'ffprobe',
       EVENTS_QUEUE_URL: 'events-queue',
@@ -54,6 +55,7 @@ function handler(exec: Deps['exec']) {
     s3,
     sqs,
     exec,
+    presign: async (bucket, key) => `https://${bucket}.s3.example/${key}?sig=1`,
   });
 }
 
@@ -99,6 +101,39 @@ describe('워커', () => {
     expect(done?.ExpressionAttributeValues).toEqual(
       expect.objectContaining({ ':v0': 'done', ':v1': `out/${ID}.gif`, ':v2': 2048, ':v3': 1234 }),
     );
+  });
+
+  it('녹화 파일 클립: 받지 않고 서명 주소를 ffprobe·ffmpeg에 그대로 준다 (모드 B)', async () => {
+    const clip = {
+      ...job,
+      kind: 'clip',
+      inputKey: 'rec/ch1/b1/u1',
+      inputBucket: 'recordings',
+      params: { start: 3600, end: 3625, fps: 30, width: 0 },
+    };
+    ddbMock.on(UpdateCommand).resolvesOnce({ Attributes: clip }).resolves({});
+    const calls: { bin: string; args: string[] }[] = [];
+    const longProbe = mp4Probe.replace(/"duration":\s*"[^"]*"/, '"duration": "7200"');
+    const exec: Deps['exec'] = async (bin, args, ms) => {
+      calls.push({ bin, args });
+      return fakeExec(longProbe)(bin, args, ms);
+    };
+    const res = await handler(exec)(event(message), fresh);
+    expect(res.batchItemFailures).toEqual([]);
+    expect(s3Mock.commandCalls(GetObjectCommand)).toHaveLength(0);
+    const url = 'https://rec.s3.example/rec/ch1/b1/u1?sig=1';
+    expect(calls[0]?.args).toContain(url);
+    const ff = calls[1]?.args ?? [];
+    expect(ff.slice(ff.indexOf('-ss'), ff.indexOf('-ss') + 6)).toEqual([
+      '-ss',
+      '3600.000',
+      '-t',
+      '25.000',
+      '-i',
+      url,
+    ]);
+    const put = s3Mock.commandCalls(PutObjectCommand)[0]?.args[0].input;
+    expect(put).toMatchObject({ Key: `out/${ID}.mp4`, ContentType: 'video/mp4' });
   });
 
   it('보관하지 않은 잡은 보관 버킷에 올리지 않는다', async () => {

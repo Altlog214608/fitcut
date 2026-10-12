@@ -76,6 +76,13 @@ data "aws_iam_policy_document" "api" {
     resources = ["${aws_s3_bucket.recordings.arn}/rec/*"]
   }
 
+  # 모드 B 클립 잡을 워커 큐에 넣는다 (ADR-043)
+  statement {
+    sid       = "WorkerQueue"
+    actions   = ["sqs:SendMessage"]
+    resources = [var.worker_queue_arn]
+  }
+
   statement {
     sid       = "ReadSecrets"
     actions   = ["ssm:GetParameter"]
@@ -139,6 +146,7 @@ resource "aws_lambda_function" "api" {
       SUBNETS            = join(",", var.collector.subnet_ids)
       SECURITY_GROUP     = var.collector.security_group_id
       RECORDINGS_BUCKET  = aws_s3_bucket.recordings.bucket
+      WORKER_QUEUE_URL   = var.worker_queue_url
       NODE_OPTIONS       = "--enable-source-maps"
     }
   }
@@ -169,6 +177,7 @@ resource "aws_apigatewayv2_route" "api" {
     "DELETE /api/streamer/broadcasts/{id}/recording",
     "POST /api/streamer/broadcasts/{id}/recording/parts",
     "POST /api/streamer/broadcasts/{id}/recording/complete",
+    "POST /api/streamer/broadcasts/{id}/clips",
   ])
   api_id    = var.api_id
   route_key = each.key

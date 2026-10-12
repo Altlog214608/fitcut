@@ -22,7 +22,8 @@ export type JobItem = {
   SK: 'META';
   id: string;
   status: JobStatus;
-  kind: CreateJob['kind'];
+  /** clip: 하이라이트 API가 녹화 파일에서 만드는 잡 (ADR-043). 잡 API로는 만들 수 없다 */
+  kind: CreateJob['kind'] | 'clip';
   params: {
     start: number;
     end: number;
@@ -40,6 +41,8 @@ export type JobItem = {
   };
   uploadId: string;
   inputKey: string;
+  /** 'recordings'면 녹화 파일 버킷 (clip) */
+  inputBucket?: 'recordings';
   /** 원본 크기. Lambda·Fargate 분배 기준에 쓴다 (ADR-002) */
   fileSize: number;
   createdAt: string;
@@ -137,6 +140,7 @@ export function publicJob(item: JobItem | undefined, now: Date) {
 export function downloadName(item: JobItem): string {
   const ext = item.outputKey?.split('.').at(-1) ?? item.kind;
   const { width, height } = item.params;
+  if (item.kind === 'clip') return `fitcut_highlight_${item.id.slice(0, 8)}.${ext}`;
   if (item.kind === 'rotate' || item.kind === 'rotate-fast') {
     return `fitcut_rotated_${item.id.slice(0, 8)}.${ext}`;
   }

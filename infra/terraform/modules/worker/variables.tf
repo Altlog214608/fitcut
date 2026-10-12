@@ -85,3 +85,12 @@ variable "retained_bucket" {
 variable "retained_bucket_arn" {
   type = string
 }
+
+variable "recordings_bucket" {
+  type        = string
+  description = "하이라이트 녹화 파일 버킷 (모드 B 클립 입력)"
+}
+
+variable "recordings_bucket_arn" {
+  type = string
+}

@@ -86,3 +86,12 @@ variable "recording_days" {
   default     = 2
   description = "녹화 파일 보관 일수 (모드 B, 후보 자르기·분석이 끝나면 쓰지 않는다)"
 }
+
+variable "worker_queue_url" {
+  type        = string
+  description = "워커 큐 (모드 B 클립 잡)"
+}
+
+variable "worker_queue_arn" {
+  type = string
+}

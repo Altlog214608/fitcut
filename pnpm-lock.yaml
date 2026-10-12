@@ -462,6 +462,9 @@ importers:
       '@aws-sdk/client-s3':
         specifier: ^3.1148.0
         version: 3.1148.0
+      '@aws-sdk/client-sqs':
+        specifier: ^3.1148.0
+        version: 3.1148.0
       '@aws-sdk/client-ssm':
         specifier: ^3.1148.0
         version: 3.1148.0
@@ -508,6 +511,9 @@ importers:
       '@aws-sdk/lib-dynamodb':
         specifier: ^3.1148.0
         version: 3.1148.0(@aws-sdk/client-dynamodb@3.1148.0)
+      '@aws-sdk/s3-request-presigner':
+        specifier: ^3.1148.0
+        version: 3.1148.0
     devDependencies:
       '@types/aws-lambda':
         specifier: ^8.10.164

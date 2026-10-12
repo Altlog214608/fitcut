@@ -9,7 +9,17 @@
 const ENCODE_BUDGET = 1920 * 1080 * 30 * 180;
 
 export type OutputKind =
-  'gif' | 'webp' | 'mp4' | 'mp3' | 'm4a' | 'wav' | 'm4r' | 'rotate' | 'rotate-fast';
+  | 'gif'
+  | 'webp'
+  | 'mp4'
+  | 'mp3'
+  | 'm4a'
+  | 'wav'
+  | 'm4r'
+  | 'rotate'
+  | 'rotate-fast'
+  /** 하이라이트 모드 B: 스트리머 녹화 파일에서 후보 구간만 잘라 MP4로 (ADR-043) */
+  | 'clip';
 
 export const isRotate = (kind: OutputKind) => kind === 'rotate' || kind === 'rotate-fast';
 
@@ -115,6 +125,7 @@ export const EXTENSION: Record<OutputKind, string> = {
   m4r: 'm4r',
   rotate: 'mp4',
   'rotate-fast': 'mp4',
+  clip: 'mp4',
 };
 export const MIME: Record<OutputKind, string> = {
   gif: 'image/gif',
@@ -126,7 +137,54 @@ export const MIME: Record<OutputKind, string> = {
   m4r: 'audio/x-m4r',
   rotate: 'video/mp4',
   'rotate-fast': 'video/mp4',
+  clip: 'video/mp4',
 };
+
+/** 클립 최대 길이 (초). 움짤 도구 원본으로 넘기기 좋은 길이 */
+export const CLIP_MAX_SECONDS = 60;
+
+/**
+ * 녹화 파일에서 구간만 잘라 MP4로 (모드 B). 입력은 S3 서명 주소라 ffmpeg가 필요한 범위만 읽는다 (ADR-016).
+ * 세로 720까지 줄이고 다시 압축한다: 녹화 원본(1080p60 등)을 그대로 두면 움짤 도구로 넘기기에 크다.
+ */
+function clipArgs(p: Params, input: string, output: string): string[] {
+  return [
+    '-hide_banner',
+    '-nostdin',
+    '-y',
+    '-ss',
+    seconds(p.start),
+    '-t',
+    seconds(p.end - p.start),
+    '-i',
+    input,
+    '-map',
+    '0:v:0',
+    '-map',
+    '0:a:0?',
+    '-vf',
+    "scale=-2:'min(720,ih)':flags=bicubic,format=yuv420p",
+    '-c:v',
+    'libx264',
+    '-preset',
+    'veryfast',
+    '-crf',
+    '23',
+    '-c:a',
+    'aac',
+    '-b:a',
+    '160k',
+    '-ac',
+    '2',
+    '-map_metadata',
+    '-1',
+    '-movflags',
+    '+faststart',
+    '-f',
+    'mp4',
+    output,
+  ];
+}
 
 /**
  * 음성 필터: 음량 맞추기(EBU R128 loudnorm, -16 LUFS) → 페이드 인·아웃.
@@ -201,6 +259,7 @@ export function ffmpegArgs(
 ): string[] {
   if (isAudio(kind)) return audioArgs(kind, p, input, output);
   if (isRotate(kind)) return rotateArgs(kind, p, src, input, output);
+  if (kind === 'clip') return clipArgs(p, input, output);
   const head = [
     '-hide_banner',
     '-nostdin',
@@ -344,6 +403,14 @@ export function checkInput(
       return 'MP4 · MOV · WebM · MP3 · M4A · WAV 파일만 쓸 수 있어요.';
     }
     if (p.start >= probe.duration) return '구간이 파일 길이를 넘었어요. 구간을 다시 골라 주세요.';
+    return null;
+  }
+  if (kind === 'clip') {
+    // 녹화 프로그램 형식: OBS는 MKV·MP4·MOV·FLV·TS로 저장한다
+    if (!probe || !probe.video) return '녹화 파일에서 영상을 읽을 수 없어요.';
+    if (p.end - p.start > CLIP_MAX_SECONDS + 0.5) return '클립은 1분까지 자를 수 있어요.';
+    if (p.start >= probe.duration)
+      return '구간이 녹화 파일 길이를 넘었어요. 시각을 다시 맞춰 주세요.';
     return null;
   }
   if (!probe || !probe.video)
