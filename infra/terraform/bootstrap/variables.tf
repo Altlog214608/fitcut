@@ -10,7 +10,7 @@ variable "github_oidc_subject_prefix" {
 }
 
 variable "alert_email" {
-  description = "AWS Budgets 알림을 받을 이메일. 공개 저장소이므로 terraform.tfvars(커밋 안 함)에 둔다."
+  description = "AWS Budgets·CloudWatch 알람 알림을 받을 이메일. 공개 저장소이므로 terraform.tfvars(커밋 안 함)에 둔다."
   type        = string
   sensitive   = true
 }
