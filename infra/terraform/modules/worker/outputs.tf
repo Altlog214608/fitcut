@@ -17,3 +17,15 @@ output "queue_arn" {
 output "dlq_url" {
   value = aws_sqs_queue.dlq.id
 }
+
+output "dlq_name" {
+  value = aws_sqs_queue.dlq.name
+}
+
+output "queue_name" {
+  value = aws_sqs_queue.jobs.name
+}
+
+output "log_group_name" {
+  value = aws_cloudwatch_log_group.worker.name
+}

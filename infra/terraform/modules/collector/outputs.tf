@@ -46,3 +46,19 @@ output "analysis_queue_url" {
 output "analysis_queue_arn" {
   value = aws_sqs_queue.analysis.arn
 }
+
+output "chat_dlq_name" {
+  value = aws_sqs_queue.dlq.name
+}
+
+output "analysis_dlq_name" {
+  value = aws_sqs_queue.analysis_dlq.name
+}
+
+output "sink_function_name" {
+  value = aws_lambda_function.sink.function_name
+}
+
+output "analysis_function_name" {
+  value = aws_lambda_function.analysis.function_name
+}
