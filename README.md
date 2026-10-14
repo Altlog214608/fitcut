@@ -41,7 +41,7 @@
 ## 아키텍처
 
 ```mermaid
-flowchart LR
+flowchart TB
   user([사용자 브라우저]) --> cf[CloudFront]
   cf --> web[(S3 웹)]
   cf -- /api/* --> api[HTTP API + Lambda]
