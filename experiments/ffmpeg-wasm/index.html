@@ -1,0 +1,56 @@
+<!doctype html>
+<html lang="ko">
+  <head>
+    <meta charset="utf-8" />
+    <title>ffmpeg.wasm 비교 실험</title>
+  </head>
+  <body>
+    <p>run.mjs가 이 페이지를 열어 window.bench()를 부른다.</p>
+    <script type="module">
+      import { FFmpeg } from '/node_modules/@ffmpeg/ffmpeg/dist/esm/index.js';
+
+      /** 워커(services/worker/src/ffmpeg.ts)의 GIF 명령과 같다 */
+      const gifArgs = (input, output, { start, end, fps, width }) => [
+        '-hide_banner',
+        '-nostdin',
+        '-y',
+        '-ss',
+        String(start),
+        '-t',
+        String(end - start),
+        '-i',
+        input,
+        '-an',
+        '-map_metadata',
+        '-1',
+        '-filter_complex',
+        `fps=${fps},scale='min(${width},iw)':-2:flags=lanczos,split[a][b];[a]palettegen=stats_mode=diff[p];[b][p]paletteuse=dither=sierra2_4a:diff_mode=rectangle`,
+        '-loop',
+        '0',
+        output,
+      ];
+
+      window.bench = async ({ mt, input, params }) => {
+        const base = `/node_modules/@ffmpeg/${mt ? 'core-mt' : 'core'}/dist/esm`;
+        const t0 = performance.now();
+        const ff = new FFmpeg();
+        ff.on('log', ({ message }) => console.log(message));
+        await ff.load({
+          coreURL: `${base}/ffmpeg-core.js`,
+          wasmURL: `${base}/ffmpeg-core.wasm`,
+          ...(mt ? { workerURL: `${base}/ffmpeg-core.worker.js` } : {}),
+        });
+        const loadMs = performance.now() - t0;
+        const data = new Uint8Array(await (await fetch(input)).arrayBuffer());
+        await ff.writeFile('in.mp4', data);
+        const t1 = performance.now();
+        const code = await ff.exec(gifArgs('in.mp4', 'out.gif', params));
+        const convertMs = performance.now() - t1;
+        const out = code === 0 ? await ff.readFile('out.gif') : new Uint8Array();
+        ff.terminate();
+        return { code, loadMs, convertMs, outBytes: out.length, isolated: crossOriginIsolated };
+      };
+      window.ready = true;
+    </script>
+  </body>
+</html>
