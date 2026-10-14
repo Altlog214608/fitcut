@@ -123,7 +123,7 @@
 
 ## M7. 운영 고도화
 
-- [ ] k6 부하 테스트 (잡 생성 API, 동시 변환, 이벤트 수집)
+- [x] k6 부하 테스트 (잡 생성 API, 동시 변환, 이벤트 수집) — `scripts/load/fitcut.js`, ADR-048. 계정 Lambda 동시 실행 한도 10에서 API가 503(25건)을 냈다. 대응은 사용자 확인 후
 - [x] CloudWatch 대시보드, 실패율 알람 — ADR-046, 무료 한도 안 (알람 지표 8개, 대시보드 1개)
 - [x] 태그별 월 비용 리포트 → README — `pnpm --filter @fitcut/admin cost:report` (ADR-047). 한 달치 숫자는 태그 반영 후 채운다
 - [ ] 브라우저 변환(ffmpeg.wasm)과 서버 변환 비교 실험 (ADR-003)
