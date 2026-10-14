@@ -99,6 +99,9 @@ pnpm build                   # 모든 패키지 빌드
 terraform fmt -recursive infra/terraform
 terraform -chdir=infra/terraform/envs/dev init
 terraform -chdir=infra/terraform/envs/dev plan
+
+k6 run scripts/load/fitcut.js                # 부하 테스트, 실제 사이트 (ADR-048, 하루 할당량을 쓴다)
+pnpm --filter @fitcut/admin cost:report      # 태그별 월 비용 (ADR-047, 호출당 $0.01)
 ```
 
 - `infra/terraform/bootstrap`은 상태 버킷·GitHub OIDC 역할·Budgets를 만드는 1회성 스택이다. 로컬에서만 적용하고 CI는 건드리지 않는다. 개인 값은 커밋하지 않는 `terraform.tfvars`에 둔다 (`terraform.tfvars.example` 참고).
