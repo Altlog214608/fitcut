@@ -80,6 +80,8 @@ packages/chzzk/        치지직 Open API 클라이언트 (인증·세션·이�
 packages/presets/      기기 프리셋 데이터(JSON)와 스키마
 packages/shared/       공용 타입·유틸, 하이라이트 점수 계산 (분석 Lambda와 웹 리플레이 데모가 같이 씀)
 infra/terraform/       IaC (modules/, envs/dev, envs/prod)
+experiments/           비교 실험 (워크스페이스 밖, 사이트에 들어가지 않음. ffmpeg.wasm은 ADR-003)
+scripts/load/          k6 부하 테스트 (ADR-048)
 docs/                  기획·설계 문서
 ```
 
