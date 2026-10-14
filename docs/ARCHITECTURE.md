@@ -165,7 +165,7 @@
 
 - 구조화 로그: Powertools for AWS Lambda (TypeScript)
 - 지표: 잡 유형별 처리 시간(p50·p95), 실패율, 대기 시간, 잡당 추정 비용, 수집기 연결 끊김·재연결 횟수, YouTube 할당량 사용량
-- CloudWatch 대시보드, 실패율 알람 → SNS 이메일
+- CloudWatch 대시보드 `fitcut-dev-overview`, 실패 알람 8개 → SNS `fitcut-alerts` → 이메일 (ADR-046, `modules/monitoring`)
 
 ## 환경
 
