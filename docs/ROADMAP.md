@@ -11,7 +11,7 @@
 - [x] GitHub Actions: PR에서 lint·test·`terraform plan`, main 머지 시 배포 (OIDC, plan 역할과 배포 역할 분리)
 - [x] AWS Budgets 알림 (월 $20, 실제 50%·100%, 예측 100%)
 - [x] CLAUDE.md의 "명령어" 섹션 채우기
-- [ ] 비용 할당 태그(`Project`, `Env`, `Component`) 활성화 — 첫 배포 후 태그가 결제 데이터에 나타나면 Terraform으로
+- [x] 비용 할당 태그(`Project`, `Env`, `Component`) 활성화 — bootstrap `cost-tags.tf` (2026-10-14, ADR-047)
 
 완료 기준: main에 머지하면 빈 페이지가 CloudFront 주소로 자동 배포된다.
 
@@ -22,7 +22,7 @@
 - 보안 헤더(HSTS, X-Content-Type-Options, X-Frame-Options, Referrer-Policy) 적용, HTTP는 HTTPS로 301
 - S3 버킷 직접 접근은 403 (CloudFront OAC로만 읽힘). 서울 엣지(ICN)에서 응답
 
-남은 후속 작업: 비용 할당 태그 활성화 (태그가 결제 데이터에 나타난 뒤).
+비용 할당 태그 활성화는 M7에서 했다 (ADR-047).
 
 ## M1. 사진 도구 (2주) — 완료 2026-10-10
 
@@ -125,6 +125,6 @@
 
 - [ ] k6 부하 테스트 (잡 생성 API, 동시 변환, 이벤트 수집)
 - [x] CloudWatch 대시보드, 실패율 알람 — ADR-046, 무료 한도 안 (알람 지표 8개, 대시보드 1개)
-- [ ] 태그별 월 비용 리포트 → README
+- [x] 태그별 월 비용 리포트 → README — `pnpm --filter @fitcut/admin cost:report` (ADR-047). 한 달치 숫자는 태그 반영 후 채운다
 - [ ] 브라우저 변환(ffmpeg.wasm)과 서버 변환 비교 실험 (ADR-003)
 - [ ] (선택) PR 미리보기 환경, 보안 사고 자동 대응

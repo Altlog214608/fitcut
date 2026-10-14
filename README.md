@@ -54,6 +54,14 @@
 | 하이라이트 후보 정확도 (precision@10) | TBD |
 | 실사용 스트리머 수 | TBD |
 
+### 구성 요소별 월 비용
+
+`$env:AWS_PROFILE="fitcut"; pnpm --filter @fitcut/admin cost:report 2026-10 --write`로 갱신한다 (ADR-047).
+
+<!-- cost-report:start -->
+TBD (비용 할당 태그 반영 후 채운다)
+<!-- cost-report:end -->
+
 ## 문서
 
 - [제품 요구사항](docs/PRD.md)
