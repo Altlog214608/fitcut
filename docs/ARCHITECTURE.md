@@ -159,7 +159,7 @@
 - 이벤트 수집 배치 Lambda: 배치 창을 크게 잡아 S3 객체 수를 줄인다
 - Cost Explorer API는 요청마다 요금이 붙으므로 하루 한 번만 호출해 저장한다
 - CloudWatch Logs 보존 기간 14일
-- 모든 리소스에 `Project`, `Env`, `Component` 태그 → Cost Explorer에서 기능별 비용 확인
+- 모든 리소스에 `Project`, `Env`, `Component` 태그 → 비용 할당 태그로 켜서(bootstrap) Cost Explorer에서 기능별 비용 확인. 월 리포트는 `cost:report` 스크립트로 README에 남긴다 (ADR-047)
 
 ## 관측성
 

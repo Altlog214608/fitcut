@@ -6,7 +6,8 @@
   "scripts": {
     "build": "esbuild src/aggregate.ts --bundle --platform=node --target=node24 --format=esm --minify --sourcemap --outfile=dist/aggregate/index.mjs --banner:js=\"import { createRequire } from 'module'; const require = createRequire(import.meta.url);\" && esbuild src/api.ts --bundle --platform=node --target=node24 --format=esm --minify --sourcemap --outfile=dist/api/index.mjs --banner:js=\"import { createRequire } from 'module'; const require = createRequire(import.meta.url);\"",
     "typecheck": "tsc -p tsconfig.json",
-    "test": "vitest run"
+    "test": "vitest run",
+    "cost:report": "esbuild src/costReport.cli.ts --bundle --platform=node --target=node24 --format=esm --log-level=warning --outfile=dist/cost-report.mjs --banner:js=\"import { createRequire } from 'module'; const require = createRequire(import.meta.url);\" && node dist/cost-report.mjs"
   },
   "dependencies": {
     "@aws-sdk/client-athena": "^3.1148.0",

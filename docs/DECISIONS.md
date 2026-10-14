@@ -561,6 +561,20 @@
 
 ---
 
+## ADR-047 태그별 월 비용: 비용 할당 태그는 bootstrap에서 켜고, 리포트는 로컬 스크립트로 README에 남긴다
+
+- 상태: 확정 (2026-10-14, M7)
+- 맥락: 기능별 비용을 숫자로 남기는 게 포트폴리오 목표다. 리소스에는 M0부터 `Project`·`Env`·`Component` 태그가 붙어 있지만, 비용 할당 태그로 켜야 Cost Explorer에서 나눠 볼 수 있다. 켜는 것은 무료이고, 태그가 결제 데이터에 나타난 뒤에만 켤 수 있다(2026-10-14에 나타난 것 확인). Cost Explorer API는 호출마다 $0.01이다.
+- 결정:
+  - 태그 활성화는 `aws_ce_cost_allocation_tag`로 bootstrap에 둔다. 계정 단위 결제 설정이라 CI 역할에 권한을 주지 않는다.
+  - 켠 시점 이전 달은 콘솔의 "태그 백필"(최대 12개월, 24시간에 한 번)로 채운다. 문서에 요금 언급이 없어 TODO(verify).
+  - 리포트는 `pnpm --filter @fitcut/admin cost:report [YYYY-MM] [--write]`. Cost Explorer를 Component 태그 × 서비스로 한 번만 부르고(페이지가 나뉘면 그만큼), `RECORD_TYPE=Usage`만 본다(크레딧·세금 제외, 크레딧 적용 전 사용 금액). `--write`는 README의 `cost-report` 표시 사이만 바꾼다.
+  - 표 계산(`reportOf`, `toMarkdown`)은 순수 함수로 테스트한다.
+- 대안: 일별 집계 Lambda에서 매일 태그별로도 부르기 (호출이 하루 2번으로 늘고, 월 리포트는 한 달에 한 번이면 된다), CUR/Data Exports + Athena (S3에 매일 파일이 쌓이고 설정이 크다. 이 규모에는 과하다), 리포트를 CI에서 자동 커밋 (배포 역할에 Cost Explorer 권한과 저장소 쓰기가 필요하다).
+- 결과: 2026-10-14 첫 실행에서 이번 달 사용 금액 $0.10 (태그를 켜기 전이라 모두 "태그 없음"). 태그 반영 후 다시 잰다.
+
+---
+
 ## 템플릿
 
 ```
