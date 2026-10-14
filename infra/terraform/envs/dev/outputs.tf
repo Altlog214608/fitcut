@@ -43,3 +43,7 @@ output "chzzk_redirect_uri" {
 output "collector_repository_url" {
   value = module.collector.repository_url
 }
+
+output "dashboard_name" {
+  value = module.monitoring.dashboard_name
+}

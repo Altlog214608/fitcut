@@ -195,3 +195,30 @@ module "collector" {
   analysis_zip_hash     = data.archive_file.analysis.output_base64sha256
   workload_boundary_arn = local.workload_boundary_arn
 }
+
+# 대시보드와 실패 알람 → bootstrap의 SNS 주제(fitcut-alerts) → 이메일 (ADR-046)
+module "monitoring" {
+  source = "../../modules/monitoring"
+
+  name_prefix           = "fitcut-dev"
+  api_id                = module.api.api_id
+  worker_function_name  = module.worker.function_name
+  worker_log_group_name = module.worker.log_group_name
+  worker_queue_name     = module.worker.queue_name
+  function_names = [
+    module.api.function_name,
+    module.worker.function_name,
+    module.events.function_name,
+    module.highlight.function_name,
+    module.admin.function_name,
+    module.analytics.aggregate_function,
+    module.collector.sink_function_name,
+    module.collector.analysis_function_name,
+  ]
+  dlq_names = {
+    (module.worker.dlq_name)             = "워커"
+    (module.events.dlq_name)             = "사용 이벤트"
+    (module.collector.chat_dlq_name)     = "채팅 저장"
+    (module.collector.analysis_dlq_name) = "하이라이트 분석"
+  }
+}

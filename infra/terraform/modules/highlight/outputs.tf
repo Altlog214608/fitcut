@@ -14,3 +14,7 @@ output "recordings_bucket" {
 output "recordings_bucket_arn" {
   value = aws_s3_bucket.recordings.arn
 }
+
+output "function_name" {
+  value = aws_lambda_function.api.function_name
+}

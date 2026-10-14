@@ -13,3 +13,11 @@ output "analytics_bucket" {
 output "analytics_bucket_arn" {
   value = aws_s3_bucket.analytics.arn
 }
+
+output "dlq_name" {
+  value = aws_sqs_queue.dlq.name
+}
+
+output "function_name" {
+  value = aws_lambda_function.events.function_name
+}
