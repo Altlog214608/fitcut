@@ -37,7 +37,7 @@ describe('관리자 로그인 단계', () => {
 
   it('OTP 앱 주소', () => {
     expect(otpauthUri('a@b.c', 'ABC')).toBe(
-      'otpauth://totp/FitCut:a%40b.c?secret=ABC&issuer=FitCut',
+      'otpauth://totp/KoiCut:a%40b.c?secret=ABC&issuer=KoiCut',
     );
   });
 });

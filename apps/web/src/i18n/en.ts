@@ -31,7 +31,7 @@ const API_ERRORS: Record<string, string> = {
 
 export const en: Dict = {
   layout: {
-    home: 'FitCut home',
+    home: 'KoiCut home',
     toLight: 'Switch to light mode',
     toDark: 'Switch to dark mode',
     langButton: '한',
@@ -387,7 +387,7 @@ export const en: Dict = {
     playRange: 'Play section',
     watchOnYoutube: 'Watch on YouTube',
     editAsNew: 'Edit this section as a new one',
-    repeatTrust: 'The video plays on YouTube. FitCut only saves the link and the section',
+    repeatTrust: 'The video plays on YouTube. KoiCut only saves the link and the section',
   },
 
   highlight: {
@@ -570,7 +570,7 @@ export const en: Dict = {
   privacy: {
     title: 'Privacy policy',
     summary:
-      'FitCut keeps only what’s needed, only for a set period. There’s no sign-up, and we never ask for your name, email or phone number.',
+      'KoiCut keeps only what’s needed, only for a set period. There’s no sign-up, and we never ask for your name, email or phone number.',
     notSentTitle: 'What never goes to our server',
     notSent: [
       'Photos: everything in the photo tool happens on your device. Photos are never uploaded.',

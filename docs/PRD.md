@@ -1,4 +1,4 @@
-# PRD: FitCut (가칭)
+# PRD: KoiCut
 
 ## 1. 문제
 

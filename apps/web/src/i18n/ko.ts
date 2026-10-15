@@ -4,7 +4,7 @@
  */
 export const ko = {
   layout: {
-    home: 'FitCut 처음으로',
+    home: 'KoiCut 처음으로',
     toLight: '밝은 화면으로',
     toDark: '어두운 화면으로',
     langButton: 'EN',
@@ -364,7 +364,7 @@ export const ko = {
     playRange: '구간 재생',
     watchOnYoutube: '유튜브에서 보기',
     editAsNew: '이 구간 고쳐서 새로 만들기',
-    repeatTrust: '영상은 유튜브에서 재생돼요. FitCut은 링크와 구간만 저장해요',
+    repeatTrust: '영상은 유튜브에서 재생돼요. KoiCut은 링크와 구간만 저장해요',
   },
 
   highlight: {
@@ -554,7 +554,7 @@ export const ko = {
   privacy: {
     title: '개인정보 처리방침',
     summary:
-      'FitCut은 꼭 필요한 정보만, 정해진 기간 동안만 둬요. 회원 가입이 없고 이름·이메일·전화번호를 받지 않아요.',
+      'KoiCut은 꼭 필요한 정보만, 정해진 기간 동안만 둬요. 회원 가입이 없고 이름·이메일·전화번호를 받지 않아요.',
     notSentTitle: '서버로 보내지 않는 것',
     notSent: [
       '사진: 사진 도구의 모든 작업은 기기 안에서 끝나요. 사진은 서버로 올라가지 않아요.',
