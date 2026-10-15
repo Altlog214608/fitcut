@@ -1,0 +1,59 @@
+/* 잉어 색은 라이트·다크에서 같다. 흰 잉어라 어두운 바탕에서도 잘 보인다 (tokens.css --koi-*) */
+.koi,
+.pond {
+  flex: none;
+}
+
+.red {
+  fill: var(--koi-red);
+}
+
+.body {
+  fill: var(--koi-body);
+  stroke: var(--koi-red);
+  stroke-width: 3.5;
+  stroke-linejoin: round;
+}
+
+.eye {
+  fill: var(--koi-eye);
+}
+
+.shine {
+  fill: var(--koi-body);
+}
+
+.line {
+  fill: none;
+  stroke: var(--koi-eye);
+  stroke-width: 2.6;
+  stroke-linecap: round;
+}
+
+.water {
+  fill: var(--color-accent-soft);
+}
+
+.ripple {
+  fill: none;
+  stroke: var(--koi-red);
+  stroke-width: 1.5;
+  opacity: 0.35;
+}
+
+.orbit {
+  transform-origin: 32px 32px;
+  animation: swim 2.4s linear infinite;
+}
+
+@keyframes swim {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .orbit {
+    animation: none;
+  }
+}

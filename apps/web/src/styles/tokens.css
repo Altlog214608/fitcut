@@ -5,11 +5,28 @@
   --color-line: #e3e7ec;
   --color-paper: #f4f6f8;
   --color-bg: #ffffff;
-  --color-accent: #2b63f0;
-  --color-accent-ink: #2b63f0;
-  --color-accent-soft: #eaf0fe;
+  --color-accent: #c2441c;
+  --color-accent-ink: #c2441c;
+  --color-accent-soft: #fff0ea;
   --color-on-accent: #ffffff;
   --color-danger: #d92d33;
+
+  /* 잉어 마크 (components/Koi.tsx). 장식 색이라 글자에는 쓰지 않는다 */
+  --koi-red: #f2643d;
+  --koi-body: #fff3ee;
+  --koi-eye: #171a1f;
+
+  /* 도구 입구 타일: 도구마다 다른 연한 바탕과 아이콘 색 */
+  --tint-photo-bg: #ffe8df;
+  --tint-photo: #b23f1e;
+  --tint-gif-bg: #ddf4ea;
+  --tint-gif: #1f7a55;
+  --tint-audio-bg: #eee7ff;
+  --tint-audio: #6040b8;
+  --tint-rotate-bg: #fff2cc;
+  --tint-rotate: #8a6200;
+  --tint-highlight-bg: #e3ecff;
+  --tint-highlight: #2b53c8;
 
   --font-sans:
     'Pretendard Variable', Pretendard, -apple-system, BlinkMacSystemFont, system-ui,
@@ -30,10 +47,10 @@
   --content-max: 680px;
   --tool-max: 1200px;
 
-  --radius-control: 12px;
-  --radius-button: 14px;
-  --radius-panel: 16px;
-  --radius-sheet: 20px;
+  --radius-control: 14px;
+  --radius-button: 16px;
+  --radius-panel: 20px;
+  --radius-sheet: 24px;
 
   --button-height: 52px;
   --motion-fast: 200ms;
@@ -49,9 +66,19 @@
     --color-line: #2b3038;
     --color-paper: #1a1d22;
     --color-bg: #101215;
-    --color-accent-ink: #6e9bff;
-    --color-accent-soft: #1b2440;
+    --color-accent-ink: #ff8a65;
+    --color-accent-soft: #2e1d17;
     --color-danger: #ff6369;
+    --tint-photo-bg: #3a2119;
+    --tint-photo: #ffa585;
+    --tint-gif-bg: #15302a;
+    --tint-gif: #6fd3a8;
+    --tint-audio-bg: #2a2340;
+    --tint-audio: #b9a3ff;
+    --tint-rotate-bg: #352c12;
+    --tint-rotate: #f2c94c;
+    --tint-highlight-bg: #1b2440;
+    --tint-highlight: #8fb0ff;
 
     color-scheme: dark;
   }
@@ -63,9 +90,19 @@
   --color-line: #2b3038;
   --color-paper: #1a1d22;
   --color-bg: #101215;
-  --color-accent-ink: #6e9bff;
-  --color-accent-soft: #1b2440;
+  --color-accent-ink: #ff8a65;
+  --color-accent-soft: #2e1d17;
   --color-danger: #ff6369;
+  --tint-photo-bg: #3a2119;
+  --tint-photo: #ffa585;
+  --tint-gif-bg: #15302a;
+  --tint-gif: #6fd3a8;
+  --tint-audio-bg: #2a2340;
+  --tint-audio: #b9a3ff;
+  --tint-rotate-bg: #352c12;
+  --tint-rotate: #f2c94c;
+  --tint-highlight-bg: #1b2440;
+  --tint-highlight: #8fb0ff;
 
   color-scheme: dark;
 }

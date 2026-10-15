@@ -1,4 +1,5 @@
 import { VISIBLE_PRESETS } from '@fitcut/presets';
+import { Koi, KoiPond } from '../components/Koi';
 import { ImageUp, ShieldCheck } from 'lucide-react';
 import { useEffect, useId, useMemo, useRef, useState } from 'react';
 import { DropZone } from '../components/DropZone';
@@ -589,6 +590,7 @@ export function PhotoTool({ initialFile }: { initialFile: File | null }) {
               {aiFactor && !aiRun && !enhanced && <p className={styles.hint}>{t.aiFirst}</p>}
               {aiRun && (
                 <p className={styles.notice} role="status">
+                  <KoiPond size={28} className={styles.inlineKoi} />
                   {t.aiRunning}{' '}
                   {aiRun.total > 0 && (
                     <b className={styles.num}>{Math.round((aiRun.done / aiRun.total) * 100)}%</b>
@@ -681,8 +683,10 @@ export function PhotoTool({ initialFile }: { initialFile: File | null }) {
             )}
             {batchNow && (
               <p className={styles.saved} role="status">
-                {batchNow.shared ? t.batchShared(batchNow.count) : t.batchZipped(batchNow.count)} ·{' '}
-                {formatBytes(batchNow.bytes)}
+                <Koi mood="happy" size={22} className={styles.inlineKoi} />
+                {batchNow.shared
+                  ? t.batchShared(batchNow.count)
+                  : t.batchZipped(batchNow.count)} · {formatBytes(batchNow.bytes)}
               </p>
             )}
             {batchNow && shareFiles && (
@@ -697,6 +701,7 @@ export function PhotoTool({ initialFile }: { initialFile: File | null }) {
             {mine.length >= 2 && !batchNow && <p className={styles.hint}>{t.batchHint}</p>}
             {savedNow && (
               <p className={styles.saved} role="status">
+                <Koi mood="happy" size={22} className={styles.inlineKoi} />
                 {savedNow.shared ? t.made : t.savedDone} ·{' '}
                 <span className={styles.num}>
                   {savedNow.width} × {savedNow.height}

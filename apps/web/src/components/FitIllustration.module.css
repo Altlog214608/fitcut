@@ -10,13 +10,13 @@
 }
 
 .device {
-  fill: var(--color-accent-soft);
+  fill: var(--color-bg);
   stroke: var(--color-slate);
   stroke-width: 2;
 }
 
 .photo {
-  fill: var(--color-accent-soft);
+  fill: var(--color-bg);
 }
 
 .mountain {

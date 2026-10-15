@@ -249,6 +249,13 @@
   font-size: var(--text-caption);
 }
 
+/* 문장 앞의 작은 잉어: 완료는 웃는 잉어, AI 처리 중은 연못 */
+.inlineKoi {
+  display: inline-block;
+  margin-right: 6px;
+  vertical-align: middle;
+}
+
 .error {
   font-size: var(--text-caption);
   color: var(--color-danger);

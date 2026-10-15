@@ -4,6 +4,7 @@
  */
 import { useState } from 'react';
 import { Link } from 'react-router';
+import { Koi } from '../components/Koi';
 import { ApiError, deleteJob, getJob } from '../gif/api';
 import { useT } from '../i18n/context';
 import { openDownloadUrl } from '../lib/save';
@@ -62,9 +63,12 @@ export function MyJobsPage() {
       <h1 className={styles.title}>{t.title}</h1>
       <p className={styles.summary}>{t.summary}</p>
       {jobs.length === 0 ? (
-        <p className={styles.empty}>
-          {t.empty} <Link to="/">{t.home}</Link>
-        </p>
+        <div className={styles.emptyBox}>
+          <Koi mood="sleepy" size={64} />
+          <p className={styles.empty}>
+            {t.empty} <Link to="/">{t.home}</Link>
+          </p>
+        </div>
       ) : (
         <ul className={styles.list}>
           {jobs.map((job) => (

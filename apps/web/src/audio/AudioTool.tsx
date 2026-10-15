@@ -1,4 +1,5 @@
 import { JOB_LIMITS, sizeBucket, type JobKind } from '@fitcut/shared';
+import { Koi, KoiPond } from '../components/Koi';
 import { AudioLines, Pause, Play, Repeat, ShieldCheck } from 'lucide-react';
 import { useEffect, useId, useRef, useState } from 'react';
 import { DropZone } from '../components/DropZone';
@@ -470,6 +471,7 @@ export function AudioTool({ initialFile }: { initialFile: File | null }) {
 
           {making?.phase === 'running' && (
             <p className={styles.status} role="status">
+              <KoiPond size={48} className={styles.pond} />
               {making.job.status === 'queued' ? m.queued : m.working(elapsed)}
               <span className={styles.hint}>{t.usually}</span>
             </p>
@@ -478,6 +480,7 @@ export function AudioTool({ initialFile }: { initialFile: File | null }) {
             <figure className={styles.result}>
               <audio src={now.job.downloadUrl} crossOrigin="anonymous" controls />
               <figcaption className={styles.num} role="status">
+                <Koi mood="happy" size={22} className={styles.doneKoi} />
                 {m.made} · {formatBytes(now.job.outputBytes ?? 0)}
               </figcaption>
             </figure>

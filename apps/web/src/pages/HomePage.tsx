@@ -12,21 +12,24 @@ import {
 import { useState, type FormEvent } from 'react';
 import { Link, useNavigate } from 'react-router';
 import { DropZone } from '../components/DropZone';
+import { Koi } from '../components/Koi';
 import { useT } from '../i18n/context';
 import { detectKind } from '../lib/detectKind';
 import { setSelectedFile } from '../lib/selectedFile';
 import { parseYouTubeId } from '../lib/youtube';
 import styles from './HomePage.module.css';
 
-type Tool = { to: string; icon: LucideIcon; title: string; detail: string };
+/** 도구 입구 타일 색 (tokens.css --tint-*) */
+type Tint = 'photo' | 'gif' | 'audio' | 'rotate' | 'highlight';
+type Tool = { to: string; icon: LucideIcon; tint: Tint; title: string; detail: string };
 
 function ToolList({ tools, label }: { tools: Tool[]; label: string }) {
   return (
     <ul className={styles.rows} aria-label={label}>
-      {tools.map(({ to, icon: Icon, title, detail }) => (
+      {tools.map(({ to, icon: Icon, tint, title, detail }) => (
         <li key={to + title}>
           <Link to={to} className={styles.row}>
-            <span className={styles.tile}>
+            <span className={styles.tile} data-tint={tint}>
               <Icon size={22} strokeWidth={1.75} />
             </span>
             <span className={styles.rowText}>
@@ -45,15 +48,21 @@ export function HomePage() {
   const navigate = useNavigate();
   const t = useT().home;
   const tools: Tool[] = [
-    { to: '/photo', icon: Crop, ...t.photo },
-    { to: '/gif', icon: Film, ...t.gif },
-    { to: '/audio', icon: AudioLines, ...t.audio },
-    { to: '/rotate', icon: RotateCw, ...t.rotate },
+    { to: '/photo', icon: Crop, tint: 'photo', ...t.photo },
+    { to: '/gif', icon: Film, tint: 'gif', ...t.gif },
+    { to: '/audio', icon: AudioLines, tint: 'audio', ...t.audio },
+    { to: '/rotate', icon: RotateCw, tint: 'rotate', ...t.rotate },
   ];
   const videoChoices: Tool[] = [
-    { to: '/gif', icon: Film, title: t.gif.title, detail: t.gifChoice },
-    { to: '/audio', icon: AudioLines, title: t.audio.title, detail: t.audioChoice },
-    { to: '/rotate', icon: RotateCw, title: t.rotate.title, detail: t.rotateChoice },
+    { to: '/gif', icon: Film, tint: 'gif', title: t.gif.title, detail: t.gifChoice },
+    { to: '/audio', icon: AudioLines, tint: 'audio', title: t.audio.title, detail: t.audioChoice },
+    {
+      to: '/rotate',
+      icon: RotateCw,
+      tint: 'rotate',
+      title: t.rotate.title,
+      detail: t.rotateChoice,
+    },
   ];
   const [video, setVideo] = useState<File | null>(null);
   const [fileError, setFileError] = useState<string | null>(null);
@@ -87,10 +96,13 @@ export function HomePage() {
 
   return (
     <div className={styles.page}>
-      <h1 className={styles.title}>
-        {t.title1} <br />
-        {t.title2}
-      </h1>
+      <div className={styles.hero}>
+        <h1 className={styles.title}>
+          {t.title1} <br />
+          {t.title2}
+        </h1>
+        <Koi size={64} className={styles.heroKoi} />
+      </div>
 
       <DropZone onFile={openFile} />
       {fileError && (
@@ -143,7 +155,7 @@ export function HomePage() {
       <div className={styles.streamer}>
         <p className={styles.streamerLabel}>{t.streamerLabel}</p>
         <ToolList
-          tools={[{ to: '/highlight', icon: MessageSquareText, ...t.highlight }]}
+          tools={[{ to: '/highlight', icon: MessageSquareText, tint: 'highlight', ...t.highlight }]}
           label={t.streamerTools}
         />
       </div>
