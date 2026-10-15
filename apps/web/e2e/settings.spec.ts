@@ -13,6 +13,16 @@ test('영어로 바꾸면 홈·사진 도구가 영어로 나오고, 새로고�
   await page.goto('/photo');
   await expect(page.getByLabel(/Drop a photo here/)).toBeAttached();
 
+  for (const [path, title, drop] of [
+    ['/gif', 'GIF maker', /Drop a video here/],
+    ['/audio', 'Audio', /Drop a video or audio file/],
+    ['/rotate', 'Straighten a video', /Drop a video here/],
+  ] as const) {
+    await page.goto(path);
+    await expect(page.getByRole('heading', { level: 1, name: title })).toBeVisible();
+    await expect(page.getByLabel(drop)).toBeAttached();
+  }
+  await page.goto('/photo');
   await page.getByRole('button', { name: '한국어' }).click();
   await expect(page.getByLabel(/사진을 끌어다 놓으세요/)).toBeAttached();
 });

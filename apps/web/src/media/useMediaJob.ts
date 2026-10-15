@@ -18,6 +18,8 @@ import {
   type JobRequest,
   type Sending,
 } from '../gif/api';
+import { useT } from '../i18n/context';
+import type { Dict } from '../i18n/ko';
 import { track } from '../lib/analytics';
 import { SAVE_METHOD } from '../lib/inApp';
 import { download, openDownloadUrl, openShare } from '../lib/save';
@@ -48,11 +50,15 @@ export type Making =
   | { phase: 'done'; key: string; job: Job; fetchedAt: number; blob: Blob | null }
   | { phase: 'failed'; key: string; message: string };
 
-export const messageOf = (error: unknown) =>
-  error instanceof ApiError ? error.message : '잠시 후 다시 시도해 주세요.';
+/** 오류 문구. 한국어는 서버 문장, 영어는 오류 코드로 바꾼다 */
+export const messageOf = (error: unknown, t: Pick<Dict, 'apiError'>) =>
+  error instanceof ApiError
+    ? t.apiError(error.code, error.message)
+    : t.apiError('server', '잠시 후 다시 시도해 주세요.');
 const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
 export function useMediaJob(file: File | null, tool: Tool, key: string) {
+  const t = useT();
   const abortUpload = useRef<(() => void) | null>(null);
   /** 올리는 중에 '만들기'를 누르면 여기 두었다가 올리기가 끝나면 만든다 */
   const pending = useRef<{ key: string; request: Request } | null>(null);
@@ -96,7 +102,7 @@ export function useMediaJob(file: File | null, tool: Tool, key: string) {
         if (!live()) return;
         setMaking({ phase: 'running', key: runKey, job });
         if (Date.now() - started > POLL_LIMIT_MS) {
-          throw new ApiError('시간이 너무 오래 걸려요. 다시 만들어 주세요.', 'timeout', 0);
+          throw new ApiError(t.media.timeout, 'timeout', 0);
         }
         await sleep(pollDelay(i));
         try {
@@ -113,7 +119,7 @@ export function useMediaJob(file: File | null, tool: Tool, key: string) {
         setMaking({
           phase: 'failed',
           key: runKey,
-          message: job.error ?? '변환하지 못했어요. 잠시 후 다시 시도해 주세요.',
+          message: t.media.jobFailed(job.error),
         });
         return;
       }
@@ -129,7 +135,7 @@ export function useMediaJob(file: File | null, tool: Tool, key: string) {
     } catch (error) {
       if (!live()) return;
       track('error_shown', { tool, code: error instanceof ApiError ? error.code : 'unknown' });
-      setMaking({ phase: 'failed', key: runKey, message: messageOf(error) });
+      setMaking({ phase: 'failed', key: runKey, message: messageOf(error, t) });
     }
   }
 
@@ -157,12 +163,10 @@ export function useMediaJob(file: File | null, tool: Tool, key: string) {
         if (waiting && !cancelled) void run(target.id, waiting.key, waiting.request);
       } catch (error) {
         pending.current = null;
-        set({ state: 'failed', message: messageOf(error) });
+        set({ state: 'failed', message: messageOf(error, t) });
         if (!cancelled) {
           setMaking((m) =>
-            m?.phase === 'pending'
-              ? { phase: 'failed', key: m.key, message: '파일을 다시 올린 뒤 만들어 주세요.' }
-              : m,
+            m?.phase === 'pending' ? { phase: 'failed', key: m.key, message: t.media.reupload } : m,
           );
         }
       }
@@ -195,7 +199,7 @@ export function useMediaJob(file: File | null, tool: Tool, key: string) {
     if (up.state === 'done') {
       void run(up.id, key, request);
     } else if (up.state === 'failed') {
-      setMaking({ phase: 'failed', key, message: '파일을 다시 올린 뒤 만들어 주세요.' });
+      setMaking({ phase: 'failed', key, message: t.media.reupload });
     } else {
       pending.current = { key, request };
       setMaking({ phase: 'pending', key });
@@ -239,7 +243,7 @@ export function useMediaJob(file: File | null, tool: Tool, key: string) {
       }
       if (job.downloadUrl) openDownloadUrl(job.downloadUrl);
     } catch (error) {
-      setSaveError(messageOf(error));
+      setSaveError(messageOf(error, t));
     }
   }
 

@@ -81,7 +81,7 @@ async function fakeServer(
 
 async function openClip(page: Page) {
   await page.goto('/gif');
-  await page.getByLabel(/영상을 끌어오세요/).setInputFiles(CLIP);
+  await page.getByLabel(/영상을 끌어다 놓으세요/).setInputFiles(CLIP);
   await expect(page.getByRole('slider', { name: '시작' })).toBeVisible();
 }
 
@@ -93,7 +93,7 @@ test.beforeEach(({ browserName }) => {
 test('영상을 고르면 바로 올리고, 구간을 직접 입력해 GIF를 만들어 저장한다', async ({ page }) => {
   const fake = await fakeServer(page);
   await openClip(page);
-  await expect(page.getByText('올리기 완료')).toBeVisible();
+  await expect(page.getByText('다 올렸어요')).toBeVisible();
   expect(fake.uploads).toBe(1);
   await expect(page.getByText(/320 × 180 · 00:04\.00/)).toBeVisible();
 
@@ -116,7 +116,7 @@ test('영상을 고르면 바로 올리고, 구간을 직접 입력해 GIF를 �
   ]);
 
   const download = page.waitForEvent('download');
-  await page.getByRole('button', { name: 'GIF 저장' }).click();
+  await page.getByRole('button', { name: 'GIF 저장하기' }).click();
   expect((await download).suggestedFilename()).toBe('fitcut_gif_480_0b8f4c56.gif');
 });
 
@@ -144,7 +144,7 @@ test('올리는 중에 만들기를 누르면 올리기가 끝나는 대로 만�
   await openClip(page);
   await page.getByRole('radio', { name: 'MP4' }).click();
   await page.getByRole('button', { name: 'MP4 만들기' }).click();
-  await expect(page.getByRole('button', { name: '올리기가 끝나면 바로 만들어요' })).toBeDisabled();
+  await expect(page.getByRole('button', { name: '다 올라가면 바로 만들게요' })).toBeDisabled();
   await expect(page.getByText(/만들었어요/)).toBeVisible();
   expect(fake.jobBodies).toHaveLength(1);
   expect(fake.jobBodies[0]).toMatchObject({ kind: 'mp4', start: 0, end: 4 });
@@ -153,7 +153,7 @@ test('올리는 중에 만들기를 누르면 올리기가 끝나는 대로 만�
 test('변환에 실패하면 서버가 준 이유를 보여주고 다시 만들 수 있다', async ({ page }) => {
   await fakeServer(page, { fail: '영상을 읽을 수 없어요. 다른 영상을 골라 주세요.' });
   await openClip(page);
-  await expect(page.getByText('올리기 완료')).toBeVisible();
+  await expect(page.getByText('다 올렸어요')).toBeVisible();
   await page.getByRole('button', { name: 'GIF 만들기' }).click();
   await expect(page.getByText('영상을 읽을 수 없어요. 다른 영상을 골라 주세요.')).toBeVisible();
   await expect(page.getByRole('button', { name: 'GIF 만들기' })).toBeEnabled();
@@ -161,7 +161,7 @@ test('변환에 실패하면 서버가 준 이유를 보여주고 다시 만들 
 
 test('영상이 아닌 파일은 이유를 알려준다', async ({ page }) => {
   await page.goto('/gif');
-  await page.getByLabel(/영상을 끌어오세요/).setInputFiles({
+  await page.getByLabel(/영상을 끌어다 놓으세요/).setInputFiles({
     name: 'a.txt',
     mimeType: 'text/plain',
     buffer: Buffer.from('hello'),
@@ -176,7 +176,7 @@ test('워치 화면용: 갤럭시 워치는 화면 크기 GIF, 애플워치는 M
 }) => {
   const fake = await fakeServer(page);
   await openClip(page);
-  await expect(page.getByText('올리기 완료')).toBeVisible();
+  await expect(page.getByText('다 올렸어요')).toBeVisible();
   await page.getByRole('radio', { name: '워치 화면' }).click();
   await page.getByLabel('워치').selectOption({ label: 'Galaxy Watch9 44mm (480 × 480)' });
   await expect(page.getByText(/둥근 화면이라 네 모서리는 보이지 않아요/)).toBeVisible();

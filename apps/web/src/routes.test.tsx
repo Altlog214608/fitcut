@@ -14,7 +14,7 @@ describe('routes', () => {
     ['/photo', '사진'],
     ['/gif', '움짤'],
     ['/audio', '음성'],
-    ['/rotate', '영상 세로로 돌리기'],
+    ['/rotate', '영상 똑바로 세우기'],
     ['/link', '링크 구간'],
     ['/highlight', '하이라이트'],
     ['/admin', '관리자'],

@@ -1,3 +1,4 @@
+import { useT } from '../i18n/context';
 import { Minus, Plus } from 'lucide-react';
 import { useId, useState } from 'react';
 import { formatTime, parseTime } from './time';
@@ -13,6 +14,7 @@ type Props = {
 
 /** 시각 직접 입력(분:초.백분의일초)과 한 프레임씩 옮기는 버튼 */
 export function TimeField({ label, value, step, onChange }: Props) {
+  const t = useT().media;
   const id = useId();
   const [draft, setDraft] = useState<string | null>(null);
   const invalid = draft !== null && parseTime(draft) === null;
@@ -33,7 +35,7 @@ export function TimeField({ label, value, step, onChange }: Props) {
         <button
           type="button"
           className={styles.stepButton}
-          aria-label={`${label} 1프레임 앞으로`}
+          aria-label={t.stepBack(label)}
           onClick={() => onChange(value - step)}
         >
           <Minus size={18} strokeWidth={1.75} />
@@ -56,7 +58,7 @@ export function TimeField({ label, value, step, onChange }: Props) {
         <button
           type="button"
           className={styles.stepButton}
-          aria-label={`${label} 1프레임 뒤로`}
+          aria-label={t.stepForward(label)}
           onClick={() => onChange(value + step)}
         >
           <Plus size={18} strokeWidth={1.75} />

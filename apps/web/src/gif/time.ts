@@ -59,12 +59,8 @@ export function initialRange(duration: number): Range {
 }
 
 /** 이 형식으로 만들 수 없는 구간이면 고치는 방법을 담은 문구 (서버 검사와 같은 기준) */
-export function rangeProblem(range: Range, kind: JobKind): string | null {
+/** 형식별 최대 길이(서버와 같은 기준)를 넘으면 그 최대 길이(초), 아니면 null. 문구는 화면이 만든다 */
+export function rangeTooLong(range: Range, kind: JobKind): number | null {
   const max = JOB_LIMITS.maxSeconds[kind];
-  if (range.end - range.start > max + 1e-6) {
-    return kind === 'm4r'
-      ? `아이폰 벨소리는 ${max}초까지예요. 구간을 ${max}초 이하로 골라 주세요.`
-      : `구간이 너무 길어요. ${max}초 이하로 골라 주세요.`;
-  }
-  return null;
+  return range.end - range.start > max + 1e-6 ? max : null;
 }

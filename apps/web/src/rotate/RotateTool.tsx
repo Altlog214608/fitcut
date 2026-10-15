@@ -1,7 +1,8 @@
 import { JOB_LIMITS, sizeBucket, type JobKind } from '@fitcut/shared';
-import { CircleCheck, Film, ShieldCheck } from 'lucide-react';
+import { Film, ShieldCheck } from 'lucide-react';
 import { useId, useState, type CSSProperties } from 'react';
 import { DropZone } from '../components/DropZone';
+import { useT } from '../i18n/context';
 import { Segmented } from '../components/Segmented';
 import { contentTypeOf } from '../gif/api';
 import { formatBytes } from '../gif/estimate';
@@ -13,28 +14,16 @@ import { SAVE_METHOD } from '../lib/inApp';
 import { openShare } from '../lib/save';
 import { useMediaJob, type MediaRequest } from '../media/useMediaJob';
 import { RetainConsent } from '../media/RetainConsent';
+import { UploadStatus } from '../media/UploadStatus';
 import { canEncode, previewTransform, turnedSize, type Size, type Turn } from './rotate';
 import own from './RotateTool.module.css';
 
 const ACCEPT = 'video/mp4,video/quicktime,video/webm,.mp4,.mov,.webm';
 
-const TURNS: readonly { value: '90' | '270' | '180'; label: string }[] = [
-  { value: '90', label: '오른쪽으로 90°' },
-  { value: '270', label: '왼쪽으로 90°' },
-  { value: '180', label: '180°' },
-];
+const TURNS = ['90', '270', '180'] as const;
 
 type Method = 'rotate' | 'rotate-fast';
-const METHODS: readonly { value: Method; label: string }[] = [
-  { value: 'rotate', label: '어디서나 세로로' },
-  { value: 'rotate-fast', label: '빠르게' },
-];
-const METHOD_HINT: Record<Method, string> = {
-  rotate:
-    '실제 화면을 돌려 다시 압축해요. 어떤 앱에서도 돌린 방향으로 보여요. 화질은 거의 그대로이고 시간이 조금 걸려요.',
-  'rotate-fast':
-    '다시 압축하지 않고 회전 정보만 바꿔서 몇 초면 끝나고 화질도 그대로예요. 회전 정보를 무시하는 일부 앱·편집기에서는 원래 방향으로 보일 수 있어요.',
-};
+const METHODS: readonly Method[] = ['rotate', 'rotate-fast'];
 
 type Picked = { file: File; url: string };
 type Meta = { file: File; duration: number; size: Size };
@@ -42,6 +31,9 @@ type Meta = { file: File; duration: number; size: Size };
 /** 영상 세로로 돌리기 (FEATURES F21): 해상도·프레임은 그대로, 가로·세로만 바꾼다 */
 export function RotateTool({ initialFile }: { initialFile: File | null }) {
   const replaceId = useId();
+  const all = useT();
+  const t = all.rotate;
+  const m = all.media;
   const [picked, setPicked] = useState<Picked | null>(() =>
     initialFile ? { file: initialFile, url: URL.createObjectURL(initialFile) } : null,
   );
@@ -78,13 +70,11 @@ export function RotateTool({ initialFile }: { initialFile: File | null }) {
 
   function pickFile(next: File) {
     if (detectKind(next).kind !== 'video' || !contentTypeOf(next)) {
-      setPickError('영상 파일이 아니에요. MP4 · MOV · WebM 영상을 골라 주세요.');
+      setPickError(all.gif.notVideo);
       return;
     }
     if (next.size > JOB_LIMITS.maxUploadBytes) {
-      setPickError(
-        `영상이 너무 커요. ${JOB_LIMITS.maxUploadBytes / 1024 / 1024}MB 이하로 골라 주세요.`,
-      );
+      setPickError(m.tooBig(JOB_LIMITS.maxUploadBytes / 1024 / 1024));
       return;
     }
     if (picked) URL.revokeObjectURL(picked.url);
@@ -96,11 +86,9 @@ export function RotateTool({ initialFile }: { initialFile: File | null }) {
   if (!file || !url) {
     return (
       <div className={styles.empty}>
-        <h1 className={styles.title}>영상 세로로 돌리기</h1>
-        <p className={styles.lead}>
-          누워 있는 영상을 해상도와 프레임 그대로 돌려요. 예: 1920×1080 → 1080×1920
-        </p>
-        <DropZone title="영상을 끌어오세요" accept={ACCEPT} onFile={pickFile} />
+        <h1 className={styles.title}>{t.title}</h1>
+        <p className={styles.lead}>{t.lead}</p>
+        <DropZone title={all.gif.dropTitle} accept={ACCEPT} onFile={pickFile} />
         {pickError && (
           <p className={styles.error} role="alert">
             {pickError}
@@ -108,7 +96,7 @@ export function RotateTool({ initialFile }: { initialFile: File | null }) {
         )}
         <p className={styles.trust}>
           <ShieldCheck size={18} strokeWidth={1.75} />
-          영상을 고르면 바로 올라가기 시작해요. 올린 파일은 보통 1~2일 안에 자동으로 삭제돼요
+          {m.uploadTrust}
         </p>
       </div>
     );
@@ -126,20 +114,18 @@ export function RotateTool({ initialFile }: { initialFile: File | null }) {
       : undefined;
   const primaryLabel =
     now?.phase === 'done'
-      ? '돌린 영상 저장'
+      ? t.save
       : making?.phase === 'pending'
-        ? '올리기가 끝나면 바로 돌려요'
+        ? t.afterUpload
         : busy
-          ? '돌리는 중…'
-          : '세로로 돌리기';
-  const percent =
-    up.state === 'sending' && up.total > 0 ? Math.round((up.sent / up.total) * 100) : 0;
+          ? t.busy
+          : t.go;
 
   return (
     <div className={styles.tool}>
       <header className={styles.head}>
         <div className={styles.headText}>
-          <h1 className={styles.title}>영상 세로로 돌리기</h1>
+          <h1 className={styles.title}>{t.title}</h1>
           <p className={styles.fileInfo}>
             <span className={styles.fileName}>{file.name}</span>
             <span className={styles.num}>{formatBytes(file.size)}</span>
@@ -152,7 +138,7 @@ export function RotateTool({ initialFile }: { initialFile: File | null }) {
         </div>
         <label htmlFor={replaceId} className={styles.replace}>
           <Film size={18} strokeWidth={1.75} />
-          다른 영상
+          {all.gif.replace}
         </label>
         <input
           id={replaceId}
@@ -167,48 +153,7 @@ export function RotateTool({ initialFile }: { initialFile: File | null }) {
         />
       </header>
 
-      <div className={styles.upload} aria-live="polite">
-        {up.state === 'starting' && <p className={styles.uploadText}>올릴 준비를 하고 있어요…</p>}
-        {up.state === 'sending' && (
-          <>
-            <p className={styles.uploadText}>
-              올리는 중 <b className={styles.num}>{percent}%</b>
-              <span className={styles.num}>
-                {formatBytes(up.sent)} / {formatBytes(up.total)}
-              </span>
-            </p>
-            <button type="button" className={styles.textButton} onClick={media.cancelUpload}>
-              업로드 취소
-            </button>
-            <div
-              className={styles.bar}
-              role="progressbar"
-              aria-label="업로드"
-              aria-valuemin={0}
-              aria-valuemax={100}
-              aria-valuenow={percent}
-            >
-              <span style={{ width: `${percent}%` }} />
-            </div>
-          </>
-        )}
-        {up.state === 'done' && (
-          <p className={styles.uploadText}>
-            <CircleCheck size={18} strokeWidth={1.75} className={styles.ok} />
-            올리기 완료
-          </p>
-        )}
-        {up.state === 'failed' && (
-          <>
-            <p className={styles.uploadError} role="alert">
-              {up.message}
-            </p>
-            <button type="button" className={styles.textButton} onClick={media.retryUpload}>
-              다시 올리기
-            </button>
-          </>
-        )}
-      </div>
+      <UploadStatus up={up} onCancel={media.cancelUpload} onRetry={media.retryUpload} />
 
       <div className={styles.main}>
         <div className={styles.editCol}>
@@ -250,27 +195,30 @@ export function RotateTool({ initialFile }: { initialFile: File | null }) {
               <b>
                 {after.width} × {after.height}
               </b>{' '}
-              · 프레임·길이 그대로
+              · {t.sameFrames}
             </p>
           ) : videoError === file ? (
-            <p className={styles.hint}>
-              이 브라우저에서는 미리 볼 수 없지만 돌릴 수는 있어요. 보이는 방향을 모르니 결과를
-              확인해 주세요.
-            </p>
+            <p className={styles.hint}>{t.cantPreview}</p>
           ) : (
-            <p className={styles.hint}>영상을 여는 중이에요…</p>
+            <p className={styles.hint}>{all.gif.opening}</p>
           )}
         </div>
 
         <div className={styles.panel}>
-          <Segmented label="방향" value={turnChoice} options={TURNS} onChange={setTurn} />
-          <Segmented label="방식" value={method} options={METHODS} onChange={setMethod} />
-          <p className={styles.hint}>{METHOD_HINT[method]}</p>
-          {!encodeOk && (
-            <p className={styles.hint}>
-              3분이 넘거나 큰 영상은 다시 압축하는 데 오래 걸려서 &lsquo;빠르게&rsquo;로 돌려요.
-            </p>
-          )}
+          <Segmented
+            label={t.turn}
+            value={turnChoice}
+            options={TURNS.map((value) => ({ value, label: t.turns[value] }))}
+            onChange={setTurn}
+          />
+          <Segmented
+            label={t.method}
+            value={method}
+            options={METHODS.map((value) => ({ value, label: t.methods[value] }))}
+            onChange={setMethod}
+          />
+          <p className={styles.hint}>{t.methodHint[method]}</p>
+          {!encodeOk && <p className={styles.hint}>{t.fastOnly}</p>}
           {method === 'rotate' && (
             <label className={styles.check}>
               <input
@@ -278,22 +226,20 @@ export function RotateTool({ initialFile }: { initialFile: File | null }) {
                 checked={flip}
                 onChange={(e) => setFlip(e.currentTarget.checked)}
               />
-              좌우 반전도 하기 (셀카처럼 뒤집힌 영상)
+              {t.flip}
             </label>
           )}
           {tooLong && (
             <p className={styles.error} role="alert">
-              영상이 너무 길어요. 10분 이하 영상을 골라 주세요.
+              {t.tooLong}
             </p>
           )}
 
           {making?.phase === 'running' && (
             <p className={styles.status} role="status">
-              {making.job.status === 'queued'
-                ? '차례를 기다리고 있어요'
-                : `돌리는 중이에요 · ${elapsed}초`}
+              {making.job.status === 'queued' ? m.queued : t.working(elapsed)}
               <span className={styles.hint}>
-                {method === 'rotate' ? '1분 영상이면 30초쯤 걸려요.' : '보통 몇 초면 끝나요.'}
+                {method === 'rotate' ? t.usuallyEncode : t.usuallyFast}
               </span>
             </p>
           )}
@@ -301,7 +247,7 @@ export function RotateTool({ initialFile }: { initialFile: File | null }) {
             <figure className={styles.result}>
               <video src={now.job.downloadUrl} crossOrigin="anonymous" controls playsInline />
               <figcaption className={styles.num} role="status">
-                돌렸어요 · {formatBytes(now.job.outputBytes ?? 0)}
+                {t.done} · {formatBytes(now.job.outputBytes ?? 0)}
               </figcaption>
             </figure>
           )}
@@ -325,19 +271,17 @@ export function RotateTool({ initialFile }: { initialFile: File | null }) {
                 className={styles.secondary}
                 onClick={() => openShare(shareFile, () => undefined)}
               >
-                사진 앱에 저장
+                {m.saveToPhotos}
               </button>
             )}
           </div>
           {now?.phase === 'done' && (
             <button type="button" className={styles.secondary} onClick={media.clearResult}>
-              다른 방향으로 또 돌리기
+              {t.again}
             </button>
           )}
           {now?.phase === 'done' && SAVE_METHOD === 'share' && (
-            <p className={styles.hint}>
-              공유 화면에서 &lsquo;비디오 저장&rsquo;을 누르면 사진 앱에 들어가요.
-            </p>
+            <p className={styles.hint}>{t.shareHint}</p>
           )}
           {saveError && (
             <p className={styles.error} role="alert">

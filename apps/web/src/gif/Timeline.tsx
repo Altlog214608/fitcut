@@ -1,3 +1,4 @@
+import { useT } from '../i18n/context';
 import { useRef, useState, type KeyboardEvent, type PointerEvent } from 'react';
 import { formatTime, moveEnd, moveStart, type Range } from './time';
 import styles from './Timeline.module.css';
@@ -37,6 +38,7 @@ export function Timeline({
   onRange,
   onSeek,
 }: Props) {
+  const t = useT().media;
   const trackRef = useRef<HTMLDivElement>(null);
   const drag = useRef<Drag | null>(null);
   const [zoom, setZoom] = useState(1);
@@ -164,7 +166,7 @@ export function Timeline({
         <button
           type="button"
           role="slider"
-          aria-label="시작"
+          aria-label={t.start}
           aria-valuemin={0}
           aria-valuemax={range.end}
           aria-valuenow={range.start}
@@ -177,7 +179,7 @@ export function Timeline({
         <button
           type="button"
           role="slider"
-          aria-label="끝"
+          aria-label={t.end}
           aria-valuemin={range.start}
           aria-valuemax={duration}
           aria-valuenow={range.end}
@@ -190,7 +192,7 @@ export function Timeline({
       </div>
       {maxZoom > 1.5 && (
         <label className={styles.zoom}>
-          <span>확대</span>
+          <span>{t.zoom}</span>
           <input
             type="range"
             min={1}
