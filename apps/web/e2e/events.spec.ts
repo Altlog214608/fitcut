@@ -11,7 +11,7 @@ test('사진 도구를 쓰면 허용한 이벤트만 모아 보내고 파일명�
     await route.fulfill({ status: 204 });
   });
   await page.goto('/photo');
-  await page.getByLabel(/사진을 끌어오세요/).setInputFiles({
+  await page.getByLabel(/사진을 끌어다 놓으세요/).setInputFiles({
     name: '비밀-파일이름.jpg',
     mimeType: 'image/jpeg',
     buffer: await makeImage(page, 800, 600),

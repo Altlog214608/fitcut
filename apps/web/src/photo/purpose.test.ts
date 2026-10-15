@@ -31,10 +31,10 @@ describe('purposeTargets', () => {
   });
 
   it('모니터 크기를 직접 넣어도 이름이 붙는다', () => {
-    expect(monitorLabel(2560, 1440)).toBe('모니터 QHD');
+    expect(monitorLabel(2560, 1440)).toBe('Monitor QHD');
     expect(monitorLabel(1080, 1920)).toBeNull();
     expect(resolveTarget({ kind: 'custom', width: 3840, height: 2160 }, [])?.label).toBe(
-      '모니터 4K',
+      'Monitor 4K',
     );
   });
 });

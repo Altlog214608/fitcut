@@ -3,7 +3,8 @@ import { ImageUp, ShieldCheck } from 'lucide-react';
 import { useEffect, useId, useMemo, useRef, useState } from 'react';
 import { DropZone } from '../components/DropZone';
 import { detectKind } from '../lib/detectKind';
-import { IN_APP, inAppLabel, SAVE_METHOD } from '../lib/inApp';
+import { IN_APP, SAVE_METHOD } from '../lib/inApp';
+import { useT } from '../i18n/context';
 import { readJson, writeJson } from '../lib/storage';
 import { track } from '../lib/analytics';
 import { sizeBucket } from '@fitcut/shared';
@@ -76,6 +77,9 @@ type Saved = {
   fitted?: { quality: number; fits: boolean };
 };
 
+/** 저장에 걸린 시간 재기 (이벤트 핸들러 안에서만 부른다) */
+const now = () => performance.now();
+
 function formatBytes(bytes: number): string {
   if (bytes < 1024 * 1024) return `${Math.max(1, Math.round(bytes / 1024))}KB`;
   return `${(bytes / 1024 / 1024).toFixed(1)}MB`;
@@ -83,6 +87,10 @@ function formatBytes(bytes: number): string {
 
 export function PhotoTool({ initialFile }: { initialFile: File | null }) {
   const replaceId = useId();
+  const all = useT();
+  const t = all.photo;
+  const blockedMessage = () =>
+    all.inApp.blocked(all.inApp.app(IN_APP?.app === 'kakaotalk' ? 'kakaotalk' : 'other'));
   const [file, setFile] = useState<File | null>(initialFile);
   // 디코딩 결과와 오류는 어느 파일의 것인지 함께 둔다. 파일이 바뀌면 지난 결과는 쓰지 않는다.
   const [loaded, setLoaded] = useState<Loaded | null>(null);
@@ -177,7 +185,7 @@ export function PhotoTool({ initialFile }: { initialFile: File | null }) {
         if (cancelled) return;
         setDecodeError({
           file,
-          message: error instanceof Error ? error.message : '사진을 열지 못했어요.',
+          message: error instanceof Error ? error.message : '',
         });
       });
     return () => {
@@ -196,7 +204,8 @@ export function PhotoTool({ initialFile }: { initialFile: File | null }) {
       : decoded;
   const bitmap = current?.bitmap ?? null;
   const imageUrl = current?.url ?? null;
-  const fileError = pickError ?? (decodeError?.file === file ? decodeError.message : null);
+  const fileError =
+    pickError ?? (decodeError?.file === file ? decodeError.message || t.openFailed : null);
   // 저장 결과 안내는 저장할 때와 설정이 같을 때만 보여준다
   const settingsKey = JSON.stringify([
     target,
@@ -239,7 +248,7 @@ export function PhotoTool({ initialFile }: { initialFile: File | null }) {
   function pickFile(next: File) {
     const kind = detectKind(next);
     if (kind.kind !== 'image') {
-      setPickError('사진 파일이 아니에요. JPG · PNG · WebP · HEIC 사진을 골라 주세요.');
+      setPickError(t.notPhoto);
       return;
     }
     setPickError(null);
@@ -303,7 +312,7 @@ export function PhotoTool({ initialFile }: { initialFile: File | null }) {
       setPlacements({});
     } catch (error) {
       if (!(error as { cancelled?: boolean }).cancelled) {
-        setAiError(error instanceof Error ? error.message : 'AI로 키우지 못했어요.');
+        setAiError(error instanceof Error ? error.message : t.aiFailed);
       }
     } finally {
       setAiRun(null);
@@ -327,12 +336,10 @@ export function PhotoTool({ initialFile }: { initialFile: File | null }) {
   async function saveAll() {
     if (!bitmap || !file || !current || !source || mine.length < 2) return;
     if (SAVE_METHOD === 'unsupported' && IN_APP) {
-      setSaveError(
-        `${inAppLabel(IN_APP.app)} 안에서는 저장할 수 없어요. 맨 위의 안내대로 크롬 같은 다른 브라우저에서 열어 주세요.`,
-      );
+      setSaveError(blockedMessage());
       return;
     }
-    const started = performance.now();
+    const started = now();
     setSaveError(null);
     setShareFiles(null);
     setBatch({ done: 0, total: mine.length });
@@ -391,14 +398,10 @@ export function PhotoTool({ initialFile }: { initialFile: File | null }) {
         format: shared ? format : 'zip',
         count: files.length,
         sizeBytes: bytes,
-        elapsedMs: Math.round(performance.now() - started),
+        elapsedMs: Math.round(now() - started),
       });
     } catch (error) {
-      setSaveError(
-        error instanceof Error
-          ? `${error.message} 다시 시도해 주세요.`
-          : '이미지를 만들지 못했어요. 다시 시도해 주세요.',
-      );
+      setSaveError(error instanceof Error ? t.retry(error.message) : t.saveFailed);
     } finally {
       setBatch(null);
     }
@@ -408,13 +411,11 @@ export function PhotoTool({ initialFile }: { initialFile: File | null }) {
     if (!bitmap || !layout || !resolved || !file || !target) return;
     if (SAVE_METHOD === 'unsupported' && IN_APP) {
       // 안드로이드 인앱 브라우저는 페이지가 만든 파일을 내려받지 못한다. 만들기 전에 알린다.
-      setSaveError(
-        `${inAppLabel(IN_APP.app)} 안에서는 저장할 수 없어요. 맨 위의 안내대로 크롬 같은 다른 브라우저에서 열어 주세요.`,
-      );
+      setSaveError(blockedMessage());
       return;
     }
     setSaving(true);
-    const started = performance.now();
+    const started = now();
     setSaveError(null);
     try {
       const result = await renderPhoto(bitmap, {
@@ -452,17 +453,13 @@ export function PhotoTool({ initialFile }: { initialFile: File | null }) {
         width: resolved.size.width,
         height: resolved.size.height,
         sizeBytes: result.blob.size,
-        elapsedMs: Math.round(performance.now() - started),
+        elapsedMs: Math.round(now() - started),
       });
       const nextRecent = pushRecent(recent, target);
       setRecent(nextRecent);
       writeJson(RECENT_KEY, nextRecent);
     } catch (error) {
-      setSaveError(
-        error instanceof Error
-          ? `${error.message} 다시 시도해 주세요.`
-          : '이미지를 만들지 못했어요. 다시 시도해 주세요.',
-      );
+      setSaveError(error instanceof Error ? t.retry(error.message) : t.saveFailed);
     } finally {
       setSaving(false);
     }
@@ -471,10 +468,10 @@ export function PhotoTool({ initialFile }: { initialFile: File | null }) {
   if (!file) {
     return (
       <div className={styles.empty}>
-        <h1 className={styles.title}>사진</h1>
-        <p className={styles.lead}>폰·워치 화면에 딱 맞는 배경화면을 만들어요.</p>
+        <h1 className={styles.title}>{t.title}</h1>
+        <p className={styles.lead}>{t.lead}</p>
         <DropZone
-          title="사진을 끌어오세요"
+          title={t.dropTitle}
           accept="image/jpeg,image/png,image/webp,image/heic,image/heif,.heic,.heif"
           onFile={pickFile}
         />
@@ -485,7 +482,7 @@ export function PhotoTool({ initialFile }: { initialFile: File | null }) {
         )}
         <p className={styles.trust}>
           <ShieldCheck size={18} strokeWidth={1.75} />
-          사진은 이 기기 밖으로 나가지 않아요
+          {t.trust}
         </p>
       </div>
     );
@@ -495,19 +492,17 @@ export function PhotoTool({ initialFile }: { initialFile: File | null }) {
     <div className={styles.tool}>
       <header className={styles.head}>
         <div className={styles.headText}>
-          <h1 className={styles.title}>사진</h1>
+          <h1 className={styles.title}>{t.title}</h1>
           <p className={styles.fileInfo}>
             <span className={styles.fileName}>{file.name}</span>
             {source && (
-              <span className={styles.num}>
-                원본 {source.width} × {source.height}
-              </span>
+              <span className={styles.num}>{t.original(source.width, source.height)}</span>
             )}
           </p>
         </div>
         <label htmlFor={replaceId} className={styles.replace}>
           <ImageUp size={18} strokeWidth={1.75} />
-          다른 사진
+          {t.replace}
         </label>
         <input
           id={replaceId}
@@ -541,8 +536,8 @@ export function PhotoTool({ initialFile }: { initialFile: File | null }) {
           ) : current && imageUrl && !resolved && !fileError ? (
             // 기기를 고르기 전에도 고른 사진을 먼저 보여준다 (2026-10-10 사용자 요청)
             <figure className={styles.original}>
-              <img src={imageUrl} alt="고른 사진 원본" />
-              <figcaption>기기를 고르면 이 사진을 화면 모양대로 맞춰 보여드려요.</figcaption>
+              <img src={imageUrl} alt={t.originalAlt} />
+              <figcaption>{t.originalCaption}</figcaption>
             </figure>
           ) : (
             <div className={styles.placeholder}>
@@ -551,9 +546,9 @@ export function PhotoTool({ initialFile }: { initialFile: File | null }) {
                   {fileError}
                 </p>
               ) : !resolved ? (
-                <p>어떤 기기에 쓸 사진인가요? 기기를 고르면 여기에 화면 모양대로 보여드려요.</p>
+                <p>{t.pickDevice}</p>
               ) : (
-                <p>사진을 여는 중이에요…</p>
+                <p>{t.opening}</p>
               )}
             </div>
           )}
@@ -569,57 +564,51 @@ export function PhotoTool({ initialFile }: { initialFile: File | null }) {
                     checked={showGuide}
                     onChange={(e) => setShowGuide(e.currentTarget.checked)}
                   />
-                  잠금화면 시계·카메라 자리 보기
-                  {showGuide && <span className={styles.hint}> 대략적인 위치예요</span>}
+                  {t.guideToggle}
+                  {showGuide && <span className={styles.hint}> {t.guideHint}</span>}
                 </label>
               )}
               {mode === 'cover' && fit !== 'match' && (
                 <p className={styles.notice}>
-                  {fit === 'sides-cropped'
-                    ? '이 사진은 화면보다 가로가 넓어서 양옆이 잘려요.'
-                    : '이 사진은 화면보다 세로가 길어서 위아래가 잘려요.'}{' '}
+                  {fit === 'sides-cropped' ? t.sidesCropped : t.topBottomCropped}{' '}
                   <button type="button" onClick={() => chooseMode('contain')}>
-                    배경 채우기로 사진 전체 넣기
+                    {t.fitWhole}
                   </button>
                 </p>
               )}
               {layout.scale > 1.05 && (
                 <p className={styles.notice}>
-                  원본보다 <b className={styles.num}>{layout.scale.toFixed(1)}배</b> 커요. 흐려 보일
-                  수 있어요.{' '}
+                  {t.upscaled(layout.scale.toFixed(1))}{' '}
                   {aiFactor && canUpscale() && !aiRun && (
                     <button type="button" onClick={() => void enhance(aiFactor)}>
-                      AI로 선명하게 키우기 ({aiFactor}배)
+                      {t.aiEnhance(aiFactor)}
                     </button>
                   )}
                 </p>
               )}
-              {aiFactor && !aiRun && !enhanced && (
-                <p className={styles.hint}>
-                  처음 한 번 AI 모델(약 2.4MB)을 받아요. 사진은 이 기기 밖으로 나가지 않아요.
-                </p>
-              )}
+              {aiFactor && !aiRun && !enhanced && <p className={styles.hint}>{t.aiFirst}</p>}
               {aiRun && (
                 <p className={styles.notice} role="status">
-                  AI로 키우는 중이에요{' '}
+                  {t.aiRunning}{' '}
                   {aiRun.total > 0 && (
                     <b className={styles.num}>{Math.round((aiRun.done / aiRun.total) * 100)}%</b>
                   )}
-                  {aiRun.backend === 'cpu' && ' · 이 기기는 GPU를 쓸 수 없어 오래 걸릴 수 있어요'}{' '}
+                  {aiRun.backend === 'cpu' && t.aiCpu}{' '}
                   <button type="button" onClick={() => aiAbort.current?.abort()}>
-                    취소
+                    {t.cancel}
                   </button>
                 </p>
               )}
               {enhanced && (
                 <p className={styles.hint} role="status">
-                  AI로 {enhanced.factor}배 키운 사진을 쓰고 있어요 (
-                  <span className={styles.num}>
-                    {enhanced.bitmap.width} × {enhanced.bitmap.height}
-                  </span>
-                  , {(enhanced.ms / 1000).toFixed(1)}초).{' '}
+                  {t.aiDone(
+                    enhanced.factor,
+                    enhanced.bitmap.width,
+                    enhanced.bitmap.height,
+                    (enhanced.ms / 1000).toFixed(1),
+                  )}{' '}
                   <button type="button" className={styles.linkButton} onClick={() => setAi(null)}>
-                    원래 사진으로
+                    {t.aiUndo}
                   </button>
                 </p>
               )}
@@ -630,10 +619,8 @@ export function PhotoTool({ initialFile }: { initialFile: File | null }) {
               )}
               {(layout.movable.x || layout.movable.y) && (
                 <p className={styles.hint}>
-                  {position === null && (auto.x !== 0 || auto.y !== 0)
-                    ? '사람이나 물건이 잘린 쪽은 화면 끝에 붙이고 반대쪽만 채웠어요. '
-                    : ''}
-                  사진을 끌어서 위치를 옮길 수 있어요.
+                  {position === null && (auto.x !== 0 || auto.y !== 0) ? t.autoPlaced : ''}
+                  {t.dragHint}
                 </p>
               )}
             </div>
@@ -669,9 +656,7 @@ export function PhotoTool({ initialFile }: { initialFile: File | null }) {
             zoomMax={zoomMax}
             onZoom={setZoom}
           />
-          {transparentCircle && format === 'jpeg' && (
-            <p className={styles.hint}>JPG는 투명을 담을 수 없어서 PNG로 저장돼요.</p>
-          )}
+          {transparentCircle && format === 'jpeg' && <p className={styles.hint}>{t.jpgNoAlpha}</p>}
 
           <div className={styles.saveBar}>
             <button
@@ -680,7 +665,7 @@ export function PhotoTool({ initialFile }: { initialFile: File | null }) {
               disabled={!layout || saving}
               onClick={() => void save()}
             >
-              {saving ? '만드는 중…' : '이미지 저장'}
+              {saving ? t.saving : t.save}
             </button>
             {mine.length >= 2 && (
               <button
@@ -690,16 +675,14 @@ export function PhotoTool({ initialFile }: { initialFile: File | null }) {
                 onClick={() => void saveAll()}
               >
                 {batch
-                  ? `${batch.total}개 중 ${batch.done + 1 > batch.total ? batch.total : batch.done + 1}개째 만드는 중…`
-                  : `내 기기 ${mine.length}개 한 번에 저장`}
+                  ? t.batchProgress(Math.min(batch.done + 1, batch.total), batch.total)
+                  : t.batchSave(mine.length)}
               </button>
             )}
             {batchNow && (
               <p className={styles.saved} role="status">
-                {batchNow.shared
-                  ? `${batchNow.count}개를 만들었어요`
-                  : `${batchNow.count}개를 ZIP 하나로 저장했어요`}{' '}
-                · {formatBytes(batchNow.bytes)}
+                {batchNow.shared ? t.batchShared(batchNow.count) : t.batchZipped(batchNow.count)} ·{' '}
+                {formatBytes(batchNow.bytes)}
               </p>
             )}
             {batchNow && shareFiles && (
@@ -708,28 +691,26 @@ export function PhotoTool({ initialFile }: { initialFile: File | null }) {
                 className={styles.again}
                 onClick={() => openShare(shareFiles, () => undefined)}
               >
-                사진 앱에 저장
+                {t.saveToPhotos}
               </button>
             )}
-            {mine.length >= 2 && !batchNow && (
-              <p className={styles.hint}>
-                사진 위치와 크기는 기기마다 따로 기억해요. 기기를 바꿔 가며 맞춘 뒤 한 번에
-                저장하세요.
-              </p>
-            )}
+            {mine.length >= 2 && !batchNow && <p className={styles.hint}>{t.batchHint}</p>}
             {savedNow && (
               <p className={styles.saved} role="status">
-                {savedNow.shared ? '만들었어요' : '저장했어요'} ·{' '}
+                {savedNow.shared ? t.made : t.savedDone} ·{' '}
                 <span className={styles.num}>
                   {savedNow.width} × {savedNow.height}
                 </span>{' '}
                 · {formatBytes(savedNow.bytes)}
-                {savedNow.fellBack && <> · 이 브라우저는 WebP를 만들 수 없어서 PNG로 저장했어요</>}
+                {savedNow.fellBack && <> · {t.webpFallback}</>}
                 {savedNow.fitted?.fits && (
                   <>
                     {' '}
-                    · 목표 {targetLabel(savedNow.maxBytes ?? 0)} 이하 (화질{' '}
-                    {Math.round(savedNow.fitted.quality * 100)})
+                    ·{' '}
+                    {t.fittedTo(
+                      targetLabel(savedNow.maxBytes ?? 0),
+                      Math.round(savedNow.fitted.quality * 100),
+                    )}
                   </>
                 )}
               </p>
@@ -740,26 +721,22 @@ export function PhotoTool({ initialFile }: { initialFile: File | null }) {
                 className={styles.again}
                 onClick={() => openShare(shareFile, () => undefined)}
               >
-                사진 앱에 저장
+                {t.saveToPhotos}
               </button>
             )}
-            {SAVE_METHOD === 'share' && (
-              <p className={styles.hint}>
-                공유 화면에서 &lsquo;이미지 저장&rsquo;을 누르면 사진 앱에 들어가요.
-              </p>
-            )}
+            {SAVE_METHOD === 'share' && <p className={styles.hint}>{t.shareHint}</p>}
             {savedNow?.fitted && !savedNow.fitted.fits && (
               <p className={styles.error} role="alert">
-                가장 낮은 화질로도 {formatBytes(savedNow.bytes)}예요. 화면 크기(
-                {savedNow.width} × {savedNow.height})를 그대로 두면{' '}
-                {targetLabel(savedNow.maxBytes ?? 0)} 이하로 줄일 수 없어요. 더 작은 기기나 크기를
-                골라 주세요.
+                {t.cannotFit(
+                  formatBytes(savedNow.bytes),
+                  savedNow.width,
+                  savedNow.height,
+                  targetLabel(savedNow.maxBytes ?? 0),
+                )}
               </p>
             )}
             {targetKb > 0 && effectiveFormat === 'png' && (
-              <p className={styles.hint}>
-                PNG는 화질을 낮출 수 없어서 목표 용량은 JPG · WebP에서만 맞춰요.
-              </p>
+              <p className={styles.hint}>{t.pngNoTarget}</p>
             )}
             {saveError && (
               <p className={styles.error} role="alert">
@@ -768,7 +745,7 @@ export function PhotoTool({ initialFile }: { initialFile: File | null }) {
             )}
             <p className={styles.trust}>
               <ShieldCheck size={18} strokeWidth={1.75} />
-              사진은 이 기기 밖으로 나가지 않아요
+              {t.trust}
             </p>
           </div>
         </div>

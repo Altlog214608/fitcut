@@ -10,7 +10,7 @@ function renderHome() {
 }
 
 function pick(name: string, type: string) {
-  const input = screen.getByLabelText(/파일을 끌어오세요/);
+  const input = screen.getByLabelText(/파일을 끌어다 놓으세요/);
   fireEvent.change(input, { target: { files: [new File(['x'], name, { type })] } });
 }
 
@@ -25,7 +25,7 @@ describe('홈', () => {
   it('영상을 고르면 무엇을 만들지 고르게 한다', () => {
     renderHome();
     pick('clip.mov', '');
-    expect(screen.getByRole('heading', { name: '무엇을 만들까요?' })).toBeDefined();
+    expect(screen.getByRole('heading', { name: '이 영상으로 뭘 만들까요?' })).toBeDefined();
     const choices = screen.getByRole('list', { name: '영상으로 할 수 있는 일' });
     expect(choices.querySelectorAll('a')).toHaveLength(3);
   });
@@ -58,6 +58,6 @@ describe('홈', () => {
       target: { value: 'https://example.com/video' },
     });
     fireEvent.click(screen.getByRole('button', { name: '구간 고르기' }));
-    expect(screen.getByRole('alert').textContent).toContain('유튜브 영상 링크를 확인해 주세요');
+    expect(screen.getByRole('alert').textContent).toContain('유튜브 링크가 맞는지 확인해 주세요');
   });
 });

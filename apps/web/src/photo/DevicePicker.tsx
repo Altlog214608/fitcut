@@ -3,15 +3,10 @@ import { Search, Star, X } from 'lucide-react';
 import { useId, useState } from 'react';
 import { track } from '../lib/analytics';
 import styles from './DevicePicker.module.css';
-import { PURPOSE_USE, PURPOSES, purposeOf, purposeTargets, type Purpose } from './purpose';
-import {
-  MAX_CUSTOM_SIDE,
-  monitorLabel,
-  resolveTarget,
-  ROLE_LABELS,
-  sameTarget,
-  type Target,
-} from './target';
+import { useT } from '../i18n/context';
+import type { Dict } from '../i18n/ko';
+import { PURPOSES, purposeOf, purposeTargets, type Purpose } from './purpose';
+import { MAX_CUSTOM_SIDE, monitorName, resolveTarget, sameTarget, type Target } from './target';
 
 type Props = {
   value: Target | null;
@@ -21,10 +16,14 @@ type Props = {
   onToggleMine: (target: Target) => void;
 };
 
-function targetName(target: Target): string {
-  if (target.kind === 'custom')
-    return monitorLabel(target.width, target.height) ?? `${target.width} × ${target.height}`;
-  return resolveTarget(target, VISIBLE_PRESETS)?.label ?? target.presetId;
+function targetName(target: Target, t: Dict['picker']): string {
+  if (target.kind === 'custom') {
+    const monitor = monitorName(target.width, target.height);
+    return monitor ? t.monitor(monitor) : `${target.width} × ${target.height}`;
+  }
+  const preset = VISIBLE_PRESETS.find((p) => p.id === target.presetId);
+  if (!preset) return target.presetId;
+  return preset.screens.length > 1 ? `${preset.name} ${t.roles[target.role]}` : preset.name;
 }
 
 function presetTarget(preset: DevicePreset): Target {
@@ -34,7 +33,7 @@ function presetTarget(preset: DevicePreset): Target {
 /** 고른 대상의 쓰임새 (폰 배경화면, 워치 페이스 …). 직접 입력한 크기는 모니터 해상도일 때만 */
 function purposeOfTarget(target: Target | null): Purpose | null {
   if (!target) return null;
-  if (target.kind === 'custom') return monitorLabel(target.width, target.height) ? 'pc' : null;
+  if (target.kind === 'custom') return monitorName(target.width, target.height) ? 'pc' : null;
   const preset = VISIBLE_PRESETS.find((p) => p.id === target.presetId);
   return preset ? purposeOf(preset.category) : null;
 }
@@ -44,6 +43,7 @@ function sizeText(preset: DevicePreset): string {
 }
 
 export function DevicePicker({ value, recent, mine, onChange, onToggleMine }: Props) {
+  const t = useT().picker;
   const searchId = useId();
   const [query, setQuery] = useState('');
   const [customOpen, setCustomOpen] = useState(false);
@@ -57,18 +57,20 @@ export function DevicePicker({ value, recent, mine, onChange, onToggleMine }: Pr
   const isMine = value ? mine.some((t) => sameTarget(t, value)) : false;
   const shortcuts = [...mine, ...recent.filter((r) => !mine.some((m) => sameTarget(m, r)))];
 
-  function chip(t: Target) {
+  function chip(target: Target) {
     return (
       <button
-        key={JSON.stringify(t)}
+        key={JSON.stringify(target)}
         type="button"
-        className={value && sameTarget(value, t) ? `${styles.chip} ${styles.chipOn}` : styles.chip}
-        onClick={() => choose(t)}
+        className={
+          value && sameTarget(value, target) ? `${styles.chip} ${styles.chipOn}` : styles.chip
+        }
+        onClick={() => choose(target)}
       >
-        {mine.some((m) => sameTarget(m, t)) && (
-          <Star size={14} strokeWidth={2} fill="currentColor" aria-label="내 기기" />
+        {mine.some((m) => sameTarget(m, target)) && (
+          <Star size={14} strokeWidth={2} fill="currentColor" aria-label={t.myDevice} />
         )}
-        {targetName(t)}
+        {targetName(target, t)}
       </button>
     );
   }
@@ -86,15 +88,17 @@ export function DevicePicker({ value, recent, mine, onChange, onToggleMine }: Pr
   return (
     <section className={styles.picker} aria-labelledby={`${searchId}-title`}>
       <h2 id={`${searchId}-title`} className={styles.title}>
-        기기
+        {t.heading}
       </h2>
 
       {value && resolved && (
         <div className={styles.selected}>
           <div className={styles.selectedText}>
-            <span className={styles.selectedName}>{resolved.label ?? '직접 입력한 크기'}</span>
+            <span className={styles.selectedName}>
+              {value.kind === 'custom' && !use ? t.customSize : targetName(value, t)}
+            </span>
             <span className={styles.size}>
-              {use && <span className={styles.use}>{PURPOSE_USE[use]}</span>}
+              {use && <span className={styles.use}>{t.uses[use]}</span>}
               {resolved.size.width} × {resolved.size.height} px
             </span>
           </div>
@@ -105,13 +109,13 @@ export function DevicePicker({ value, recent, mine, onChange, onToggleMine }: Pr
             onClick={() => onToggleMine(value)}
           >
             <Star size={18} strokeWidth={1.75} fill={isMine ? 'currentColor' : 'none'} />
-            {isMine ? '내 기기' : '내 기기로 저장'}
+            {isMine ? t.myDevice : t.saveMine}
           </button>
         </div>
       )}
 
       {resolved?.preset && resolved.preset.screens.length > 1 && value?.kind === 'preset' && (
-        <div className={styles.seg} role="radiogroup" aria-label="화면">
+        <div className={styles.seg} role="radiogroup" aria-label={t.screen}>
           {resolved.preset.screens.map((s) => (
             <button
               key={s.role}
@@ -121,7 +125,7 @@ export function DevicePicker({ value, recent, mine, onChange, onToggleMine }: Pr
               className={value.role === s.role ? styles.on : undefined}
               onClick={() => onChange({ ...value, role: s.role })}
             >
-              {ROLE_LABELS[s.role]}
+              {t.roles[s.role]}
             </button>
           ))}
         </div>
@@ -130,12 +134,12 @@ export function DevicePicker({ value, recent, mine, onChange, onToggleMine }: Pr
       <div className={styles.search}>
         <Search size={18} strokeWidth={1.75} aria-hidden="true" />
         <label htmlFor={searchId} className="visually-hidden">
-          기기 이름으로 찾기
+          {t.searchLabel}
         </label>
         <input
           id={searchId}
           type="search"
-          placeholder="기기 이름으로 찾기 (예: 17 프로, 플립8, 워치9)"
+          placeholder={t.searchPlaceholder}
           value={query}
           onChange={(e) => setQuery(e.currentTarget.value)}
           onBlur={() => {
@@ -150,7 +154,7 @@ export function DevicePicker({ value, recent, mine, onChange, onToggleMine }: Pr
           <button
             type="button"
             className={styles.clear}
-            aria-label="검색어 지우기"
+            aria-label={t.clearSearch}
             onClick={() => setQuery('')}
           >
             <X size={16} strokeWidth={2} />
@@ -160,7 +164,7 @@ export function DevicePicker({ value, recent, mine, onChange, onToggleMine }: Pr
 
       {query.trim() ? (
         results.length > 0 ? (
-          <ul className={styles.results} aria-label="검색 결과">
+          <ul className={styles.results} aria-label={t.results}>
             {results.map((p) => (
               <li key={p.id}>
                 <button type="button" onClick={() => choose(presetTarget(p))}>
@@ -171,30 +175,30 @@ export function DevicePicker({ value, recent, mine, onChange, onToggleMine }: Pr
             ))}
           </ul>
         ) : (
-          <p className={styles.empty}>찾는 기기가 없어요. 아래에서 크기를 직접 입력해 보세요.</p>
+          <p className={styles.empty}>{t.noResult}</p>
         )
       ) : (
         <>
           {shortcuts.length > 0 && (
-            <div className={styles.chips} role="group" aria-label="내 기기와 최근 기기">
+            <div className={styles.chips} role="group" aria-label={t.shortcuts}>
               {shortcuts.map(chip)}
             </div>
           )}
-          <div className={styles.seg} role="radiogroup" aria-label="어디에 쓸 사진인가요?">
+          <div className={styles.seg} role="radiogroup" aria-label={t.purposeGroup}>
             {PURPOSES.map((p) => (
               <button
-                key={p.value}
+                key={p}
                 type="button"
                 role="radio"
-                aria-checked={purpose === p.value}
-                className={purpose === p.value ? styles.on : undefined}
-                onClick={() => setPurpose(p.value)}
+                aria-checked={purpose === p}
+                className={purpose === p ? styles.on : undefined}
+                onClick={() => setPurpose(p)}
               >
-                {p.label}
+                {t.purposes[p]}
               </button>
             ))}
           </div>
-          <div className={styles.chips} role="group" aria-label={`${PURPOSE_USE[purpose]} 기기`}>
+          <div className={styles.chips} role="group" aria-label={t.purposeDevices(t.uses[purpose])}>
             {purposeTargets(VISIBLE_PRESETS, purpose).map(chip)}
           </div>
         </>
@@ -206,7 +210,7 @@ export function DevicePicker({ value, recent, mine, onChange, onToggleMine }: Pr
         aria-expanded={customOpen}
         onClick={() => setCustomOpen((open) => !open)}
       >
-        크기 직접 입력
+        {t.customToggle}
       </button>
       {customOpen && (
         <form
@@ -217,7 +221,7 @@ export function DevicePicker({ value, recent, mine, onChange, onToggleMine }: Pr
           }}
         >
           <label>
-            <span>가로</span>
+            <span>{t.width}</span>
             <input
               inputMode="numeric"
               value={customW}
@@ -226,7 +230,7 @@ export function DevicePicker({ value, recent, mine, onChange, onToggleMine }: Pr
           </label>
           <span aria-hidden="true">×</span>
           <label>
-            <span>세로</span>
+            <span>{t.height}</span>
             <input
               inputMode="numeric"
               value={customH}
@@ -234,11 +238,11 @@ export function DevicePicker({ value, recent, mine, onChange, onToggleMine }: Pr
             />
           </label>
           <button type="submit" disabled={!customValid}>
-            이 크기로
+            {t.useSize}
           </button>
           {!customValid && (
             <p className={styles.error} role="alert">
-              1부터 {MAX_CUSTOM_SIDE} 사이의 숫자를 넣어 주세요.
+              {t.sizeError(MAX_CUSTOM_SIDE)}
             </p>
           )}
         </form>
