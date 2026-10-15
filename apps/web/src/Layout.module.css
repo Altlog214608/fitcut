@@ -40,13 +40,16 @@
 }
 
 .wordmark {
-  font-size: 18px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 20px;
   font-weight: 800;
   letter-spacing: -0.03em;
   text-decoration: none;
 }
 
-.wordmark span {
+.wordmark span span {
   color: var(--color-accent-ink);
 }
 

@@ -1,4 +1,5 @@
 import { JOB_LIMITS, sizeBucket, type JobKind } from '@fitcut/shared';
+import { Koi, KoiPond } from '../components/Koi';
 import { Film, ShieldCheck } from 'lucide-react';
 import { useId, useState, type CSSProperties } from 'react';
 import { DropZone } from '../components/DropZone';
@@ -237,6 +238,7 @@ export function RotateTool({ initialFile }: { initialFile: File | null }) {
 
           {making?.phase === 'running' && (
             <p className={styles.status} role="status">
+              <KoiPond size={48} className={styles.pond} />
               {making.job.status === 'queued' ? m.queued : t.working(elapsed)}
               <span className={styles.hint}>
                 {method === 'rotate' ? t.usuallyEncode : t.usuallyFast}
@@ -247,6 +249,7 @@ export function RotateTool({ initialFile }: { initialFile: File | null }) {
             <figure className={styles.result}>
               <video src={now.job.downloadUrl} crossOrigin="anonymous" controls playsInline />
               <figcaption className={styles.num} role="status">
+                <Koi mood="happy" size={22} className={styles.doneKoi} />
                 {t.done} · {formatBytes(now.job.outputBytes ?? 0)}
               </figcaption>
             </figure>

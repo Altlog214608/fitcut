@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { Moon, Sun } from 'lucide-react';
 import { Link, Outlet, useLocation } from 'react-router';
 import { InAppNotice } from './components/InAppNotice';
+import { Koi } from './components/Koi';
 import { startSession, toolOf, track } from './lib/analytics';
 import { IN_APP } from './lib/inApp';
 import { currentTheme, setTheme, type Theme } from './lib/theme';
@@ -28,7 +29,10 @@ export function Layout() {
     <div className={styles.app}>
       <header className={styles.header}>
         <Link to="/" className={styles.wordmark} aria-label={t.layout.home}>
-          Koi<span>Cut</span>
+          <Koi size={28} />
+          <span>
+            Koi<span>Cut</span>
+          </span>
         </Link>
         <div className={styles.actions}>
           <button

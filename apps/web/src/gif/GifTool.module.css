@@ -96,7 +96,7 @@
 }
 
 .ok {
-  color: var(--color-accent-ink);
+  display: block;
 }
 
 .uploadError {
@@ -431,9 +431,23 @@
 
 .status {
   display: grid;
-  gap: 2px;
+  grid-template-columns: auto 1fr;
+  align-items: center;
+  column-gap: 12px;
+  row-gap: 2px;
   font-size: var(--text-caption);
   font-weight: 600;
+}
+
+/* 연못을 도는 잉어 (components/Koi.tsx KoiPond) */
+.pond {
+  grid-row: 1 / span 2;
+}
+
+.doneKoi {
+  display: inline-block;
+  margin-right: 6px;
+  vertical-align: -6px;
 }
 
 .result {

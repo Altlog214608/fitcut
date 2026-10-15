@@ -6,6 +6,35 @@
   margin: 0 auto;
 }
 
+.hero {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: var(--space-2);
+}
+
+/* 홈의 잉어만 천천히 떠다닌다. 움직임 줄이기 설정이면 멈춘다 */
+.heroKoi {
+  margin-bottom: 4px;
+  animation: bob 2.8s ease-in-out infinite;
+}
+
+@keyframes bob {
+  0%,
+  100% {
+    transform: translateY(0) rotate(-6deg);
+  }
+  50% {
+    transform: translateY(-5px) rotate(6deg);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .heroKoi {
+    animation: none;
+  }
+}
+
 .title {
   font-size: var(--text-title);
   line-height: 1.35;
@@ -100,12 +129,37 @@
 .tile {
   display: grid;
   place-items: center;
-  width: 40px;
-  height: 40px;
-  border-radius: var(--radius-control);
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
   background: var(--color-accent-soft);
   color: var(--color-accent-ink);
   flex: none;
+}
+
+.tile[data-tint='photo'] {
+  background: var(--tint-photo-bg);
+  color: var(--tint-photo);
+}
+
+.tile[data-tint='gif'] {
+  background: var(--tint-gif-bg);
+  color: var(--tint-gif);
+}
+
+.tile[data-tint='audio'] {
+  background: var(--tint-audio-bg);
+  color: var(--tint-audio);
+}
+
+.tile[data-tint='rotate'] {
+  background: var(--tint-rotate-bg);
+  color: var(--tint-rotate);
+}
+
+.tile[data-tint='highlight'] {
+  background: var(--tint-highlight-bg);
+  color: var(--tint-highlight);
 }
 
 .rowText {

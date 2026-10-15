@@ -1,5 +1,5 @@
 /** 올리기 진행 표시 (움짤·음성·회전 도구가 같이 쓴다) */
-import { CircleCheck } from 'lucide-react';
+import { Koi } from '../components/Koi';
 import { formatBytes } from '../gif/estimate';
 import styles from '../gif/GifTool.module.css';
 import { useT } from '../i18n/context';
@@ -39,7 +39,7 @@ export function UploadStatus({ up, onCancel, onRetry }: Props) {
       )}
       {up.state === 'done' && (
         <p className={styles.uploadText}>
-          <CircleCheck size={18} strokeWidth={1.75} className={styles.ok} />
+          <Koi mood="happy" size={22} className={styles.ok} />
           {t.uploaded}
         </p>
       )}
