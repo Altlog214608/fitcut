@@ -45,7 +45,7 @@ export async function getLink(id: string): Promise<Link> {
   return link;
 }
 
-/** FitCut 구간 반복 링크: 열면 그 구간만 반복 재생 */
+/** KoiCut 구간 반복 링크: 열면 그 구간만 반복 재생 */
 export const repeatUrl = (origin: string, id: string) => `${origin}/r/${id}`;
 
 const isLink = (v: unknown): v is Link => {

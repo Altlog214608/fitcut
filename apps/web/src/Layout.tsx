@@ -28,7 +28,7 @@ export function Layout() {
     <div className={styles.app}>
       <header className={styles.header}>
         <Link to="/" className={styles.wordmark} aria-label={t.layout.home}>
-          Fit<span>Cut</span>
+          Koi<span>Cut</span>
         </Link>
         <div className={styles.actions}>
           <button

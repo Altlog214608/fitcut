@@ -155,7 +155,7 @@ export async function finishMfaSetup(
   const v = await call<{ Session: string; Status: string }>('VerifySoftwareToken', {
     Session: step.session,
     UserCode: code,
-    FriendlyDeviceName: 'FitCut admin',
+    FriendlyDeviceName: 'KoiCut admin',
   });
   if (v.Status !== 'SUCCESS') throw new AuthError('인증 코드가 맞지 않아요.');
   const r = await call<AuthResult>('RespondToAuthChallenge', {
@@ -180,7 +180,7 @@ export async function answerMfa(step: Extract<Step, { kind: 'mfa' }>, code: stri
 
 /** OTP 앱에 넣을 주소 (otpauth://). 앱이 이 형식을 읽는다 */
 export const otpauthUri = (email: string, secret: string) =>
-  `otpauth://totp/FitCut:${encodeURIComponent(email)}?secret=${secret}&issuer=FitCut`;
+  `otpauth://totp/KoiCut:${encodeURIComponent(email)}?secret=${secret}&issuer=KoiCut`;
 
 // ---------- 토큰 보관 (이 탭에만) ----------
 

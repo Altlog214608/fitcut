@@ -1,5 +1,5 @@
 /**
- * YouTube IFrame Player API (공식 임베드 플레이어). 영상은 유튜브에서 바로 재생되고 FitCut 서버를 거치지 않는다.
+ * YouTube IFrame Player API (공식 임베드 플레이어). 영상은 유튜브에서 바로 재생되고 KoiCut 서버를 거치지 않는다.
  * 개인정보 보호 모드 주소(youtube-nocookie.com)로 띄운다.
  * 정책: 플레이어 위에 아무것도 겹치지 않는다, 200×200 이상 (YouTube API 개발자 정책).
  */

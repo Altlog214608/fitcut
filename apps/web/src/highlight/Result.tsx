@@ -130,7 +130,7 @@ export function Result({ id }: { id: string }) {
     // iOS 인앱 브라우저는 blob 다운로드를 못 한다 (lib/inApp.ts)
     void download(
       new Blob([text], { type }),
-      `fitcut-highlight-${detail.id}.${ext}`,
+      `koicut-highlight-${detail.id}.${ext}`,
       SAVE_METHOD === 'data-url' ? 'data-url' : 'blob',
     );
   }
