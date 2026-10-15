@@ -5,24 +5,12 @@
 import type { Category, DevicePreset } from '@fitcut/presets';
 import { MONITORS, QUICK_PICK_IDS, type Target } from './target';
 
-export { monitorLabel } from './target';
+export { monitorLabel, monitorName } from './target';
 
 export type Purpose = 'phone' | 'tablet' | 'watch' | 'pc';
 
-export const PURPOSES: readonly { value: Purpose; label: string }[] = [
-  { value: 'phone', label: '폰' },
-  { value: 'tablet', label: '태블릿' },
-  { value: 'watch', label: '워치' },
-  { value: 'pc', label: 'PC' },
-];
-
-/** 고른 기기 옆에 보여주는 쓰임새 */
-export const PURPOSE_USE: Record<Purpose, string> = {
-  phone: '폰 배경화면',
-  tablet: '태블릿 배경화면',
-  watch: '워치 페이스',
-  pc: 'PC 바탕화면',
-};
+/** 탭 순서. 이름과 쓰임새 문구는 i18n 사전 picker.purposes·picker.uses */
+export const PURPOSES: readonly Purpose[] = ['phone', 'tablet', 'watch', 'pc'];
 
 const CATEGORY_PURPOSE: Record<Category, Purpose> = {
   phone: 'phone',

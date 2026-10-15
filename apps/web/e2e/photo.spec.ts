@@ -29,7 +29,7 @@ function watchUploads(page: Page): string[] {
 
 async function openPhotoFromHome(page: Page, file: Buffer, name: string) {
   await page
-    .getByLabel(/파일을 끌어오세요/)
+    .getByLabel(/파일을 끌어다 놓으세요/)
     .setInputFiles({ name, mimeType: 'image/jpeg', buffer: file });
   await expect(page.getByRole('heading', { level: 1, name: '사진' })).toBeVisible();
 }
@@ -46,7 +46,7 @@ async function chooseDevice(page: Page, query: string, name: string) {
 async function save(page: Page) {
   const [download] = await Promise.all([
     page.waitForEvent('download'),
-    page.getByRole('button', { name: '이미지 저장' }).click(),
+    page.getByRole('button', { name: '사진 저장하기' }).click(),
   ]);
   return { name: download.suggestedFilename(), file: await readFile(await download.path()) };
 }
@@ -62,7 +62,7 @@ test('가로가 넓은 사진을 배경 채우기로 아이폰 배경화면으�
   await openPhotoFromHome(page, photo, 'landscape.jpg');
   await expect(page.getByText('원본 1600 × 1000')).toBeVisible();
   await chooseDevice(page, '17 프로', 'iPhone 17 Pro');
-  await expect(page.getByText('이 사진은 화면보다 가로가 넓어서 양옆이 잘려요.')).toBeVisible();
+  await expect(page.getByText('사진이 화면보다 넓어서 양옆이 조금 잘려요.')).toBeVisible();
 
   await page.getByRole('button', { name: '배경 채우기로 사진 전체 넣기' }).click();
   await expect(page.getByRole('radio', { name: '배경 채우기' })).toHaveAttribute(
@@ -115,7 +115,7 @@ test('원형 워치는 원 바깥을 투명하게 PNG로 저장할 수 있다', 
 
 test('최근 기기와 내 기기가 새로고침 후에도 남는다', async ({ page }) => {
   await page.goto('/photo');
-  await page.getByLabel(/사진을 끌어오세요/).setInputFiles({
+  await page.getByLabel(/사진을 끌어다 놓으세요/).setInputFiles({
     name: 'a.jpg',
     mimeType: 'image/jpeg',
     buffer: await makeImage(page, 800, 600),
@@ -124,7 +124,7 @@ test('최근 기기와 내 기기가 새로고침 후에도 남는다', async ({
   await page.getByRole('radio', { name: '커버 화면' }).click();
   await page.getByRole('button', { name: '내 기기로 저장' }).click();
   await page.reload();
-  await page.getByLabel(/사진을 끌어오세요/).setInputFiles({
+  await page.getByLabel(/사진을 끌어다 놓으세요/).setInputFiles({
     name: 'b.jpg',
     mimeType: 'image/jpeg',
     buffer: await makeImage(page, 800, 600),
@@ -247,7 +247,7 @@ test('배경 종류 비교 캡처', async ({ page }, testInfo) => {
 
 test('기기를 고르기 전에도 고른 사진을 먼저 보여준다', async ({ page }) => {
   await page.goto('/photo');
-  await page.getByLabel(/사진을 끌어오세요/).setInputFiles({
+  await page.getByLabel(/사진을 끌어다 놓으세요/).setInputFiles({
     name: 'a.jpg',
     mimeType: 'image/jpeg',
     buffer: await makeImage(page, 800, 600),
@@ -256,7 +256,7 @@ test('기기를 고르기 전에도 고른 사진을 먼저 보여준다', async
   await expect(original).toBeVisible();
   expect(await original.evaluate((img: HTMLImageElement) => img.naturalWidth)).toBe(800);
   await expect(
-    page.getByText('기기를 고르면 이 사진을 화면 모양대로 맞춰 보여드려요.'),
+    page.getByText('기기를 고르면 이 사진을 화면 모양대로 맞춰 보여 드릴게요.'),
   ).toBeVisible();
 
   await chooseDevice(page, '17 프로', 'iPhone 17 Pro');
@@ -272,7 +272,7 @@ test('내 기기 3개를 ZIP 하나로 저장한다 (기기 이름이 든 파일
     '아이폰은 ZIP 대신 공유 화면으로 넘긴다',
   );
   await page.goto('/photo');
-  await page.getByLabel(/사진을 끌어오세요/).setInputFiles({
+  await page.getByLabel(/사진을 끌어다 놓으세요/).setInputFiles({
     name: 'trip.jpg',
     mimeType: 'image/jpeg',
     buffer: await makeImage(page, 1600, 1000),
@@ -318,7 +318,7 @@ test('목표 용량을 정하면 그 이하로 저장하고, 맞출 수 없으�
   page,
 }) => {
   await page.goto('/photo');
-  await page.getByLabel(/사진을 끌어오세요/).setInputFiles({
+  await page.getByLabel(/사진을 끌어다 놓으세요/).setInputFiles({
     name: 'scene.png',
     mimeType: 'image/png',
     buffer: await makeScene(page, 1600, 2400),
@@ -337,14 +337,14 @@ test('목표 용량을 정하면 그 이하로 저장하고, 맞출 수 없으�
     buffer: await makeNoise(page, 1206, 2622),
   });
   await save(page);
-  await expect(page.getByRole('alert')).toContainText('200KB 이하로 줄일 수 없어요');
+  await expect(page.getByRole('alert')).toContainText('200KB 이하로는 줄일 수 없어요');
 });
 
 test('잠금화면 시계·카메라 자리를 켜고 끌 수 있고, 가이드가 없는 기기는 버튼이 없다', async ({
   page,
 }) => {
   await page.goto('/photo');
-  await page.getByLabel(/사진을 끌어오세요/).setInputFiles({
+  await page.getByLabel(/사진을 끌어다 놓으세요/).setInputFiles({
     name: 'a.jpg',
     mimeType: 'image/jpeg',
     buffer: await makeImage(page, 1200, 2400),
@@ -370,7 +370,7 @@ test('HEIC 사진도 브라우저 안에서 열어 저장한다 (서버로 보�
   await page.goto('/photo');
   // pillow-heif로 만든 1200x900 시험 그림, 회전 정보로 세로(900x1200)로 보인다 (e2e/fixtures/photo.heic)
   await page
-    .getByLabel(/사진을 끌어오세요/)
+    .getByLabel(/사진을 끌어다 놓으세요/)
     .setInputFiles(fileURLToPath(new URL('./fixtures/photo.heic', import.meta.url)));
   const original = page.getByAltText('고른 사진 원본');
   await expect(page.getByText(/원본 900 × 1200/)).toBeVisible({ timeout: 20_000 });
@@ -391,7 +391,7 @@ test('AI로 2배 키우면 크기가 정확히 2배가 되고, 사진은 서버�
   test.setTimeout(240_000);
   const uploads = watchUploads(page);
   await page.goto('/photo');
-  await page.getByLabel(/사진을 끌어오세요/).setInputFiles({
+  await page.getByLabel(/사진을 끌어다 놓으세요/).setInputFiles({
     name: 'small.png',
     mimeType: 'image/png',
     buffer: await makeScene(page, 250, 250),

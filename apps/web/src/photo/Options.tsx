@@ -1,4 +1,5 @@
 import { Segmented } from '../components/Segmented';
+import { useT } from '../i18n/context';
 import type { OutputFormat } from './fileName';
 import type { FitMode } from './layout';
 import styles from './Options.module.css';
@@ -28,19 +29,8 @@ type Props = {
   onZoom: (zoom: number) => void;
 };
 
-const MODES = [
-  { value: 'cover', label: '꽉 채우기' },
-  { value: 'contain', label: '배경 채우기' },
-  { value: 'stretch', label: '늘이기' },
-] as const;
-
-const BACKGROUNDS = [
-  { value: 'extend', label: '가장자리 늘이기' },
-  { value: 'blur', label: '흐린 사진' },
-  { value: 'mirror', label: '거울 반사' },
-  { value: 'edge', label: '비슷한 색' },
-  { value: 'solid', label: '단색' },
-] as const;
+const MODES = ['cover', 'contain', 'stretch'] as const;
+const BACKGROUNDS = ['extend', 'blur', 'mirror', 'edge', 'solid'] as const;
 
 /** 배경 종류를 바꿀 때의 기본값. 이어 붙이는 방식은 덜 흐리게 시작한다. */
 const PHOTO_DEFAULTS = {
@@ -55,18 +45,18 @@ const FORMATS = [
   { value: 'webp', label: 'WebP' },
 ] as const;
 
-const TARGETS = TARGET_SIZES_KB.map((kb) => ({
-  value: String(kb),
-  label: kb === 0 ? '끄기' : targetLabel(kb * 1000),
-}));
-
 const SWATCHES = [
-  { color: '#000000', label: '검정' },
-  { color: '#ffffff', label: '흰색' },
-];
+  { color: '#000000', key: 'black' },
+  { color: '#ffffff', key: 'white' },
+] as const;
 
 export function Options(props: Props) {
   const { mode, background, format, quality, isCircle, circleOutside } = props;
+  const t = useT().options;
+  const targets = TARGET_SIZES_KB.map((kb) => ({
+    value: String(kb),
+    label: kb === 0 ? t.off : targetLabel(kb * 1000),
+  }));
 
   function setKind(kind: Background['kind']) {
     if (kind === background.kind) return;
@@ -78,14 +68,19 @@ export function Options(props: Props) {
 
   return (
     <div className={styles.options}>
-      <Segmented label="맞춤 방식" value={mode} options={MODES} onChange={props.onMode} />
+      <Segmented
+        label={t.mode}
+        value={mode}
+        options={MODES.map((value) => ({ value, label: t.modes[value] }))}
+        onChange={props.onMode}
+      />
 
       {mode === 'contain' && (
         <div className={styles.sub}>
           {props.zoomMax > 1.01 && (
             <label className={styles.slider}>
               <span>
-                사진 크기 <b className={styles.num}>{Math.round(props.zoom * 100)}%</b>
+                {t.zoom} <b className={styles.num}>{Math.round(props.zoom * 100)}%</b>
               </span>
               <input
                 type="range"
@@ -95,15 +90,13 @@ export function Options(props: Props) {
                 value={props.zoom}
                 onChange={(e) => props.onZoom(Number(e.currentTarget.value))}
               />
-              <small className={styles.help}>
-                키우면 양옆이나 위아래가 조금 잘리고 채울 곳이 줄어요
-              </small>
+              <small className={styles.help}>{t.zoomHelp}</small>
             </label>
           )}
           <Segmented
-            label="배경"
+            label={t.background}
             value={background.kind}
-            options={BACKGROUNDS}
+            options={BACKGROUNDS.map((value) => ({ value, label: t.backgrounds[value] }))}
             onChange={setKind}
             wrap
           />
@@ -112,7 +105,7 @@ export function Options(props: Props) {
             background.kind === 'mirror') && (
             <>
               <label className={styles.slider}>
-                <span>흐림</span>
+                <span>{t.blur}</span>
                 <input
                   type="range"
                   min={0}
@@ -125,7 +118,7 @@ export function Options(props: Props) {
                 />
               </label>
               <label className={styles.slider}>
-                <span>어둡게</span>
+                <span>{t.dim}</span>
                 <input
                   type="range"
                   min={0}
@@ -140,7 +133,7 @@ export function Options(props: Props) {
             </>
           )}
           {background.kind === 'solid' && (
-            <div className={styles.swatches} role="group" aria-label="배경 색">
+            <div className={styles.swatches} role="group" aria-label={t.colorGroup}>
               {SWATCHES.map((s) => (
                 <button
                   key={s.color}
@@ -149,7 +142,7 @@ export function Options(props: Props) {
                   onClick={() => props.onBackground({ kind: 'solid', color: s.color })}
                 >
                   <span className={styles.swatch} style={{ background: s.color }} />
-                  {s.label}
+                  {t[s.key]}
                 </button>
               ))}
               <label className={styles.picker}>
@@ -160,7 +153,7 @@ export function Options(props: Props) {
                     props.onBackground({ kind: 'solid', color: e.currentTarget.value })
                   }
                 />
-                직접 고르기
+                {t.pickColor}
               </label>
             </div>
           )}
@@ -170,28 +163,28 @@ export function Options(props: Props) {
               checked={props.soft}
               onChange={(e) => props.onSoft(e.currentTarget.checked)}
             />
-            <span>사진 경계를 부드럽게 섞기</span>
+            <span>{t.soft}</span>
           </label>
         </div>
       )}
 
       {isCircle && (
         <Segmented
-          label="원 바깥"
+          label={t.circleOutside}
           value={circleOutside}
           options={[
-            { value: 'black', label: '검정' },
-            { value: 'transparent', label: '투명 (PNG)' },
+            { value: 'black', label: t.black },
+            { value: 'transparent', label: t.transparentPng },
           ]}
           onChange={props.onCircleOutside}
         />
       )}
 
-      <Segmented label="형식" value={format} options={FORMATS} onChange={props.onFormat} />
+      <Segmented label={t.format} value={format} options={FORMATS} onChange={props.onFormat} />
       {format !== 'png' && (
         <label className={styles.slider}>
           <span>
-            화질 <b className={styles.num}>{Math.round(quality * 100)}</b>
+            {t.quality} <b className={styles.num}>{Math.round(quality * 100)}</b>
           </span>
           <input
             type="range"
@@ -205,9 +198,9 @@ export function Options(props: Props) {
       )}
       {format !== 'png' && (
         <Segmented
-          label="목표 용량 (이하로 맞추기)"
+          label={t.target}
           value={String(props.targetKb)}
-          options={TARGETS}
+          options={targets}
           onChange={(v) => props.onTargetKb(Number(v))}
           wrap
         />

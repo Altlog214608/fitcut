@@ -27,8 +27,6 @@ describe('routes', () => {
 
   it('없는 경로는 404 페이지를 보여준다', () => {
     renderAt('/no-such-page');
-    expect(
-      screen.getByRole('heading', { level: 1, name: '페이지를 찾을 수 없어요' }),
-    ).toBeDefined();
+    expect(screen.getByRole('heading', { level: 1, name: '여기는 없는 페이지예요' })).toBeDefined();
   });
 });

@@ -17,7 +17,7 @@ test.beforeEach(({ browserName }, testInfo) => {
 
 async function openPhoto(page: import('@playwright/test').Page) {
   await page.goto('/photo');
-  await page.getByLabel(/사진을 끌어오세요/).setInputFiles({
+  await page.getByLabel(/사진을 끌어다 놓으세요/).setInputFiles({
     name: 'a.jpg',
     mimeType: 'image/jpeg',
     buffer: await makeImage(page, 1600, 1000),
@@ -35,7 +35,7 @@ test.describe('카카오톡 안드로이드', () => {
   test('맨 위에 다른 브라우저로 열기 안내가 있고, 저장 대신 안내를 보여준다', async ({ page }) => {
     await openPhoto(page);
     const notice = page.getByRole('complementary', { name: '다른 브라우저로 열기 안내' });
-    await expect(notice).toContainText('카카오톡 안에서는 사진 저장이 안 될 수 있어요.');
+    await expect(notice).toContainText('카카오톡 안에서는 저장이 잘 안 될 수 있어요.');
     await expect(notice.getByRole('link', { name: '다른 브라우저로 열기' })).toHaveAttribute(
       'href',
       'kakaotalk://web/openExternal?url=http%3A%2F%2Flocalhost%3A4173%2Fphoto',
@@ -43,7 +43,7 @@ test.describe('카카오톡 안드로이드', () => {
 
     let downloaded = false;
     page.on('download', () => (downloaded = true));
-    await page.getByRole('button', { name: '이미지 저장' }).click();
+    await page.getByRole('button', { name: '사진 저장하기' }).click();
     await expect(page.getByRole('alert')).toContainText('카카오톡 안에서는 저장할 수 없어요.');
     expect(downloaded).toBe(false);
   });
@@ -56,7 +56,7 @@ test.describe('카카오톡 iOS', () => {
     await openPhoto(page);
     const [download] = await Promise.all([
       page.waitForEvent('download'),
-      page.getByRole('button', { name: '이미지 저장' }).click(),
+      page.getByRole('button', { name: '사진 저장하기' }).click(),
     ]);
     expect(download.url().startsWith('data:image/jpeg;base64,')).toBe(true);
     expect(download.suggestedFilename()).toBe('a_iPhone-17-Pro_1206x2622.jpg');

@@ -26,14 +26,20 @@ export type ResolvedTarget = {
 export const MAX_CUSTOM_SIDE = 8000;
 
 /** 흔한 모니터 해상도. 이름이 곧 픽셀 수라 기기 프리셋이 아니라 크기로 고른다 (photo/purpose.ts PC 탭) */
-export const MONITORS: readonly { width: number; height: number; label: string }[] = [
-  { width: 1920, height: 1080, label: '모니터 FHD' },
-  { width: 2560, height: 1440, label: '모니터 QHD' },
-  { width: 3840, height: 2160, label: '모니터 4K' },
+export const MONITORS: readonly { width: number; height: number; name: string }[] = [
+  { width: 1920, height: 1080, name: 'FHD' },
+  { width: 2560, height: 1440, name: 'QHD' },
+  { width: 3840, height: 2160, name: '4K' },
 ];
 
+export function monitorName(width: number, height: number): string | null {
+  return MONITORS.find((m) => m.width === width && m.height === height)?.name ?? null;
+}
+
+/** 파일 이름에 쓰는 모니터 이름 (화면에 보이는 이름은 i18n 사전 picker.monitor) */
 export function monitorLabel(width: number, height: number): string | null {
-  return MONITORS.find((m) => m.width === width && m.height === height)?.label ?? null;
+  const name = monitorName(width, height);
+  return name ? `Monitor ${name}` : null;
 }
 
 export const ROLE_LABELS: Record<ScreenRole, string> = {

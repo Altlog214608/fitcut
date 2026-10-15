@@ -7,6 +7,7 @@ import {
   type PointerEvent,
 } from 'react';
 import { scaleLayout, type Layout, type Position, type Rect, type Size } from './layout';
+import { useT } from '../i18n/context';
 import styles from './Preview.module.css';
 import { drawPhoto, type Background, type CanvasFactory } from './render';
 import type { OutputFormat } from './fileName';
@@ -28,8 +29,6 @@ type Props = {
   /** 잠금화면 가이드를 겹쳐 보여준다 (F7) */
   showGuide?: boolean;
 };
-
-const GUIDE_LABELS = { clock: '시계', camera: '카메라', widgets: '위젯' } as const;
 
 const makeCanvas: CanvasFactory = (width, height) => {
   const canvas = document.createElement('canvas');
@@ -76,6 +75,7 @@ export function Preview({
   onPositionChange,
   showGuide = false,
 }: Props) {
+  const t = useT().preview;
   const { size, shape } = target;
   const screenRef = useRef<HTMLDivElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -201,10 +201,10 @@ export function Preview({
           style={screenStyle}
           tabIndex={canMove ? 0 : -1}
           role={canMove ? 'slider' : undefined}
-          aria-label={canMove ? '사진 위치. 끌거나 화살표 키로 옮겨요' : undefined}
+          aria-label={canMove ? t.moveLabel : undefined}
           aria-valuetext={
             canMove
-              ? `가로 ${Math.round(position.x * 100)}, 세로 ${Math.round(position.y * 100)}`
+              ? t.position(Math.round(position.x * 100), Math.round(position.y * 100))
               : undefined
           }
           onPointerDown={onPointerDown}
@@ -228,7 +228,7 @@ export function Preview({
                   height: `${o.h * 100}%`,
                 }}
               >
-                {o.kind !== 'camera' && <span>{GUIDE_LABELS[o.kind]}</span>}
+                {o.kind !== 'camera' && <span>{t.guides[o.kind]}</span>}
               </div>
             ))}
         </div>

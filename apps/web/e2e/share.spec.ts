@@ -34,7 +34,7 @@ async function shares(page: Page) {
 
 async function makeWallpaper(page: Page) {
   await page.goto('/photo');
-  await page.getByLabel(/사진을 끌어오세요/).setInputFiles({
+  await page.getByLabel(/사진을 끌어다 놓으세요/).setInputFiles({
     name: 'a.jpg',
     mimeType: 'image/jpeg',
     buffer: await makeImage(page, 1600, 1000),
@@ -62,7 +62,7 @@ test('아이폰은 공유 화면으로 넘겨서 사진 앱에 저장하게 한�
 
   let downloaded = false;
   page.on('download', () => (downloaded = true));
-  await page.getByRole('button', { name: '이미지 저장' }).click();
+  await page.getByRole('button', { name: '사진 저장하기' }).click();
   await expect(page.getByRole('status')).toContainText('만들었어요');
   expect(await shares(page)).toEqual([
     { name: 'a_iPhone-17-Pro_1206x2622.jpg', type: 'image/jpeg', size: expect.any(Number) },
@@ -75,7 +75,7 @@ test('아이폰은 공유 화면으로 넘겨서 사진 앱에 저장하게 한�
 test('만드는 사이 공유 화면이 막히면 "사진 앱에 저장"을 다시 누르게 한다', async ({ page }) => {
   await fakeShare(page, true);
   await makeWallpaper(page);
-  await page.getByRole('button', { name: '이미지 저장' }).click();
+  await page.getByRole('button', { name: '사진 저장하기' }).click();
   const again = page.getByRole('button', { name: '사진 앱에 저장' });
   await expect(again).toBeVisible();
   await again.click();

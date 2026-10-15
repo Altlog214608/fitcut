@@ -2,6 +2,7 @@ import { StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';
 import { createBrowserRouter } from 'react-router';
 import { RouterProvider } from 'react-router/dom';
+import { LangProvider } from './i18n/LangProvider';
 import { routes } from './routes';
 import 'pretendard/dist/web/variable/pretendardvariable-dynamic-subset.css';
 import './styles/tokens.css';
@@ -14,6 +15,8 @@ const router = createBrowserRouter(routes);
 
 createRoot(container).render(
   <StrictMode>
-    <RouterProvider router={router} />
+    <LangProvider>
+      <RouterProvider router={router} />
+    </LangProvider>
   </StrictMode>,
 );
