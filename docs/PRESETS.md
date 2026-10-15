@@ -7,13 +7,26 @@
 - 프리셋은 코드가 아니라 데이터다. 새 기기는 JSON만 추가하면 된다. (나중에 S3 + CloudFront에서 JSON을 받아와 재배포 없이 갱신하는 방식도 검토)
 - 관리자 화면의 "검색했는데 없던 기기" 순위로 추가 우선순위를 정한다.
 
+## 용도 탭 (사진 도구)
+
+기기 고르기는 용도별 탭으로 나눈다 (`apps/web/src/photo/purpose.ts`, 2026-10-15).
+
+| 탭 | 카테고리 | 고른 기기 옆 표시 |
+| --- | --- | --- |
+| 폰 | phone, foldable, flip | 폰 배경화면 |
+| 태블릿 | tablet | 태블릿 배경화면 |
+| 워치 | watch | 워치 페이스 |
+| PC | laptop, desktop + 모니터 해상도(FHD 1920×1080, QHD 2560×1440, 4K 3840×2160) | PC 바탕화면 |
+
+모니터는 이름이 곧 픽셀 수라 프리셋이 아니라 크기로 고른다. 맥북·아이맥은 Apple 스펙 페이지로 확인했다 (2026-10-15).
+
 ## 스키마 (초안)
 
 ```ts
 type DevicePreset = {
   id: string;                 // "galaxy-z-flip6"
   brand: string;              // "Apple", "Samsung", "Google"
-  category: "phone" | "foldable" | "flip" | "tablet" | "watch";
+  category: "phone" | "foldable" | "flip" | "tablet" | "watch" | "laptop" | "desktop";
   name: string;               // 화면에 보이는 이름
   aliases: string[];          // 검색어: "플립6", "flip 6"
   releaseYear: number;

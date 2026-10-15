@@ -1,0 +1,19 @@
+{
+  "id": "apple-macbook-air-13-m5",
+  "brand": "Apple",
+  "category": "laptop",
+  "name": "MacBook Air 13 (M5)",
+  "aliases": ["맥북 에어 13", "맥북 에어", "macbook air 13", "에어 13"],
+  "releaseYear": 2026,
+  "screens": [
+    {
+      "role": "main",
+      "widthPx": 2560,
+      "heightPx": 1664,
+      "shape": "rect"
+    }
+  ],
+  "source": "https://www.apple.com/macbook-air/specs/",
+  "verified": true,
+  "verifiedAt": "2026-10-15"
+}

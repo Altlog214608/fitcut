@@ -1,0 +1,19 @@
+{
+  "id": "apple-imac-24-m4",
+  "brand": "Apple",
+  "category": "desktop",
+  "name": "iMac 24 (M4)",
+  "aliases": ["아이맥", "아이맥 24", "imac", "imac 24"],
+  "releaseYear": 2024,
+  "screens": [
+    {
+      "role": "main",
+      "widthPx": 4480,
+      "heightPx": 2520,
+      "shape": "rect"
+    }
+  ],
+  "source": "https://www.apple.com/imac/specs/",
+  "verified": true,
+  "verifiedAt": "2026-10-15"
+}

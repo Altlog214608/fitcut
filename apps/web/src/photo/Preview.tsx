@@ -170,7 +170,7 @@ export function Preview({
       ? 0
       : shape === 'rounded-rect'
         ? (target.cornerRadiusRatio ?? 0.22)
-        : isDevice && target.preset?.category !== 'tablet'
+        : isDevice && ['phone', 'foldable', 'flip'].includes(target.preset?.category ?? '')
           ? 0.09
           : 0;
 

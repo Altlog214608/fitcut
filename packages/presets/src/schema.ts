@@ -1,6 +1,6 @@
 /** 기기 프리셋 스키마. 규칙은 docs/PRESETS.md를 따른다. */
 
-export type Category = 'phone' | 'foldable' | 'flip' | 'tablet' | 'watch';
+export type Category = 'phone' | 'foldable' | 'flip' | 'tablet' | 'watch' | 'laptop' | 'desktop';
 export type ScreenRole = 'main' | 'cover' | 'inner';
 export type ScreenShape = 'rect' | 'rounded-rect' | 'circle';
 export type AnimatedFormat = 'gif' | 'live-photo' | 'none' | 'unknown';
@@ -47,7 +47,15 @@ export type DevicePreset = {
   notes?: string;
 };
 
-const CATEGORIES: readonly Category[] = ['phone', 'foldable', 'flip', 'tablet', 'watch'];
+const CATEGORIES: readonly Category[] = [
+  'phone',
+  'foldable',
+  'flip',
+  'tablet',
+  'watch',
+  'laptop',
+  'desktop',
+];
 const ROLES: readonly ScreenRole[] = ['main', 'cover', 'inner'];
 const SHAPES: readonly ScreenShape[] = ['rect', 'rounded-rect', 'circle'];
 const ANIMATED: readonly AnimatedFormat[] = ['gif', 'live-photo', 'none', 'unknown'];
