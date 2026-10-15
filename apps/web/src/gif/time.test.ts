@@ -5,7 +5,7 @@ import {
   moveEnd,
   moveStart,
   parseTime,
-  rangeProblem,
+  rangeTooLong,
   snapToFrame,
 } from './time';
 
@@ -70,11 +70,10 @@ describe('구간 규칙', () => {
     expect(initialRange(2.4)).toEqual({ start: 0, end: 2.4 });
   });
 
-  it('형식별 최대 길이를 넘으면 고치는 방법을 알려준다 (서버와 같은 기준)', () => {
-    expect(rangeProblem({ start: 0, end: 30 }, 'gif')).toBeNull();
-    expect(rangeProblem({ start: 0, end: 31 }, 'gif')).toBe(
-      '구간이 너무 길어요. 30초 이하로 골라 주세요.',
-    );
-    expect(rangeProblem({ start: 0, end: 120 }, 'mp4')).toBeNull();
+  it('형식별 최대 길이를 넘으면 그 최대 길이를 알려준다 (서버와 같은 기준)', () => {
+    expect(rangeTooLong({ start: 0, end: 30 }, 'gif')).toBeNull();
+    expect(rangeTooLong({ start: 0, end: 31 }, 'gif')).toBe(30);
+    expect(rangeTooLong({ start: 0, end: 31 }, 'm4r')).toBe(30);
+    expect(rangeTooLong({ start: 0, end: 120 }, 'mp4')).toBeNull();
   });
 });

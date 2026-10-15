@@ -44,8 +44,8 @@ test.beforeEach(({ browserName }) => {
 test('파형을 보며 구간을 고르고 페이드·음량 맞추기를 넣어 MP3를 만든다', async ({ page }) => {
   const bodies = await fakeServer(page);
   await page.goto('/audio');
-  await page.getByLabel(/영상이나 음성 파일을 끌어오세요/).setInputFiles(TONE);
-  await expect(page.getByText('올리기 완료')).toBeVisible();
+  await page.getByLabel(/영상이나 음성 파일을 끌어다 놓으세요/).setInputFiles(TONE);
+  await expect(page.getByText('다 올렸어요')).toBeVisible();
   await expect(page.locator('svg rect').first()).toBeAttached(); // 파형
   // Opus는 인코더 지연 때문에 4.0065초쯤이다
   await expect(page.getByRole('textbox', { name: '끝' })).toHaveValue(/^00:04\.0\d$/);
@@ -73,8 +73,8 @@ test('파형을 보며 구간을 고르고 페이드·음량 맞추기를 넣어
 test('아이폰 벨소리는 M4R로, 페이드가 구간보다 길면 안내한다', async ({ page }) => {
   const bodies = await fakeServer(page);
   await page.goto('/audio');
-  await page.getByLabel(/영상이나 음성 파일을 끌어오세요/).setInputFiles(TONE);
-  await expect(page.getByText('올리기 완료')).toBeVisible();
+  await page.getByLabel(/영상이나 음성 파일을 끌어다 놓으세요/).setInputFiles(TONE);
+  await expect(page.getByText('다 올렸어요')).toBeVisible();
   await page.getByRole('radio', { name: '아이폰 벨소리' }).click();
   await expect(page.getByText(/30초까지예요/)).toBeVisible();
 

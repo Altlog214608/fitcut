@@ -1,20 +1,22 @@
 import { JOB_LIMITS, sizeBucket, type JobKind } from '@fitcut/shared';
-import { AudioLines, CircleCheck, Pause, Play, Repeat, ShieldCheck } from 'lucide-react';
+import { AudioLines, Pause, Play, Repeat, ShieldCheck } from 'lucide-react';
 import { useEffect, useId, useRef, useState } from 'react';
 import { DropZone } from '../components/DropZone';
+import { useT } from '../i18n/context';
 import { Segmented } from '../components/Segmented';
 import { contentTypeOf } from '../gif/api';
 import { estimateAudioBytes, formatBytes } from '../gif/estimate';
 import styles from '../gif/GifTool.module.css';
 import { TimeField } from '../gif/TimeField';
 import { Timeline } from '../gif/Timeline';
-import { formatTime, moveEnd, moveStart, rangeProblem, roundMs, type Range } from '../gif/time';
+import { formatTime, moveEnd, moveStart, rangeTooLong, roundMs, type Range } from '../gif/time';
 import { track } from '../lib/analytics';
 import { detectKind } from '../lib/detectKind';
 import { SAVE_METHOD } from '../lib/inApp';
 import { openShare } from '../lib/save';
 import { useMediaJob, type MediaRequest } from '../media/useMediaJob';
 import { RetainConsent } from '../media/RetainConsent';
+import { UploadStatus } from '../media/UploadStatus';
 import { waveformOf } from './waveform';
 
 const ACCEPT =
@@ -24,11 +26,7 @@ const STEP = 0.01;
 const WAVE_BUCKETS = 600;
 
 type Purpose = 'file' | 'iphone' | 'galaxy';
-const PURPOSES: readonly { value: Purpose; label: string }[] = [
-  { value: 'file', label: '음성 파일' },
-  { value: 'iphone', label: '아이폰 벨소리' },
-  { value: 'galaxy', label: '갤럭시 벨소리' },
-];
+const PURPOSES: readonly Purpose[] = ['file', 'iphone', 'galaxy'];
 
 type FileFormat = 'mp3' | 'm4a' | 'wav';
 const FORMATS: readonly { value: FileFormat; label: string }[] = [
@@ -36,29 +34,21 @@ const FORMATS: readonly { value: FileFormat; label: string }[] = [
   { value: 'm4a', label: 'M4A' },
   { value: 'wav', label: 'WAV' },
 ];
-const FORMAT_HINT: Record<FileFormat, string> = {
-  mp3: '어디서나 열려요.',
-  m4a: '같은 음질에 MP3보다 조금 작아요 (AAC).',
-  wav: '압축하지 않아 용량이 커요. 편집용으로 좋아요.',
-};
 
 const BITRATES = ['128', '192', '256', '320'] as const;
 type Bitrate = (typeof BITRATES)[number];
 const FADES = ['0', '0.5', '1', '2', '3'] as const;
 type Fade = (typeof FADES)[number];
-const fadeOptions = FADES.map((v) => ({ value: v, label: v === '0' ? '없음' : `${v}초` }));
-
-const LABEL: Record<Purpose, string> = {
-  file: '',
-  iphone: '아이폰 벨소리',
-  galaxy: '갤럭시 벨소리',
-};
 
 type Picked = { file: File; url: string };
 type Meta = { file: File; duration: number };
 
 export function AudioTool({ initialFile }: { initialFile: File | null }) {
   const replaceId = useId();
+  const all = useT();
+  const t = all.audio;
+  const m = all.media;
+  const fadeOptions = FADES.map((v) => ({ value: v, label: v === '0' ? t.none : m.seconds(v) }));
   const mediaRef = useRef<HTMLAudioElement>(null);
   const [picked, setPicked] = useState<Picked | null>(() =>
     initialFile ? { file: initialFile, url: URL.createObjectURL(initialFile) } : null,
@@ -103,10 +93,16 @@ export function AudioTool({ initialFile }: { initialFile: File | null }) {
     },
   };
   const key = JSON.stringify(request);
+  const over = info ? rangeTooLong(range, kind) : null;
   const problem = !info
     ? null
-    : (rangeProblem(range, kind) ??
-      (fades.in + fades.out > seconds ? '페이드가 구간보다 길어요. 페이드를 줄여 주세요.' : null));
+    : over !== null
+      ? kind === 'm4r'
+        ? m.ringtoneTooLong(over)
+        : m.tooLong(over)
+      : fades.in + fades.out > seconds
+        ? t.fadeTooLong
+        : null;
   const estimate =
     info && !problem ? estimateAudioBytes(kind, seconds, Number(bitrate), mono ? 1 : 2) : null;
 
@@ -178,15 +174,11 @@ export function AudioTool({ initialFile }: { initialFile: File | null }) {
   function pickFile(next: File) {
     const k = detectKind(next).kind;
     if ((k !== 'video' && k !== 'audio') || !contentTypeOf(next)) {
-      setPickError(
-        '영상이나 음성 파일이 아니에요. MP4 · MOV · WebM · MP3 · M4A · WAV를 골라 주세요.',
-      );
+      setPickError(t.notMedia);
       return;
     }
     if (next.size > JOB_LIMITS.maxUploadBytes) {
-      setPickError(
-        `파일이 너무 커요. ${JOB_LIMITS.maxUploadBytes / 1024 / 1024}MB 이하로 골라 주세요.`,
-      );
+      setPickError(m.tooBig(JOB_LIMITS.maxUploadBytes / 1024 / 1024));
       return;
     }
     if (picked) URL.revokeObjectURL(picked.url);
@@ -232,11 +224,9 @@ export function AudioTool({ initialFile }: { initialFile: File | null }) {
   if (!file || !url) {
     return (
       <div className={styles.empty}>
-        <h1 className={styles.title}>음성</h1>
-        <p className={styles.lead}>
-          영상이나 음성 파일에서 원하는 구간만 MP3 · M4A · WAV, 벨소리로 만들어요.
-        </p>
-        <DropZone title="영상이나 음성 파일을 끌어오세요" accept={ACCEPT} onFile={pickFile} />
+        <h1 className={styles.title}>{t.title}</h1>
+        <p className={styles.lead}>{t.lead}</p>
+        <DropZone title={t.dropTitle} accept={ACCEPT} onFile={pickFile} />
         {pickError && (
           <p className={styles.error} role="alert">
             {pickError}
@@ -244,29 +234,27 @@ export function AudioTool({ initialFile }: { initialFile: File | null }) {
         )}
         <p className={styles.trust}>
           <ShieldCheck size={18} strokeWidth={1.75} />
-          파일을 고르면 바로 올라가기 시작해요. 올린 파일은 보통 1~2일 안에 자동으로 삭제돼요
+          {m.uploadTrust}
         </p>
       </div>
     );
   }
 
-  const name = purpose === 'file' ? kind.toUpperCase() : LABEL[purpose];
+  const name = purpose === 'file' ? kind.toUpperCase() : t.purposes[purpose];
   const primaryLabel =
     now?.phase === 'done'
-      ? `${name} 저장`
+      ? all.gif.save(name)
       : making?.phase === 'pending'
-        ? '올리기가 끝나면 바로 만들어요'
+        ? m.afterUpload
         : busy
-          ? '만드는 중…'
-          : `${name} 만들기`;
-  const percent =
-    up.state === 'sending' && up.total > 0 ? Math.round((up.sent / up.total) * 100) : 0;
+          ? m.busy
+          : all.gif.make(name);
 
   return (
     <div className={styles.tool}>
       <header className={styles.head}>
         <div className={styles.headText}>
-          <h1 className={styles.title}>음성</h1>
+          <h1 className={styles.title}>{t.title}</h1>
           <p className={styles.fileInfo}>
             <span className={styles.fileName}>{file.name}</span>
             <span className={styles.num}>{formatBytes(file.size)}</span>
@@ -275,7 +263,7 @@ export function AudioTool({ initialFile }: { initialFile: File | null }) {
         </div>
         <label htmlFor={replaceId} className={styles.replace}>
           <AudioLines size={18} strokeWidth={1.75} />
-          다른 파일
+          {t.replace}
         </label>
         <input
           id={replaceId}
@@ -295,48 +283,7 @@ export function AudioTool({ initialFile }: { initialFile: File | null }) {
         </p>
       )}
 
-      <div className={styles.upload} aria-live="polite">
-        {up.state === 'starting' && <p className={styles.uploadText}>올릴 준비를 하고 있어요…</p>}
-        {up.state === 'sending' && (
-          <>
-            <p className={styles.uploadText}>
-              올리는 중 <b className={styles.num}>{percent}%</b>
-              <span className={styles.num}>
-                {formatBytes(up.sent)} / {formatBytes(up.total)}
-              </span>
-            </p>
-            <button type="button" className={styles.textButton} onClick={media.cancelUpload}>
-              업로드 취소
-            </button>
-            <div
-              className={styles.bar}
-              role="progressbar"
-              aria-label="업로드"
-              aria-valuemin={0}
-              aria-valuemax={100}
-              aria-valuenow={percent}
-            >
-              <span style={{ width: `${percent}%` }} />
-            </div>
-          </>
-        )}
-        {up.state === 'done' && (
-          <p className={styles.uploadText}>
-            <CircleCheck size={18} strokeWidth={1.75} className={styles.ok} />
-            올리기 완료
-          </p>
-        )}
-        {up.state === 'failed' && (
-          <>
-            <p className={styles.uploadError} role="alert">
-              {up.message}
-            </p>
-            <button type="button" className={styles.textButton} onClick={media.retryUpload}>
-              다시 올리기
-            </button>
-          </>
-        )}
-      </div>
+      <UploadStatus up={up} onCancel={media.cancelUpload} onRetry={media.retryUpload} />
 
       <div className={styles.main}>
         <div className={styles.editCol}>
@@ -371,7 +318,7 @@ export function AudioTool({ initialFile }: { initialFile: File | null }) {
                 <button
                   type="button"
                   className={styles.playButton}
-                  aria-label={playing ? '일시 정지' : '재생'}
+                  aria-label={playing ? m.pause : m.play}
                   onClick={togglePlay}
                 >
                   {playing ? (
@@ -387,7 +334,7 @@ export function AudioTool({ initialFile }: { initialFile: File | null }) {
                   onClick={() => setLoop((on) => !on)}
                 >
                   <Repeat size={18} strokeWidth={1.75} />
-                  구간 반복
+                  {m.loop}
                 </button>
                 <span className={`${styles.clock} ${styles.num}`}>{formatTime(current)}</span>
               </div>
@@ -402,25 +349,23 @@ export function AudioTool({ initialFile }: { initialFile: File | null }) {
                 onRange={changeRange}
                 onSeek={seek}
               />
-              {wave?.file === file && !peaks && (
-                <p className={styles.hint}>파형은 그릴 수 없지만 구간은 고를 수 있어요.</p>
-              )}
+              {wave?.file === file && !peaks && <p className={styles.hint}>{t.noWave}</p>}
 
               <div className={styles.times}>
                 <TimeField
-                  label="시작"
+                  label={m.start}
                   value={range.start}
                   step={STEP}
                   onChange={(t) => changeRange(moveStart(range, t, STEP))}
                 />
                 <TimeField
-                  label="끝"
+                  label={m.end}
                   value={range.end}
                   step={STEP}
                   onChange={(t) => changeRange(moveEnd(range, t, STEP, info.duration))}
                 />
                 <p className={styles.length}>
-                  길이 <b className={styles.num}>{seconds.toFixed(2)}초</b>
+                  {m.length} <b className={styles.num}>{m.seconds(seconds.toFixed(2))}</b>
                 </p>
               </div>
 
@@ -430,70 +375,54 @@ export function AudioTool({ initialFile }: { initialFile: File | null }) {
                   className={styles.chip}
                   onClick={() => changeRange(moveStart(range, current, STEP))}
                 >
-                  지금 위치를 시작으로
+                  {m.startHere}
                 </button>
                 <button
                   type="button"
                   className={styles.chip}
                   onClick={() => changeRange(moveEnd(range, current, STEP, info.duration))}
                 >
-                  지금 위치를 끝으로
+                  {m.endHere}
                 </button>
               </div>
-              <p className={styles.keys}>
-                키보드: ←/→ 0.1초 · Shift+←/→ 1초 · I/O 시작·끝 지정 · Space 재생 · L 구간 반복
-              </p>
+              <p className={styles.keys}>{t.keys}</p>
             </>
           ) : mediaError === file ? (
             <p className={styles.error} role="alert">
-              이 브라우저에서는 이 파일을 재생할 수 없어요. 크롬이나 사파리 최신 버전에서 열어
-              주세요.
+              {t.cantPlay}
             </p>
           ) : (
-            <p className={styles.hint}>파일을 여는 중이에요…</p>
+            <p className={styles.hint}>{t.opening}</p>
           )}
         </div>
 
         <div className={styles.panel}>
-          <Segmented label="용도" value={purpose} options={PURPOSES} onChange={setPurpose} />
+          <Segmented
+            label={m.purpose}
+            value={purpose}
+            options={PURPOSES.map((value) => ({ value, label: t.purposes[value] }))}
+            onChange={setPurpose}
+          />
           {purpose === 'file' && (
             <>
               <Segmented
-                label="형식"
+                label={t.format}
                 value={fileFormat}
                 options={FORMATS}
                 onChange={setFileFormat}
               />
-              <p className={styles.hint}>{FORMAT_HINT[fileFormat]}</p>
+              <p className={styles.hint}>{t.formatHint[fileFormat]}</p>
             </>
           )}
           <div className={styles.spec}>
-            {purpose === 'file' && (
-              <p>한 번에 {JOB_LIMITS.maxSeconds.mp3 / 60}분까지 잘라서 저장할 수 있어요.</p>
-            )}
-            {purpose === 'iphone' && (
-              <p>
-                아이폰 벨소리는 <b>{JOB_LIMITS.maxSeconds.m4r}초까지</b>예요 (Apple 안내). 구간을
-                {JOB_LIMITS.maxSeconds.m4r}초 안으로 골라 주세요.
-              </p>
-            )}
-            {purpose === 'galaxy' && (
-              <p>
-                갤럭시는 휴대폰에 저장한 MP3를 벨소리로 고를 수 있어요. 길이 제한은 삼성이 따로
-                안내하지 않아요. 전화가 울리는 동안 앞부분이 들리니, 좋아하는 부분부터 시작하게 골라
-                보세요.
-              </p>
-            )}
-            {purpose !== 'file' && (
-              <p className={styles.hint}>
-                컬러링(통화연결음)은 통신사 서비스라, 내 음원을 올릴 수 있는지와 길이·형식은
-                통신사마다 달라요. 쓰시는 통신사 앱에서 확인해 주세요.
-              </p>
-            )}
+            {purpose === 'file' && <p>{t.fileSpec(JOB_LIMITS.maxSeconds.mp3 / 60)}</p>}
+            {purpose === 'iphone' && <p>{t.iphoneSpec(JOB_LIMITS.maxSeconds.m4r)}</p>}
+            {purpose === 'galaxy' && <p>{t.galaxySpec}</p>}
+            {purpose !== 'file' && <p className={styles.hint}>{t.colorRing}</p>}
           </div>
-          <Segmented label="페이드 인" value={fadeIn} options={fadeOptions} onChange={setFadeIn} />
+          <Segmented label={t.fadeIn} value={fadeIn} options={fadeOptions} onChange={setFadeIn} />
           <Segmented
-            label="페이드 아웃"
+            label={t.fadeOut}
             value={fadeOut}
             options={fadeOptions}
             onChange={setFadeOut}
@@ -504,13 +433,13 @@ export function AudioTool({ initialFile }: { initialFile: File | null }) {
               checked={normalize}
               onChange={(e) => setNormalize(e.currentTarget.checked)}
             />
-            음량 맞추기 (너무 작거나 큰 소리를 고르게)
+            {t.normalize}
           </label>
           <details className={styles.advanced}>
-            <summary>고급</summary>
+            <summary>{m.advanced}</summary>
             {kind !== 'wav' && (
               <Segmented
-                label="음질 (kbps)"
+                label={t.bitrate}
                 value={bitrate}
                 options={BITRATES.map((v) => ({ value: v, label: v }))}
                 onChange={setBitrate}
@@ -522,7 +451,7 @@ export function AudioTool({ initialFile }: { initialFile: File | null }) {
                 checked={mono}
                 onChange={(e) => setMono(e.currentTarget.checked)}
               />
-              모노로 (용량 절반, 통화 녹음 등)
+              {t.mono}
             </label>
           </details>
 
@@ -533,7 +462,7 @@ export function AudioTool({ initialFile }: { initialFile: File | null }) {
           ) : (
             estimate !== null && (
               <p className={styles.estimate}>
-                {kind.toUpperCase()} · 예상 용량 약{' '}
+                {kind.toUpperCase()} · {m.estimate}{' '}
                 <b className={styles.num}>{formatBytes(estimate)}</b>
               </p>
             )
@@ -541,17 +470,15 @@ export function AudioTool({ initialFile }: { initialFile: File | null }) {
 
           {making?.phase === 'running' && (
             <p className={styles.status} role="status">
-              {making.job.status === 'queued'
-                ? '차례를 기다리고 있어요'
-                : `만드는 중이에요 · ${elapsed}초`}
-              <span className={styles.hint}>보통 몇 초면 끝나요.</span>
+              {making.job.status === 'queued' ? m.queued : m.working(elapsed)}
+              <span className={styles.hint}>{t.usually}</span>
             </p>
           )}
           {now?.phase === 'done' && now.job.downloadUrl && (
             <figure className={styles.result}>
               <audio src={now.job.downloadUrl} crossOrigin="anonymous" controls />
               <figcaption className={styles.num} role="status">
-                만들었어요 · {formatBytes(now.job.outputBytes ?? 0)}
+                {m.made} · {formatBytes(now.job.outputBytes ?? 0)}
               </figcaption>
             </figure>
           )}
@@ -575,17 +502,17 @@ export function AudioTool({ initialFile }: { initialFile: File | null }) {
                 className={styles.secondary}
                 onClick={() => openShare(shareFile, () => undefined)}
               >
-                파일 앱에 저장
+                {m.saveToFiles}
               </button>
             )}
           </div>
           {now?.phase === 'done' && (
             <button type="button" className={styles.secondary} onClick={media.clearResult}>
-              다른 설정으로 또 만들기
+              {m.again}
             </button>
           )}
           {now?.phase === 'done' && SAVE_METHOD === 'share' && (
-            <p className={styles.hint}>공유 화면에서 &lsquo;파일에 저장&rsquo;을 눌러 주세요.</p>
+            <p className={styles.hint}>{t.shareHint}</p>
           )}
           {saveError && (
             <p className={styles.error} role="alert">

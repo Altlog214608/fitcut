@@ -1,6 +1,24 @@
 /** Screen copy (English). Same shape as ko.ts — a missing key fails the type check. */
 import type { Dict } from './ko';
 
+/** 서버 오류 코드 → 영어 (한국어는 서버 문장을 그대로 쓴다) */
+const API_ERRORS: Record<string, string> = {
+  network: 'Check your internet connection and try again.',
+  upload: 'The upload didn’t finish. Please upload again.',
+  aborted: 'Upload canceled.',
+  timeout: 'This is taking too long. Want to try again?',
+  daily_limit: 'You’ve reached today’s limit. Please come back tomorrow.',
+  daily_upload_limit: 'You’ve reached today’s upload limit. Please come back tomorrow.',
+  daily_link_limit: 'You’ve reached today’s limit for saved sections. Please come back tomorrow.',
+  upload_not_found: 'We can’t find the uploaded file. Please choose it again.',
+  not_uploaded: 'The video is still uploading. Please try again in a moment.',
+  too_big: 'That file is too big.',
+  too_large: 'That request is too large.',
+  too_long: 'That section is too long.',
+  bad_type: 'This file type isn’t supported.',
+  bad_range: 'Please choose the section again. The end must be after the start.',
+};
+
 export const en: Dict = {
   layout: {
     home: 'FitCut home',
@@ -171,6 +189,160 @@ export const en: Dict = {
     quality: 'Quality',
     target: 'Shrink file size (at most)',
     off: 'Off',
+  },
+
+  media: {
+    uploadTrust:
+      'Your file starts uploading as soon as you pick it. Uploads are deleted automatically, usually within 1–2 days',
+    preparing: 'Getting ready to upload…',
+    uploading: 'Uploading',
+    cancelUpload: 'Cancel upload',
+    uploadBar: 'Upload progress',
+    uploaded: 'Uploaded',
+    retryUpload: 'Upload again',
+    play: 'Play',
+    pause: 'Pause',
+    loop: 'Loop section',
+    start: 'Start',
+    end: 'End',
+    length: 'Length',
+    seconds: (n) => `${n}s`,
+    startHere: 'Start here',
+    endHere: 'End here',
+    zoom: 'Zoom',
+    stepBack: (label) => `${label}: step back`,
+    stepForward: (label) => `${label}: step forward`,
+    purpose: 'Use',
+    advanced: 'More options',
+    estimate: 'Estimated size about',
+    queued: 'Waiting for our turn',
+    working: (sec) => `Working on it · ${sec}s`,
+    afterUpload: 'We’ll start as soon as the upload finishes',
+    busy: 'Making it…',
+    made: 'Done',
+    again: 'Make another with different settings',
+    saveToPhotos: 'Save to Photos',
+    saveToFiles: 'Save to Files',
+    tooLong: (max) => `That section is too long. Choose ${max} seconds or less.`,
+    ringtoneTooLong: (max) =>
+      `iPhone ringtones can be up to ${max} seconds. Choose ${max} seconds or less.`,
+    tooBig: (mb) => `That file is too big. Choose one under ${mb}MB.`,
+    reupload: 'Please upload the file again, then make it.',
+    timeout: 'This is taking too long. Want to try again?',
+    jobFailed: () => 'We couldn’t convert it. Please try again in a moment.',
+  },
+
+  apiError: (code) => API_ERRORS[code] ?? 'Something went wrong. Please try again in a moment.',
+
+  retain: {
+    on: 'We’ll keep the original and result for 30 days',
+    off: 'Uploads are deleted automatically, usually within 1–2 days',
+    label: 'Keep my files for 30 days (optional)',
+    note: 'We keep the original and result for 30 days and use them only to check service quality. Admins can view them, and every view is logged.',
+    myJobsBefore: 'You can delete them any time in ',
+    myJobsLink: 'My jobs',
+    myJobsAfter: '.',
+  },
+
+  gif: {
+    title: 'GIF maker',
+    lead: 'Pick your favorite part of a video and turn it into a GIF · WebP · MP4.',
+    dropTitle: 'Drop a video here',
+    notVideo: 'That’s not a video. Choose an MP4 · MOV · WebM file.',
+    replace: 'Another video',
+    cantPreview:
+      'This browser can’t preview the video. Please open it in the latest Chrome or Safari.',
+    opening: 'Opening your video…',
+    keys: 'Keyboard: ←/→ 1 frame · Shift+←/→ 1s · I/O set start/end · Space play · L loop',
+    purposes: { clip: 'GIF', watch: 'Watch face' },
+    watch: 'Watch',
+    livePhoto:
+      'Apple Watch photo faces only animate Live Photos. We’ll make a short MP4 at the watch screen size.',
+    watchKind: (kind) => `We’ll make a ${kind} at the watch screen size.`,
+    roundScreen: 'The screen is round, so the four corners won’t show. ',
+    centerCrop: 'We crop the center of the video to fit.',
+    format: 'File type',
+    kindHint: {
+      gif: 'Opens everywhere, but files are big.',
+      webp: 'Smaller than GIF. Some apps may not open it.',
+      mp4: 'The smallest. No sound included.',
+    },
+    width: 'Width',
+    original: 'Original',
+    fps: 'Frames per second',
+    usually: 'Usually takes 10–30 seconds.',
+    resultAlt: 'Result',
+    make: (kind) => `Make ${kind}`,
+    save: (kind) => `Save ${kind}`,
+    ringtone: 'ringtone',
+    video: 'video',
+    shareHint: 'In the share sheet, tap “Save Image” or “Save Video” to add it to Photos.',
+  },
+
+  audio: {
+    title: 'Audio',
+    lead: 'Cut just the part you want from a video or audio file as MP3 · M4A · WAV or a ringtone.',
+    dropTitle: 'Drop a video or audio file',
+    notMedia: 'That’s not a video or audio file. Choose MP4 · MOV · WebM · MP3 · M4A · WAV.',
+    replace: 'Another file',
+    cantPlay: 'This browser can’t play the file. Please open it in the latest Chrome or Safari.',
+    opening: 'Opening your file…',
+    noWave: 'We can’t draw the waveform, but you can still pick a section.',
+    keys: 'Keyboard: ←/→ 0.1s · Shift+←/→ 1s · I/O set start/end · Space play · L loop',
+    purposes: { file: 'Audio file', iphone: 'iPhone ringtone', galaxy: 'Galaxy ringtone' },
+    format: 'File type',
+    formatHint: {
+      mp3: 'Opens everywhere.',
+      m4a: 'Slightly smaller than MP3 at the same quality (AAC).',
+      wav: 'Uncompressed and large. Good for editing.',
+    },
+    fileSpec: (min) => `You can cut and save up to ${min} minutes at a time.`,
+    iphoneSpec: (max) =>
+      `iPhone ringtones can be up to ${max} seconds (per Apple). Keep the section within ${max} seconds.`,
+    galaxySpec:
+      'Galaxy phones can use an MP3 saved on the phone as a ringtone. Samsung doesn’t publish a length limit. The beginning plays while the phone rings, so start with your favorite part.',
+    colorRing:
+      'Caller ringback tones are a carrier service in Korea, so whether you can upload your own audio — and its length and format — depends on your carrier. Check your carrier’s app.',
+    fadeIn: 'Fade in',
+    fadeOut: 'Fade out',
+    none: 'None',
+    normalize: 'Even out the volume (quiet and loud parts)',
+    bitrate: 'Quality (kbps)',
+    mono: 'Mono (half the size, good for voice)',
+    fadeTooLong: 'The fades are longer than the section. Shorten the fades.',
+    usually: 'Usually done in a few seconds.',
+    shareHint: 'In the share sheet, tap “Save to Files”.',
+  },
+
+  rotate: {
+    title: 'Straighten a video',
+    lead: 'Turn a sideways video upright with the same resolution and frames. e.g. 1920×1080 → 1080×1920',
+    turn: 'Direction',
+    turns: { '90': 'Right 90°', '270': 'Left 90°', '180': '180°' },
+    method: 'Method',
+    methods: { rotate: 'Works everywhere', 'rotate-fast': 'Fast' },
+    methodHint: {
+      rotate:
+        'Rotates the actual picture and re-encodes it, so every app shows it upright. Quality stays nearly the same; it takes a little time.',
+      'rotate-fast':
+        'Only changes the rotation tag without re-encoding — done in seconds with identical quality. Some apps and editors ignore the tag and may show the original direction.',
+    },
+    fastOnly: 'Videos over 3 minutes or very large ones take long to re-encode, so we use “Fast”.',
+    flip: 'Also mirror left–right (for flipped selfie videos)',
+    tooLong: 'This video is too long. Choose one 10 minutes or shorter.',
+    sameFrames: 'same frames and length',
+    cantPreview:
+      'This browser can’t preview it, but we can still rotate it. Please check the result.',
+    working: (sec) => `Rotating · ${sec}s`,
+    usuallyEncode: 'A 1-minute video takes about 30 seconds.',
+    usuallyFast: 'Usually done in a few seconds.',
+    done: 'Rotated',
+    save: 'Save rotated video',
+    afterUpload: 'We’ll rotate it as soon as the upload finishes',
+    busy: 'Rotating…',
+    go: 'Rotate upright',
+    again: 'Rotate another way',
+    shareHint: 'In the share sheet, tap “Save Video” to add it to Photos.',
   },
 
   preview: {

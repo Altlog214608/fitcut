@@ -38,8 +38,8 @@ test('가로 영상을 오른쪽 90°로 돌리면 미리보기가 세로가 되
   });
 
   await page.goto('/rotate');
-  await page.getByLabel(/영상을 끌어오세요/).setInputFiles(CLIP);
-  await expect(page.getByText('올리기 완료')).toBeVisible();
+  await page.getByLabel(/영상을 끌어다 놓으세요/).setInputFiles(CLIP);
+  await expect(page.getByText('다 올렸어요')).toBeVisible();
   await expect(page.getByText('320 × 180 → 180 × 320')).toBeVisible();
   const box = await page.getByTestId('rotate-preview').boundingBox();
   expect((box?.height ?? 0) > (box?.width ?? 0)).toBe(true);
