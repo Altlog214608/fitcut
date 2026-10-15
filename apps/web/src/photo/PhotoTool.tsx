@@ -557,7 +557,9 @@ export function PhotoTool({ initialFile }: { initialFile: File | null }) {
               )}
             </div>
           )}
+        </div>
 
+        <div className={styles.below}>
           {layout && resolved && (
             <div className={styles.notices}>
               {resolved.guide && (

@@ -3,8 +3,8 @@
   position: relative;
   display: grid;
   place-items: center;
-  height: min(52vh, 520px);
-  min-height: 320px;
+  height: var(--stage-height, min(52vh, 520px));
+  min-height: min(320px, var(--stage-height, 320px));
   overflow: hidden;
   border-radius: var(--radius-panel);
   background: var(--color-paper);
