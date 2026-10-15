@@ -46,7 +46,7 @@ describe('toMarkdown, replaceSection', () => {
     );
     expect(md).toContain('2026-10-01 ~ 2026-10-13');
     expect(md).toContain('| web | $1.50 | Amazon S3 $1.50 |');
-    expect(md).toContain('| worker | < $0.01 |');
+    expect(md).toContain('| worker | $0.0040 |');
     const doc = `앞\n${START}\n옛 표\n${END}\n뒤`;
     expect(replaceSection(doc, md)).toBe(`앞\n${START}\n${md}\n${END}\n뒤`);
     expect(() => replaceSection('표시 없음', md)).toThrow();

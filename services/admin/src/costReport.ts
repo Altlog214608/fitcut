@@ -70,7 +70,9 @@ export function periodOf(month: string, today: string) {
   return { start, end };
 }
 
-const usd = (n: number) => (n === 0 ? '$0' : n < 0.01 ? '< $0.01' : `$${n.toFixed(2)}`);
+/** 이 프로젝트는 금액이 작아서 1센트 아래는 소수점 넷째 자리까지 보여준다 */
+const usd = (n: number) =>
+  n === 0 ? '$0' : n < 0.0001 ? '< $0.0001' : n < 0.01 ? `$${n.toFixed(4)}` : `$${n.toFixed(2)}`;
 
 /** README에 넣을 표 */
 export function toMarkdown(r: CostReport) {
