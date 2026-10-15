@@ -467,14 +467,30 @@ export function AudioTool({ initialFile }: { initialFile: File | null }) {
               <p className={styles.hint}>{FORMAT_HINT[fileFormat]}</p>
             </>
           )}
-          {purpose === 'iphone' && (
-            <p className={styles.hint}>
-              아이폰 벨소리(M4R)는 {JOB_LIMITS.maxSeconds.m4r}초까지예요 (Apple 안내).
-            </p>
-          )}
-          {purpose === 'galaxy' && (
-            <p className={styles.hint}>갤럭시는 기기에 저장한 MP3를 벨소리로 고를 수 있어요.</p>
-          )}
+          <div className={styles.spec}>
+            {purpose === 'file' && (
+              <p>한 번에 {JOB_LIMITS.maxSeconds.mp3 / 60}분까지 잘라서 저장할 수 있어요.</p>
+            )}
+            {purpose === 'iphone' && (
+              <p>
+                아이폰 벨소리는 <b>{JOB_LIMITS.maxSeconds.m4r}초까지</b>예요 (Apple 안내). 구간을
+                {JOB_LIMITS.maxSeconds.m4r}초 안으로 골라 주세요.
+              </p>
+            )}
+            {purpose === 'galaxy' && (
+              <p>
+                갤럭시는 휴대폰에 저장한 MP3를 벨소리로 고를 수 있어요. 길이 제한은 삼성이 따로
+                안내하지 않아요. 전화가 울리는 동안 앞부분이 들리니, 좋아하는 부분부터 시작하게 골라
+                보세요.
+              </p>
+            )}
+            {purpose !== 'file' && (
+              <p className={styles.hint}>
+                컬러링(통화연결음)은 통신사 서비스라, 내 음원을 올릴 수 있는지와 길이·형식은
+                통신사마다 달라요. 쓰시는 통신사 앱에서 확인해 주세요.
+              </p>
+            )}
+          </div>
           <Segmented label="페이드 인" value={fadeIn} options={fadeOptions} onChange={setFadeIn} />
           <Segmented
             label="페이드 아웃"

@@ -521,3 +521,18 @@
 .result audio {
   width: 100%;
 }
+
+/* 음성 도구: 용도별 규격 안내 (벨소리 길이 등) */
+.spec {
+  display: grid;
+  gap: 6px;
+  padding: 12px 14px;
+  border-radius: var(--radius-control);
+  background: var(--color-paper);
+  font-size: var(--text-caption);
+  line-height: 1.55;
+}
+
+.spec .hint {
+  margin: 0;
+}
