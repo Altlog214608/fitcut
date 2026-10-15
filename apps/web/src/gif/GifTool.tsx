@@ -399,7 +399,7 @@ export function GifTool({ initialFile }: { initialFile: File | null }) {
       </div>
 
       <div className={styles.main}>
-        <div className={styles.editCol}>
+        <div className={styles.previewCol}>
           <div
             className={styles.player}
             style={
@@ -457,7 +457,9 @@ export function GifTool({ initialFile }: { initialFile: File | null }) {
               )}
             </div>
           </div>
+        </div>
 
+        <div className={styles.editCol}>
           {info ? (
             <>
               <div className={styles.controls}>

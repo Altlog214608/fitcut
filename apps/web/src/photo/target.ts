@@ -25,6 +25,17 @@ export type ResolvedTarget = {
 
 export const MAX_CUSTOM_SIDE = 8000;
 
+/** 흔한 모니터 해상도. 이름이 곧 픽셀 수라 기기 프리셋이 아니라 크기로 고른다 (photo/purpose.ts PC 탭) */
+export const MONITORS: readonly { width: number; height: number; label: string }[] = [
+  { width: 1920, height: 1080, label: '모니터 FHD' },
+  { width: 2560, height: 1440, label: '모니터 QHD' },
+  { width: 3840, height: 2160, label: '모니터 4K' },
+];
+
+export function monitorLabel(width: number, height: number): string | null {
+  return MONITORS.find((m) => m.width === width && m.height === height)?.label ?? null;
+}
+
 export const ROLE_LABELS: Record<ScreenRole, string> = {
   main: '메인 화면',
   cover: '커버 화면',
@@ -42,7 +53,7 @@ export function resolveTarget(
       size: { width: target.width, height: target.height },
       shape: 'rect',
       cornerRadiusRatio: null,
-      label: null,
+      label: monitorLabel(target.width, target.height),
       preset: null,
       guide: null,
     };

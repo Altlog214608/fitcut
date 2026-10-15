@@ -1,0 +1,19 @@
+{
+  "id": "apple-macbook-air-15-m5",
+  "brand": "Apple",
+  "category": "laptop",
+  "name": "MacBook Air 15 (M5)",
+  "aliases": ["맥북 에어 15", "macbook air 15", "에어 15"],
+  "releaseYear": 2026,
+  "screens": [
+    {
+      "role": "main",
+      "widthPx": 2880,
+      "heightPx": 1864,
+      "shape": "rect"
+    }
+  ],
+  "source": "https://www.apple.com/macbook-air/specs/",
+  "verified": true,
+  "verifiedAt": "2026-10-15"
+}

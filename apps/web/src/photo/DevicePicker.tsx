@@ -3,9 +3,10 @@ import { Search, Star, X } from 'lucide-react';
 import { useId, useState } from 'react';
 import { track } from '../lib/analytics';
 import styles from './DevicePicker.module.css';
+import { PURPOSE_USE, PURPOSES, purposeOf, purposeTargets, type Purpose } from './purpose';
 import {
   MAX_CUSTOM_SIDE,
-  quickPicks,
+  monitorLabel,
   resolveTarget,
   ROLE_LABELS,
   sameTarget,
@@ -21,12 +22,21 @@ type Props = {
 };
 
 function targetName(target: Target): string {
-  if (target.kind === 'custom') return `${target.width} × ${target.height}`;
+  if (target.kind === 'custom')
+    return monitorLabel(target.width, target.height) ?? `${target.width} × ${target.height}`;
   return resolveTarget(target, VISIBLE_PRESETS)?.label ?? target.presetId;
 }
 
 function presetTarget(preset: DevicePreset): Target {
   return { kind: 'preset', presetId: preset.id, role: preset.screens[0]?.role ?? 'main' };
+}
+
+/** 고른 대상의 쓰임새 (폰 배경화면, 워치 페이스 …). 직접 입력한 크기는 모니터 해상도일 때만 */
+function purposeOfTarget(target: Target | null): Purpose | null {
+  if (!target) return null;
+  if (target.kind === 'custom') return monitorLabel(target.width, target.height) ? 'pc' : null;
+  const preset = VISIBLE_PRESETS.find((p) => p.id === target.presetId);
+  return preset ? purposeOf(preset.category) : null;
 }
 
 function sizeText(preset: DevicePreset): string {
@@ -39,11 +49,29 @@ export function DevicePicker({ value, recent, mine, onChange, onToggleMine }: Pr
   const [customOpen, setCustomOpen] = useState(false);
   const [customW, setCustomW] = useState('1080');
   const [customH, setCustomH] = useState('1920');
+  const [purpose, setPurpose] = useState<Purpose>(() => purposeOfTarget(value) ?? 'phone');
+  const use = purposeOfTarget(value);
 
   const results = query.trim() ? searchPresets(VISIBLE_PRESETS, query, 8) : [];
   const resolved = value ? resolveTarget(value, VISIBLE_PRESETS) : null;
   const isMine = value ? mine.some((t) => sameTarget(t, value)) : false;
   const shortcuts = [...mine, ...recent.filter((r) => !mine.some((m) => sameTarget(m, r)))];
+
+  function chip(t: Target) {
+    return (
+      <button
+        key={JSON.stringify(t)}
+        type="button"
+        className={value && sameTarget(value, t) ? `${styles.chip} ${styles.chipOn}` : styles.chip}
+        onClick={() => choose(t)}
+      >
+        {mine.some((m) => sameTarget(m, t)) && (
+          <Star size={14} strokeWidth={2} fill="currentColor" aria-label="내 기기" />
+        )}
+        {targetName(t)}
+      </button>
+    );
+  }
 
   function choose(target: Target) {
     onChange(target);
@@ -66,6 +94,7 @@ export function DevicePicker({ value, recent, mine, onChange, onToggleMine }: Pr
           <div className={styles.selectedText}>
             <span className={styles.selectedName}>{resolved.label ?? '직접 입력한 크기'}</span>
             <span className={styles.size}>
+              {use && <span className={styles.use}>{PURPOSE_USE[use]}</span>}
               {resolved.size.width} × {resolved.size.height} px
             </span>
           </div>
@@ -145,29 +174,30 @@ export function DevicePicker({ value, recent, mine, onChange, onToggleMine }: Pr
           <p className={styles.empty}>찾는 기기가 없어요. 아래에서 크기를 직접 입력해 보세요.</p>
         )
       ) : (
-        <div
-          className={styles.chips}
-          aria-label={shortcuts.length ? '내 기기와 최근 기기' : '빠른 선택'}
-          role="group"
-        >
-          {(shortcuts.length ? shortcuts : quickPicks(VISIBLE_PRESETS).map(presetTarget)).map(
-            (t) => (
-              <button
-                key={JSON.stringify(t)}
-                type="button"
-                className={
-                  value && sameTarget(value, t) ? `${styles.chip} ${styles.chipOn}` : styles.chip
-                }
-                onClick={() => choose(t)}
-              >
-                {mine.some((m) => sameTarget(m, t)) && (
-                  <Star size={14} strokeWidth={2} fill="currentColor" aria-label="내 기기" />
-                )}
-                {targetName(t)}
-              </button>
-            ),
+        <>
+          {shortcuts.length > 0 && (
+            <div className={styles.chips} role="group" aria-label="내 기기와 최근 기기">
+              {shortcuts.map(chip)}
+            </div>
           )}
-        </div>
+          <div className={styles.seg} role="radiogroup" aria-label="어디에 쓸 사진인가요?">
+            {PURPOSES.map((p) => (
+              <button
+                key={p.value}
+                type="button"
+                role="radio"
+                aria-checked={purpose === p.value}
+                className={purpose === p.value ? styles.on : undefined}
+                onClick={() => setPurpose(p.value)}
+              >
+                {p.label}
+              </button>
+            ))}
+          </div>
+          <div className={styles.chips} role="group" aria-label={`${PURPOSE_USE[purpose]} 기기`}>
+            {purposeTargets(VISIBLE_PRESETS, purpose).map(chip)}
+          </div>
+        </>
       )}
 
       <button

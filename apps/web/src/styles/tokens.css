@@ -41,8 +41,9 @@
   color-scheme: light;
 }
 
+/* 테마: 처음에는 기기 설정을 따르고, 사용자가 고르면 html[data-theme]로 고정한다 (lib/theme.ts) */
 @media (prefers-color-scheme: dark) {
-  :root {
+  :root:not([data-theme='light']) {
     --color-ink: #f2f4f6;
     --color-slate: #9aa3ae;
     --color-line: #2b3038;
@@ -54,4 +55,17 @@
 
     color-scheme: dark;
   }
+}
+
+:root[data-theme='dark'] {
+  --color-ink: #f2f4f6;
+  --color-slate: #9aa3ae;
+  --color-line: #2b3038;
+  --color-paper: #1a1d22;
+  --color-bg: #101215;
+  --color-accent-ink: #6e9bff;
+  --color-accent-soft: #1b2440;
+  --color-danger: #ff6369;
+
+  color-scheme: dark;
 }
