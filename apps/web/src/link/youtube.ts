@@ -65,18 +65,13 @@ export function loadYouTubeApi(): Promise<YTNamespace> {
   return loading;
 }
 
-/** 플레이어 오류 코드를 화면 문구로 (YouTube IFrame API onError) */
-export function playerErrorMessage(code: number): { message: string; blocked: boolean } {
-  if (code === 101 || code === 150) {
-    return {
-      message: '이 영상은 다른 사이트에서 재생할 수 없게 설정돼 있어요. 유튜브에서 직접 봐 주세요.',
-      blocked: true,
-    };
-  }
-  if (code === 100) {
-    return { message: '영상을 찾을 수 없어요. 삭제됐거나 비공개일 수 있어요.', blocked: false };
-  }
-  return { message: '영상을 재생하지 못했어요. 링크를 다시 확인해 주세요.', blocked: false };
+export type PlayerErrorKind = 'blocked' | 'missing' | 'failed' | 'load';
+
+/** 플레이어 오류 코드를 종류로 (YouTube IFrame API onError). 문구는 i18n 사전 link.playerErrors */
+export function playerError(code: number): { kind: PlayerErrorKind; blocked: boolean } {
+  if (code === 101 || code === 150) return { kind: 'blocked', blocked: true };
+  if (code === 100) return { kind: 'missing', blocked: false };
+  return { kind: 'failed', blocked: false };
 }
 
 /** 유튜브에서 그 시점부터 여는 공유 링크 (초 단위, 유튜브 규칙) */

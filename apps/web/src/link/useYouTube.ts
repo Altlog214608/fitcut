@@ -1,11 +1,17 @@
 import { useEffect, useRef, useState } from 'react';
 import type { Range } from '../gif/time';
-import { loadYouTubeApi, playerErrorMessage, PLAYING, type YTPlayer } from './youtube';
+import {
+  loadYouTubeApi,
+  playerError,
+  PLAYING,
+  type PlayerErrorKind,
+  type YTPlayer,
+} from './youtube';
 
 type Loaded = {
   videoId: string;
   duration: number;
-  error?: { message: string; blocked: boolean };
+  error?: { kind: PlayerErrorKind; blocked: boolean };
 };
 
 /**
@@ -43,8 +49,7 @@ export function useYouTube(videoId: string | null, range: Range | null, loop: bo
               setLoaded({ videoId, duration: e.target.getDuration() });
             },
             onError: (e) => {
-              if (!cancelled)
-                setLoaded({ videoId, duration: 0, error: playerErrorMessage(e.data) });
+              if (!cancelled) setLoaded({ videoId, duration: 0, error: playerError(e.data) });
             },
             onStateChange: (e) => {
               if (!cancelled) setPlaying(e.data === PLAYING);
@@ -52,16 +57,9 @@ export function useYouTube(videoId: string | null, range: Range | null, loop: bo
           },
         });
       })
-      .catch((error: unknown) => {
+      .catch(() => {
         if (cancelled) return;
-        setLoaded({
-          videoId,
-          duration: 0,
-          error: {
-            message: error instanceof Error ? error.message : '플레이어를 불러오지 못했어요.',
-            blocked: false,
-          },
-        });
+        setLoaded({ videoId, duration: 0, error: { kind: 'load', blocked: false } });
       });
     return () => {
       cancelled = true;
