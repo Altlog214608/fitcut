@@ -15,13 +15,13 @@
 
 | 무엇을 | 결과 |
 | --- | --- |
-| 이번 달 AWS 사용 금액 | **$0.10** (2026-10-01~13, 크레딧 적용 전. 청구액 $0). 가장 큰 항목은 Cost Explorer API $0.05 |
+| 이번 달 AWS 사용 금액 | **$0.15** (2026-10-01~14, 크레딧 적용 전. 청구액 $0). 가장 큰 항목은 비용을 재는 Cost Explorer API 자체($0.09) |
 | 쓰지 않을 때 비용 | 상시 켜진 서버 0개. EC2·NAT Gateway·상시 Fargate·프로비저닝된 동시성 없음 |
 | 사진 작업당 서버 비용 | **$0**. 브라우저(Web Worker)에서 처리하고, 사진은 서버로 보내지 않는다 |
 | GIF 잡당 비용 | 약 $0.0002 (1080×1920 60fps 5초 → 480px, Lambda arm64 2GB). 실제 잡 10건 평균 약 $0.00007 |
 | 변환 처리 시간 | 실제 GIF 잡 10건 p50 1.7초 · p95 8.7초 (입력 크기 섞임, 2026-10-10~14, Athena 사용 이벤트) |
 | Lambda 메모리 결정 | 1024MB는 2배 느리고 비용은 같음, 3008MB는 10% 빠르고 30~40% 비쌈 → 2048MB ([ADR-002](docs/DECISIONS.md)) |
-| 부하가 몰릴 때 | API 초당 30건 → 상한 10건 넘는 요청은 429, 통과한 요청 p95 39ms. 잡 4개 동시 → 워커 2개씩 차례로, 최대 4.2초 ([ADR-048](docs/DECISIONS.md)) |
+| 부하가 몰릴 때 | API 초당 30건 → 상한 10건 넘는 요청은 429, 5xx 0건. 잡 4개 동시 → 워커 2개씩 차례로, 최대 4.2초 ([ADR-048](docs/DECISIONS.md)) |
 | 브라우저 변환(ffmpeg.wasm) vs 서버 | PC 브라우저 약 6초 + wasm 30.7MB 내려받기 / 서버 업로드 1.5초 + 7.5초 → 서버 유지 ([ADR-003](docs/DECISIONS.md)) |
 
 전체 측정 기록은 [아래 표](#측정-기록)에 있다.
@@ -80,14 +80,14 @@ flowchart TB
 
 | 지표 | 값 |
 | --- | --- |
-| 월 운영 비용 | 2026-10-01~13 사용 금액 $0.10 (크레딧 적용 전), 청구액 $0. 구성 요소별 비용은 아래 표 |
+| 월 운영 비용 | 2026-10-01~14 사용 금액 $0.15 (크레딧 적용 전), 청구액 $0. 구성 요소별 비용은 아래 표 |
 | 사진 작업당 서버 비용 | $0 (브라우저 처리, 서버로는 메타데이터 이벤트만) |
 | 5초 GIF 변환 처리 시간 | 1080×1920 60fps → 480px 15fps: 워커 5.9~7.9초. 실제 잡 10건 p50 1.7초 · p95 8.7초 (2026-10-10~14) |
 | GIF 잡당 비용 | 약 $0.0002 (위 조건, Lambda arm64 2GB, 2026-10-10). 실제 잡 10건 평균 약 $0.00007 |
 | 가장 긴 작업 (MP4 180초, 1080p, 270MB) | 2048MB에서 153.8초, $0.0051 (Lambda 15분 한도 안, ADR-002) |
 | 영상 세로로 돌리기 1분 1080p (다시 압축 / 회전 정보만) | 48초 · 약 $0.0013 / 1.4초 · 약 $0.00004 (2026-10-10, ADR-024) |
 | AI 업스케일 1000×1000 → 2배 (브라우저, 서버 비용 0) | PC(RTX 4070 SUPER, WebGL) 3.6초 · 폰은 많이 느림 (사용자 체감, 수치 미측정) (2026-10-11, ADR-023) |
-| API 상한 초과 시 (초당 30건 → 상한 10건) | 429로 막힘, 통과한 요청 p95 39ms. 순간 몰림에서 계정 Lambda 동시 실행 한도 10(새 계정 기본값) 때문에 503 25건 → 한도 증가 요청 중 (2026-10-14, k6, ADR-048) |
+| API 상한 초과 시 (초당 30건 → 상한 10건) | 429로 막힘, 통과한 요청 p95 39ms. 처음엔 계정 Lambda 동시 실행 한도 10(새 계정 기본값) 때문에 503 25건 → 한도 1000 승인 후 다시 재서 5xx 0건 (2026-10-14·15, k6, ADR-048) |
 | 변환 잡 4개 동시 (4초 영상 → GIF, 워커 상한 2) | 모두 완료, 완료까지 최대 4.2초 (2026-10-14, k6) |
 | 브라우저(ffmpeg.wasm) vs 서버, 1080×1920 5초 → GIF | PC 브라우저 약 6초 + wasm 30.7MB 내려받기, 멀티 스레드는 탭이 죽음 / 서버 업로드 1.5초 + 7.5초 → 서버 유지 (2026-10-14, ADR-003) |
 | 하이라이트 후보 찾기 (예시 방송 리플레이) | 예시로 만든 30분 채팅 흐름에서 넣은 장면 6개를 모두 찾음, 상위 5개가 모두 장면, 장면마다 30초 안에 감지 (ADR-045). 합성 데이터라 실제 정확도는 아니다 |
@@ -98,8 +98,22 @@ flowchart TB
 
 `$env:AWS_PROFILE="fitcut"; pnpm --filter @fitcut/admin cost:report 2026-10 --write`로 갱신한다 (ADR-047).
 
+태그는 2026-10-14에 켰고 이전 날짜는 백필하지 않아 "태그 없음"에 들어 있다. 이 규모에서는 비용을 재는 Cost Explorer API(호출당 $0.01, 일별 집계 하루 1번 + 리포트)가 서비스 운영보다 비싸다.
+
 <!-- cost-report:start -->
-TBD (비용 할당 태그 반영 후 채운다)
+2026-10-01 ~ 2026-10-14 사용 금액 (UTC 기준, 크레딧 적용 전): **$0.15**
+
+| 구성 요소 (Component 태그) | 비용 | 주요 서비스 |
+| --- | --- | --- |
+| web | $0.0031 | Amazon Simple Storage Service $0.0031, Amazon CloudFront < $0.0001 |
+| api | $0.0010 | Amazon API Gateway $0.0007, Amazon Simple Storage Service $0.0003, Amazon DynamoDB < $0.0001 |
+| worker | $0.0009 | Amazon EC2 Container Registry (ECR) $0.0009, AWS Lambda < $0.0001 |
+| bootstrap | $0.0007 | Amazon Simple Storage Service $0.0007 |
+| analytics | $0.0006 | Amazon Athena $0.0004, Amazon Simple Storage Service $0.0002 |
+| events | $0.0003 | Amazon Simple Storage Service $0.0003 |
+| collector | $0.0002 | Amazon EC2 Container Registry (ECR) $0.0001, Amazon Simple Storage Service < $0.0001 |
+| highlight | < $0.0001 | Amazon Simple Storage Service < $0.0001 |
+| 태그 없음 | $0.14 | AWS Cost Explorer $0.09, Amazon Simple Storage Service $0.04, Amazon EC2 Container Registry (ECR) $0.0097 |
 <!-- cost-report:end -->
 
 ## 저장소 구조
