@@ -9,6 +9,7 @@ import { openDownloadUrl } from '../lib/save';
 import { setSelectedFile } from '../lib/selectedFile';
 import { StreamerError } from './streamer';
 import { clock, type Candidate } from './timeline';
+import { useT } from '../i18n/context';
 import styles from './Recording.module.css';
 
 type ClipState =
@@ -16,7 +17,12 @@ type ClipState =
 
 const POLL_MS = 2000;
 
-async function createClip(id: string, start: number, end: number): Promise<string> {
+async function createClip(
+  id: string,
+  start: number,
+  end: number,
+  fallback: string,
+): Promise<string> {
   const r = await fetch(`/api/streamer/broadcasts/${encodeURIComponent(id)}/clips`, {
     method: 'POST',
     credentials: 'same-origin',
@@ -28,7 +34,7 @@ async function createClip(id: string, start: number, end: number): Promise<strin
     error?: { message?: string };
   } | null;
   if (!r.ok || !body?.jobId) {
-    throw new StreamerError(body?.error?.message ?? '클립을 만들지 못했어요.');
+    throw new StreamerError(body?.error?.message ?? fallback);
   }
   return body.jobId;
 }
@@ -42,6 +48,8 @@ export function Clips({
   candidates: readonly Candidate[];
   offset: number;
 }) {
+  const all = useT();
+  const t = all.highlight;
   const [clips, setClips] = useState<Record<number, ClipState>>({});
   const [busy, setBusy] = useState<number | null>(null);
   const alive = useRef(true);
@@ -61,20 +69,28 @@ export function Clips({
   async function make(c: Candidate) {
     set(c.rank, { status: 'making' });
     try {
-      const jobId = await createClip(id, Math.max(0, c.start + offset), c.end + offset);
+      const jobId = await createClip(
+        id,
+        Math.max(0, c.start + offset),
+        c.end + offset,
+        t.clipFailed,
+      );
       for (;;) {
         await new Promise((r) => setTimeout(r, POLL_MS));
         if (!alive.current) return;
         const job = await getJob(jobId);
         if (job.status === 'done') return set(c.rank, { status: 'done', job });
         if (job.status === 'failed') {
-          return set(c.rank, { status: 'failed', message: job.error ?? '클립을 만들지 못했어요.' });
+          return set(c.rank, {
+            status: 'failed',
+            message: job.error ? all.apiError('', job.error) : t.clipFailed,
+          });
         }
       }
     } catch (e) {
       set(c.rank, {
         status: 'failed',
-        message: e instanceof Error ? e.message : '클립을 만들지 못했어요.',
+        message: e instanceof Error ? all.apiError('', e.message) : t.clipFailed,
       });
     }
   }
@@ -88,7 +104,7 @@ export function Clips({
       setSelectedFile(new File([blob], `highlight-${rank}.mp4`, { type: 'video/mp4' }));
       void navigate('/gif');
     } catch {
-      set(rank, { status: 'failed', message: '클립을 불러오지 못했어요. 받기로 저장해 주세요.' });
+      set(rank, { status: 'failed', message: t.clipLoadFailed });
     } finally {
       if (alive.current) setBusy(null);
     }
@@ -96,7 +112,7 @@ export function Clips({
 
   const ordered = [...candidates].sort((a, b) => a.start - b.start);
   return (
-    <ul className={styles.clips} aria-label="후보 장면 클립">
+    <ul className={styles.clips} aria-label={t.clips}>
       {ordered.map((c, i) => {
         const s = clips[c.rank];
         return (
@@ -106,10 +122,10 @@ export function Clips({
             </span>
             {!s || s.status === 'failed' ? (
               <button type="button" className={styles.chip} onClick={() => void make(c)}>
-                클립 만들기
+                {t.makeClip}
               </button>
             ) : s.status === 'making' ? (
-              <span className={styles.meta}>자르는 중…</span>
+              <span className={styles.meta}>{t.cutting}</span>
             ) : (
               <span className={styles.clipActions}>
                 <button
@@ -117,7 +133,7 @@ export function Clips({
                   className={styles.chip}
                   onClick={() => s.job.downloadUrl && openDownloadUrl(s.job.downloadUrl)}
                 >
-                  클립 받기
+                  {t.getClip}
                 </button>
                 <button
                   type="button"
@@ -125,7 +141,7 @@ export function Clips({
                   disabled={busy === c.rank}
                   onClick={() => void toGif(c.rank, s.job)}
                 >
-                  움짤로 만들기
+                  {t.toGif}
                 </button>
               </span>
             )}

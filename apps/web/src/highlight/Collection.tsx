@@ -9,32 +9,38 @@ import {
   startBroadcast,
   startFileAnalysis,
   stopBroadcast,
-  stopReasonText,
   StreamerError,
   type Broadcast,
 } from './streamer';
 import { Result } from './Result';
+import { useT } from '../i18n/context';
+import type { Dict } from '../i18n/ko';
 import styles from './Collection.module.css';
 
 const POLL_MS = 10_000;
 
-const timeText = (iso: string) =>
-  new Date(iso).toLocaleString('ko-KR', {
-    month: 'long',
-    day: 'numeric',
-    hour: '2-digit',
-    minute: '2-digit',
-  });
-const count = (n: number) => n.toLocaleString('ko-KR');
+/** 서버 오류 원문. 문구는 그릴 때 지금 언어로 바꾼다 */
+const serverMessage = (e: unknown) =>
+  e instanceof StreamerError ? e.message : '잠시 후 다시 시도해 주세요.';
 
-function statusText(b: Broadcast): string {
-  if (b.status === 'starting') return b.stopRequested ? '멈추는 중' : '수집기 켜는 중';
-  if (b.status === 'collecting') return b.stopRequested ? '멈추는 중' : '수집 중';
-  if (b.status === 'done') return '수집 끝';
-  return '멈춤';
+function statusText(b: Broadcast, t: Dict['highlight']['status']): string {
+  if (b.status === 'starting') return b.stopRequested ? t.stopping : t.starting;
+  if (b.status === 'collecting') return b.stopRequested ? t.stopping : t.collecting;
+  if (b.status === 'done') return t.done;
+  return t.stopped;
 }
 
 export function Collection() {
+  const all = useT();
+  const t = all.highlight;
+  const timeText = (iso: string) =>
+    new Date(iso).toLocaleString(all.locale, {
+      month: 'long',
+      day: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit',
+    });
+  const count = (n: number) => n.toLocaleString(all.locale);
   const [items, setItems] = useState<Broadcast[] | null>(null);
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
@@ -44,7 +50,7 @@ export function Collection() {
     try {
       setItems(await listBroadcasts());
     } catch (e) {
-      setMessage(e instanceof StreamerError ? e.message : '잠시 후 다시 시도해 주세요.');
+      setMessage(serverMessage(e));
     }
   }, []);
 
@@ -57,8 +63,7 @@ export function Collection() {
         if (alive) setItems(list);
       })
       .catch((e: unknown) => {
-        if (alive)
-          setMessage(e instanceof StreamerError ? e.message : '잠시 후 다시 시도해 주세요.');
+        if (alive) setMessage(serverMessage(e));
       });
     return () => {
       alive = false;
@@ -81,7 +86,7 @@ export function Collection() {
       await load();
       setOpenId(b.id);
     } catch (e) {
-      setMessage(e instanceof StreamerError ? e.message : '잠시 후 다시 시도해 주세요.');
+      setMessage(serverMessage(e));
     } finally {
       setBusy(false);
     }
@@ -94,36 +99,36 @@ export function Collection() {
       await action();
       await load();
     } catch (e) {
-      setMessage(e instanceof StreamerError ? e.message : '잠시 후 다시 시도해 주세요.');
+      setMessage(serverMessage(e));
     } finally {
       setBusy(false);
     }
   }
 
   return (
-    <section className={styles.section} aria-label="채팅 수집">
-      <h2 className={styles.heading}>채팅 수집</h2>
+    <section className={styles.section} aria-label={t.collection}>
+      <h2 className={styles.heading}>{t.collection}</h2>
 
       {active ? (
         <div className={styles.live}>
           <div className={styles.liveHead}>
             <span className={styles.dot} aria-hidden />
-            <b>{statusText(active)}</b>
+            <b>{statusText(active, t.status)}</b>
             <span className={styles.meta}>
-              {timeText(active.startedAt ?? active.requestedAt)}부터
+              {t.since(timeText(active.startedAt ?? active.requestedAt))}
             </span>
           </div>
           <dl className={styles.counts}>
             <div>
-              <dt>채팅</dt>
+              <dt>{t.chat}</dt>
               <dd>{count(active.chatCount)}</dd>
             </div>
             <div>
-              <dt>후원</dt>
+              <dt>{t.donation}</dt>
               <dd>{count(active.donationCount)}</dd>
             </div>
             <div>
-              <dt>구독</dt>
+              <dt>{t.subscription}</dt>
               <dd>{count(active.subscriptionCount)}</dd>
             </div>
           </dl>
@@ -133,60 +138,61 @@ export function Collection() {
             disabled={busy || !!active.stopRequested}
             onClick={() => void run(() => stopBroadcast(active.id))}
           >
-            수집 종료
+            {t.stop}
           </button>
-          <p className={styles.meta}>
-            숫자는 30초마다 늘어나요. 방송이 끝나고 채팅이 30분 없으면 저절로 멈춰요.
-          </p>
+          <p className={styles.meta}>{t.liveHint}</p>
         </div>
       ) : (
         <div className={styles.start}>
-          <p>방송을 켠 뒤 수집을 시작하세요. 지난 방송의 채팅은 가져올 수 없어요.</p>
+          <p>{t.startLead}</p>
           <button
             type="button"
             className={styles.primary}
             disabled={busy || items === null}
             onClick={() => void run(startBroadcast)}
           >
-            수집 시작
+            {t.start}
           </button>
-          <p className={styles.meta}>하루 3번까지, 한 번에 최대 8시간 수집해요.</p>
+          <p className={styles.meta}>{t.startLimit}</p>
           <button
             type="button"
             className={styles.ghost}
             disabled={busy || items === null}
             onClick={() => void startFile()}
           >
-            채팅 없이 녹화 파일만으로 찾기
+            {t.fileOnly}
           </button>
-          <p className={styles.meta}>
-            수집하지 못한 방송이나 음성 방송은 녹화 파일의 소리 크기로 후보를 찾을 수 있어요.
-          </p>
+          <p className={styles.meta}>{t.fileOnlyHint}</p>
         </div>
       )}
 
       {message && (
         <p className={styles.meta} role="status">
-          {message}
+          {all.apiError('', message)}
         </p>
       )}
 
       {items && items.some((b) => !isActive(b)) && (
-        <ul className={styles.list} aria-label="지난 수집">
+        <ul className={styles.list} aria-label={t.pastList}>
           {items
             .filter((b) => !isActive(b))
             .map((b) => (
               <li key={b.id} className={styles.item}>
                 <b>{timeText(b.startedAt ?? b.requestedAt)}</b>
                 {b.source === 'file' ? (
-                  <span className={styles.meta}>녹화 파일만 분석 (채팅 없음)</span>
+                  <span className={styles.meta}>{t.fileOnlyItem}</span>
                 ) : (
                   <>
                     <span className={styles.meta}>
-                      채팅 {count(b.chatCount)} · 후원 {count(b.donationCount)} · 구독{' '}
-                      {count(b.subscriptionCount)}
+                      {t.counts(
+                        count(b.chatCount),
+                        count(b.donationCount),
+                        count(b.subscriptionCount),
+                      )}
                     </span>
-                    <span className={styles.meta}>{stopReasonText(b.stopReason)}</span>
+                    <span className={styles.meta}>
+                      {t.stopReasons[b.stopReason ?? ''] ?? t.stopUnknown}
+                    </span>
                   </>
                 )}
                 {(b.source === 'file' ||
@@ -197,7 +203,7 @@ export function Collection() {
                     aria-expanded={openId === b.id}
                     onClick={() => setOpenId((cur) => (cur === b.id ? null : b.id))}
                   >
-                    {openId === b.id ? '결과 닫기' : '하이라이트 보기'}
+                    {openId === b.id ? t.closeResult : t.openResult}
                   </button>
                 )}
                 {openId === b.id && <Result id={b.id} />}

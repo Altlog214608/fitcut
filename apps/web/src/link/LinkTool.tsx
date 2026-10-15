@@ -2,6 +2,7 @@ import { Copy, ExternalLink, Pause, Play, Repeat, ShieldCheck, Trash2 } from 'lu
 import { useEffect, useId, useState, type FormEvent } from 'react';
 import { Link as RouterLink, useSearchParams } from 'react-router';
 import { ApiError } from '../gif/api';
+import { useT } from '../i18n/context';
 import styles from '../gif/GifTool.module.css';
 import { TimeField } from '../gif/TimeField';
 import { Timeline } from '../gif/Timeline';
@@ -27,6 +28,9 @@ async function copy(text: string): Promise<boolean> {
 /** 링크 구간 (FEATURES F15): 유튜브 공식 플레이어로 재생하며 구간을 골라 링크·구간만 저장한다 */
 export function LinkTool() {
   const inputId = useId();
+  const all = useT();
+  const t = all.link;
+  const m = all.media;
   const [params, setParams] = useSearchParams();
   const videoId = params.get('v');
   const fromS = Number(params.get('s'));
@@ -64,7 +68,7 @@ export function LinkTool() {
     e.preventDefault();
     const id = parseYouTubeId(text);
     if (!id) {
-      setInputError('유튜브 링크가 아니에요. 유튜브 앱이나 사이트의 공유 링크를 붙여 넣어 주세요.');
+      setInputError(t.notYoutube);
       return;
     }
     setInputError(null);
@@ -96,7 +100,7 @@ export function LinkTool() {
       setMine((list) => addMine(list, link));
     } catch (error) {
       setSaveError(
-        error instanceof ApiError ? error.message : '저장하지 못했어요. 다시 시도해 주세요.',
+        error instanceof ApiError ? all.apiError(error.code, error.message) : t.saveFailed,
       );
     } finally {
       setSaving(false);
@@ -113,26 +117,26 @@ export function LinkTool() {
     <div className={styles.tool}>
       <header className={styles.head}>
         <div className={styles.headText}>
-          <h1 className={styles.title}>링크 구간</h1>
-          <p className={styles.fileInfo}>영상은 유튜브에서 재생되고, 링크와 구간만 저장돼요.</p>
+          <h1 className={styles.title}>{t.title}</h1>
+          <p className={styles.fileInfo}>{t.lead}</p>
         </div>
       </header>
 
       <form className={own.open} onSubmit={open}>
         <label htmlFor={inputId} className="visually-hidden">
-          유튜브 링크
+          {all.home.linkLabel}
         </label>
         <input
           id={inputId}
           className={own.input}
           type="url"
           inputMode="url"
-          placeholder="유튜브 링크 붙여넣기"
+          placeholder={all.home.linkPlaceholder}
           value={text}
           onChange={(e) => setText(e.currentTarget.value)}
         />
         <button type="submit" className={own.openButton}>
-          열기
+          {t.open}
         </button>
       </form>
       {inputError && (
@@ -148,19 +152,19 @@ export function LinkTool() {
             <div className={own.player} ref={attach} data-testid="yt-host" />
             {yt.error ? (
               <p className={styles.error} role="alert">
-                {yt.error.message}{' '}
+                {t.playerErrors[yt.error.kind]}{' '}
                 {yt.error.blocked && (
                   <a
                     href={`https://www.youtube.com/watch?v=${videoId}`}
                     target="_blank"
                     rel="noreferrer"
                   >
-                    유튜브에서 열기
+                    {t.openOnYoutube}
                   </a>
                 )}
               </p>
             ) : !yt.ready ? (
-              <p className={styles.hint}>플레이어를 불러오는 중이에요…</p>
+              <p className={styles.hint}>{t.loading}</p>
             ) : (
               active && (
                 <>
@@ -168,7 +172,7 @@ export function LinkTool() {
                     <button
                       type="button"
                       className={styles.playButton}
-                      aria-label={yt.playing ? '일시 정지' : '재생'}
+                      aria-label={yt.playing ? m.pause : m.play}
                       onClick={togglePlay}
                     >
                       {yt.playing ? (
@@ -184,7 +188,7 @@ export function LinkTool() {
                       onClick={() => setLoop((on) => !on)}
                     >
                       <Repeat size={18} strokeWidth={1.75} />
-                      구간 반복
+                      {m.loop}
                     </button>
                     <span className={`${styles.clock} ${styles.num}`}>
                       {formatTime(yt.current)}
@@ -201,19 +205,22 @@ export function LinkTool() {
                   />
                   <div className={styles.times}>
                     <TimeField
-                      label="시작"
+                      label={m.start}
                       value={active.start}
                       step={STEP}
                       onChange={(t) => changeRange(moveStart(active, t, STEP))}
                     />
                     <TimeField
-                      label="끝"
+                      label={m.end}
                       value={active.end}
                       step={STEP}
                       onChange={(t) => changeRange(moveEnd(active, t, STEP, duration))}
                     />
                     <p className={styles.length}>
-                      길이 <b className={styles.num}>{(active.end - active.start).toFixed(1)}초</b>
+                      {m.length}{' '}
+                      <b className={styles.num}>
+                        {m.seconds((active.end - active.start).toFixed(1))}
+                      </b>
                     </p>
                   </div>
                   <div className={styles.marks}>
@@ -222,14 +229,14 @@ export function LinkTool() {
                       className={styles.chip}
                       onClick={() => changeRange(moveStart(active, yt.current, STEP))}
                     >
-                      지금 위치를 시작으로
+                      {m.startHere}
                     </button>
                     <button
                       type="button"
                       className={styles.chip}
                       onClick={() => changeRange(moveEnd(active, yt.current, STEP, duration))}
                     >
-                      지금 위치를 끝으로
+                      {m.endHere}
                     </button>
                   </div>
                 </>
@@ -240,7 +247,7 @@ export function LinkTool() {
           <div className={styles.panel}>
             {saved && (
               <div className={own.saved} role="status">
-                <p className={own.savedTitle}>구간을 저장했어요</p>
+                <p className={own.savedTitle}>{t.savedTitle}</p>
                 <p className={own.url}>{repeatUrl(origin, saved.id)}</p>
                 <div className={styles.marks}>
                   <button
@@ -248,17 +255,17 @@ export function LinkTool() {
                     className={styles.chip}
                     onClick={() => void copyText('repeat', repeatUrl(origin, saved.id))}
                   >
-                    <Copy size={16} strokeWidth={1.75} /> 반복 링크 복사
+                    <Copy size={16} strokeWidth={1.75} /> {t.copyRepeat}
                   </button>
                   <button
                     type="button"
                     className={styles.chip}
                     onClick={() => void copyText('youtube', youtubeAt(saved.videoId, saved.start))}
                   >
-                    <Copy size={16} strokeWidth={1.75} /> 유튜브 시작 시점 링크
+                    <Copy size={16} strokeWidth={1.75} /> {t.copyYoutube}
                   </button>
                 </div>
-                {copied && <p className={styles.hint}>복사했어요</p>}
+                {copied && <p className={styles.hint}>{t.copied}</p>}
               </div>
             )}
             {saveError && (
@@ -273,12 +280,12 @@ export function LinkTool() {
                 disabled={!yt.ready || !active || saving}
                 onClick={() => void save()}
               >
-                {saving ? '저장하는 중…' : '구간 저장'}
+                {saving ? t.saving : t.save}
               </button>
             </div>
             <p className={styles.trust}>
               <ShieldCheck size={18} strokeWidth={1.75} />
-              영상은 유튜브에서 재생되고, 링크와 구간만 저장돼요
+              {t.trust}
             </p>
           </div>
         </div>
@@ -287,7 +294,7 @@ export function LinkTool() {
       {mine.length > 0 && (
         <section className={own.mine} aria-labelledby="mine-title">
           <h2 id="mine-title" className={own.mineTitle}>
-            내 구간
+            {t.mine}
           </h2>
           <ul className={own.list}>
             {mine.map((l) => (
@@ -301,7 +308,7 @@ export function LinkTool() {
                 <button
                   type="button"
                   className={own.remove}
-                  aria-label="이 구간을 목록에서 지우기"
+                  aria-label={t.removeMine}
                   onClick={() => setMine((list) => removeMine(list, l.id))}
                 >
                   <Trash2 size={16} strokeWidth={1.75} />
@@ -309,7 +316,7 @@ export function LinkTool() {
               </li>
             ))}
           </ul>
-          <p className={styles.hint}>이 목록은 이 브라우저에만 저장돼요.</p>
+          <p className={styles.hint}>{t.mineHint}</p>
         </section>
       )}
     </div>

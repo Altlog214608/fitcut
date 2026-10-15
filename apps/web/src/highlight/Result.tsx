@@ -10,18 +10,19 @@ import { analyzeSound, getBroadcast, StreamerError, type BroadcastDetail } from 
 import { SAVE_METHOD } from '../lib/inApp';
 import { download } from '../lib/save';
 import { clock, markerFile, parseClock, timelineText, type MarkerFormat } from './timeline';
+import { useT } from '../i18n/context';
+import type { Dict } from '../i18n/ko';
 import styles from './Result.module.css';
 
-const count = (n: number) => n.toLocaleString('ko-KR');
 const POLL_MS = 15_000;
 
-const MARKERS: { format: MarkerFormat; label: string }[] = [
-  { format: 'csv', label: '표 (CSV)' },
-  { format: 'srt', label: '자막 (SRT)' },
-  { format: 'audacity', label: 'Audacity 라벨' },
-];
+const MARKERS: MarkerFormat[] = ['csv', 'srt', 'audacity'];
 
-function Graph({ detail }: { detail: BroadcastDetail }) {
+/** 서버 오류 원문 */
+const serverMessage = (e: unknown) =>
+  e instanceof StreamerError ? e.message : '잠시 후 다시 시도해 주세요.';
+
+function Graph({ detail, t }: { detail: BroadcastDetail; t: Dict['highlight'] }) {
   // 채팅이 없으면(모드 C) 소리 크기를 그린다. dB는 -70을 바닥으로 본다
   const sound = detail.source === 'file' && !!detail.loudPer10s?.length;
   const data = sound
@@ -42,7 +43,7 @@ function Graph({ detail }: { detail: BroadcastDetail }) {
       viewBox={`0 0 ${w} ${h}`}
       preserveAspectRatio="none"
       role="img"
-      aria-label={`10초마다 ${sound ? '소리 크기' : '채팅 수'} 그래프. 칠한 곳이 하이라이트 후보예요.`}
+      aria-label={t.graphLabel(sound)}
     >
       {detail.candidates.map((c) => (
         <rect
@@ -60,8 +61,14 @@ function Graph({ detail }: { detail: BroadcastDetail }) {
 }
 
 export function Result({ id }: { id: string }) {
+  const all = useT();
+  const t = all.highlight;
+  const count = (n: number) => n.toLocaleString(all.locale);
+  const errorText = (e: unknown) => all.apiError('', serverMessage(e));
   const [detail, setDetail] = useState<BroadcastDetail | null>(null);
   const [error, setError] = useState<string | null>(null);
+  /** 불러오기 실패 (서버 원문, 그릴 때 번역) */
+  const [loadError, setLoadError] = useState<string | null>(null);
   const [offsetText, setOffsetText] = useState('0:00');
   const [copied, setCopied] = useState(false);
   const [reload, setReload] = useState(0);
@@ -81,8 +88,7 @@ export function Result({ id }: { id: string }) {
           if (waiting) timer = window.setTimeout(load, POLL_MS);
         })
         .catch((e: unknown) => {
-          if (alive)
-            setError(e instanceof StreamerError ? e.message : '잠시 후 다시 시도해 주세요.');
+          if (alive) setLoadError(serverMessage(e));
         });
     void load();
     return () => {
@@ -91,7 +97,12 @@ export function Result({ id }: { id: string }) {
     };
   }, [id, reload]);
 
-  if (!detail) return <p className={styles.meta}>{error ?? '결과를 불러오고 있어요…'}</p>;
+  if (!detail)
+    return (
+      <p className={styles.meta}>
+        {loadError ? all.apiError('', loadError) : (error ?? t.loadingResult)}
+      </p>
+    );
 
   const file = detail.source === 'file';
   const offset = file ? 0 : parseClock(offsetText);
@@ -107,7 +118,7 @@ export function Result({ id }: { id: string }) {
       setDetail((d) => (d ? { ...d, analysisStatus: 'running' } : d));
       setReload((n) => n + 1);
     } catch (e) {
-      setError(e instanceof StreamerError ? e.message : '잠시 후 다시 시도해 주세요.');
+      setError(errorText(e));
     } finally {
       setAsking(false);
     }
@@ -115,7 +126,7 @@ export function Result({ id }: { id: string }) {
 
   function saveMarkers(format: MarkerFormat) {
     if (!detail) return;
-    const { text, ext, type } = markerFile(detail.candidates, shift, format);
+    const { text, ext, type } = markerFile(detail.candidates, shift, format, t.fileWords);
     // iOS 인앱 브라우저는 blob 다운로드를 못 한다 (lib/inApp.ts)
     void download(
       new Blob([text], { type }),
@@ -126,11 +137,13 @@ export function Result({ id }: { id: string }) {
 
   async function copy() {
     try {
-      await navigator.clipboard.writeText(timelineText(detail?.candidates ?? [], shift));
+      await navigator.clipboard.writeText(
+        timelineText(detail?.candidates ?? [], shift, t.fileWords),
+      );
       setCopied(true);
       window.setTimeout(() => setCopied(false), 2000);
     } catch {
-      setError('복사하지 못했어요. 아래 시각을 직접 골라 복사해 주세요.');
+      setError(t.copyFailed);
     }
   }
 
@@ -142,11 +155,7 @@ export function Result({ id }: { id: string }) {
       onOffset={(sec) => setOffsetText(clock(sec))}
       syncable={!file}
       sound={{
-        label: file
-          ? '소리 크기로 후보 찾기'
-          : detail.loudPer10s
-            ? '소리도 함께 다시 분석'
-            : '소리도 함께 분석',
+        label: file ? t.soundFind : detail.loudPer10s ? t.soundReanalyze : t.soundAnalyze,
         busy: asking || detail.analysisStatus === 'running',
         onClick: () => void askSound(),
       }}
@@ -158,8 +167,8 @@ export function Result({ id }: { id: string }) {
       <div className={styles.result}>
         <p className={styles.meta} role="status">
           {detail.analysisStatus === 'running' && detail.chatCount === 0
-            ? '녹화 파일의 소리를 분석하고 있어요. 1시간 파일이면 몇 분 걸려요. 이 화면에 저절로 떠요.'
-            : '분석하고 있어요. 수집이 끝나고 3~4분 뒤에 결과가 나오고, 이 화면에 저절로 떠요.'}
+            ? t.analyzingSound
+            : t.analyzing}
         </p>
       </div>
     );
@@ -168,10 +177,7 @@ export function Result({ id }: { id: string }) {
   if (file && !done) {
     return (
       <div className={styles.result}>
-        <p className={styles.meta}>
-          채팅 없이 녹화 파일의 소리 크기로 후보를 찾아요. 웃음·함성처럼 소리가 크게 튄 순간을
-          골라요. 녹화 파일을 올린 뒤 "소리 크기로 후보 찾기"를 눌러 주세요.
-        </p>
+        <p className={styles.meta}>{t.fileIntro}</p>
         {recording}
       </div>
     );
@@ -179,19 +185,15 @@ export function Result({ id }: { id: string }) {
 
   return (
     <div className={styles.result}>
-      <Graph detail={detail} />
+      <Graph detail={detail} t={t} />
       {detail.candidates.length === 0 ? (
-        <p className={styles.meta}>
-          {file
-            ? '소리가 눈에 띄게 커진 순간이 없어 후보를 찾지 못했어요.'
-            : '채팅이 눈에 띄게 몰린 순간이 없어 후보를 찾지 못했어요. 채팅이 많은 방송일수록 잘 찾아요.'}
-        </p>
+        <p className={styles.meta}>{file ? t.noSoundPeak : t.noChatPeak}</p>
       ) : (
         <>
           {!file && (
             <>
               <label className={styles.offset}>
-                <span>방송을 켠 뒤 수집을 누르기까지</span>
+                <span>{t.offsetLabel}</span>
                 <input
                   inputMode="numeric"
                   value={offsetText}
@@ -201,13 +203,11 @@ export function Result({ id }: { id: string }) {
                 />
               </label>
               <p id="offset-help" className={styles.meta}>
-                {offset === null
-                  ? '분:초 모양으로 적어 주세요. 예: 2:30'
-                  : '이 시간만큼 더해서 다시보기 시각으로 보여드려요.'}
+                {offset === null ? t.offsetBad : t.offsetHelp}
               </p>
             </>
           )}
-          <ol className={styles.list} aria-label="하이라이트 후보">
+          <ol className={styles.list} aria-label={t.candidates}>
             {ordered.map((c) => (
               <li key={c.rank} className={styles.item}>
                 <b className={styles.time}>
@@ -215,36 +215,34 @@ export function Result({ id }: { id: string }) {
                 </b>
                 <span className={styles.meta}>
                   {file
-                    ? `소리 ${c.counts.loudness ?? 0}dB`
-                    : `채팅 ${count(c.counts.chat)} · 반응 ${count(c.counts.reaction)}`}
-                  {c.counts.donation > 0 && ` · 후원 ${count(c.counts.donation)}`}
-                  {c.counts.subscription > 0 && ` · 구독 ${count(c.counts.subscription)}`}
-                  {!file && c.counts.loudness !== undefined && ` · 소리 ${c.counts.loudness}dB`}
+                    ? t.sound(c.counts.loudness ?? 0)
+                    : `${t.chat} ${count(c.counts.chat)} · ${t.reaction} ${count(c.counts.reaction)}`}
+                  {c.counts.donation > 0 && ` · ${t.donation} ${count(c.counts.donation)}`}
+                  {c.counts.subscription > 0 &&
+                    ` · ${t.subscription} ${count(c.counts.subscription)}`}
+                  {!file && c.counts.loudness !== undefined && ` · ${t.sound(c.counts.loudness)}`}
                 </span>
-                {c.rank <= 3 && <span className={styles.badge}>{c.rank}위</span>}
+                {c.rank <= 3 && <span className={styles.badge}>{t.rank(c.rank)}</span>}
               </li>
             ))}
           </ol>
           <button type="button" className={styles.primary} onClick={() => void copy()}>
-            {copied ? '복사했어요' : '유튜브 댓글용 타임라인 복사'}
+            {copied ? t.copied : t.copyTimeline}
           </button>
-          <div className={styles.markers} role="group" aria-label="편집용 마커 파일 받기">
-            <span className={styles.meta}>편집용 마커 파일</span>
-            {MARKERS.map((m) => (
+          <div className={styles.markers} role="group" aria-label={t.markerGroup}>
+            <span className={styles.meta}>{t.markerTitle}</span>
+            {MARKERS.map((format) => (
               <button
-                key={m.format}
+                key={format}
                 type="button"
                 className={styles.ghost}
-                onClick={() => saveMarkers(m.format)}
+                onClick={() => saveMarkers(format)}
               >
-                {m.label}
+                {t.markers[format]}
               </button>
             ))}
           </div>
-          <p className={styles.meta}>
-            자막(SRT)은 프리미어·다빈치 리졸브·캡컷에서 자막 트랙으로 불러오면 후보 구간에 글자가
-            떠서 마커처럼 쓸 수 있어요.
-          </p>
+          <p className={styles.meta}>{t.srtHint}</p>
           {recording}
         </>
       )}
@@ -256,10 +254,12 @@ export function Result({ id }: { id: string }) {
       )}
       <p className={styles.meta}>
         {file
-          ? '녹화 파일의 소리 크기로 찾았어요.'
-          : `채팅 ${count(detail.chatCount)}개 중 반응 채팅 ${count(detail.reactionCount ?? 0)}개${
-              detail.loudPer10s ? '와 녹화 파일 소리' : ''
-            }로 찾았어요.`}
+          ? t.foundBySound
+          : t.foundByChat(
+              count(detail.chatCount),
+              count(detail.reactionCount ?? 0),
+              !!detail.loudPer10s,
+            )}
       </p>
     </div>
   );

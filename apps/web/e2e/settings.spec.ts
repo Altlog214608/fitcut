@@ -22,6 +22,16 @@ test('영어로 바꾸면 홈·사진 도구가 영어로 나오고, 새로고�
     await expect(page.getByRole('heading', { level: 1, name: title })).toBeVisible();
     await expect(page.getByLabel(drop)).toBeAttached();
   }
+  for (const [path, title] of [
+    ['/link', 'Link sections'],
+    ['/highlight', 'Highlights'],
+    ['/my-jobs', 'My jobs'],
+    ['/privacy', 'Privacy policy'],
+  ] as const) {
+    await page.goto(path);
+    await expect(page.getByRole('heading', { level: 1, name: title })).toBeVisible();
+  }
+  await expect(page.getByText(/the Korean version applies/)).toBeVisible();
   await page.goto('/photo');
   await page.getByRole('button', { name: '한국어' }).click();
   await expect(page.getByLabel(/사진을 끌어다 놓으세요/)).toBeAttached();

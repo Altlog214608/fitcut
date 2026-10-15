@@ -39,11 +39,23 @@ export function parseClock(text: string): number | null {
 }
 
 /** 유튜브 댓글용 타임라인: 시간 순서로, 장면(피크) 앞 여유를 조금 두고 */
-export function timelineText(candidates: readonly Candidate[], offsetSec: number): string {
+/** 내보내는 파일·텍스트 속 이름 (i18n 사전 highlight.fileWords) */
+export type FileWords = { highlight: string; score: string; csvHeader: string };
+const KO_WORDS: FileWords = {
+  highlight: '하이라이트',
+  score: '점수',
+  csvHeader: '순서,시작,끝,장면,시작(초),끝(초),점수,채팅,반응,후원,구독',
+};
+
+export function timelineText(
+  candidates: readonly Candidate[],
+  offsetSec: number,
+  words: FileWords = KO_WORDS,
+): string {
   const hours = candidates.some((c) => c.start + offsetSec >= 3600);
   return [...candidates]
     .sort((a, b) => a.start - b.start)
-    .map((c, i) => `${clock(c.start + offsetSec, hours)} 하이라이트 ${i + 1}`)
+    .map((c, i) => `${clock(c.start + offsetSec, hours)} ${words.highlight} ${i + 1}`)
     .join('\n');
 }
 
@@ -71,6 +83,7 @@ export function markerFile(
   candidates: readonly Candidate[],
   offsetSec: number,
   format: MarkerFormat,
+  words: FileWords = KO_WORDS,
 ): { text: string; ext: string; type: string } {
   const list = byTime(candidates).map((c, i) => ({
     n: i + 1,
@@ -84,7 +97,7 @@ export function markerFile(
     const text = list
       .map(
         (m) =>
-          `${m.n}\n${srtTime(m.start)} --> ${srtTime(m.end)}\n하이라이트 ${m.n} (점수 ${m.c.score})\n`,
+          `${m.n}\n${srtTime(m.start)} --> ${srtTime(m.end)}\n${words.highlight} ${m.n} (${words.score} ${m.c.score})\n`,
       )
       .join('\n');
     return { text, ext: 'srt', type: 'application/x-subrip' };
@@ -92,13 +105,13 @@ export function markerFile(
   if (format === 'audacity') {
     // Audacity 라벨: 시작(초)<탭>끝(초)<탭>이름
     const text = list
-      .map((m) => `${m.start.toFixed(3)}\t${m.end.toFixed(3)}\t하이라이트 ${m.n}`)
+      .map((m) => `${m.start.toFixed(3)}\t${m.end.toFixed(3)}\t${words.highlight} ${m.n}`)
       .join('\n');
     return { text: `${text}\n`, ext: 'txt', type: 'text/plain' };
   }
   // 엑셀이 한글을 깨뜨리지 않게 BOM을 붙인다
   const rows = [
-    '순서,시작,끝,장면,시작(초),끝(초),점수,채팅,반응,후원,구독',
+    words.csvHeader,
     ...list.map((m) =>
       [
         m.n,

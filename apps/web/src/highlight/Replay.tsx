@@ -13,6 +13,7 @@ import {
   type Detection,
 } from '@fitcut/shared';
 import { clock } from './timeline';
+import { useT } from '../i18n/context';
 import styles from './Replay.module.css';
 
 const SPEEDS = [1, 10, 60] as const;
@@ -21,6 +22,8 @@ const TICK_MS = 250;
 type Play = { t: number; playing: boolean; detections: Detection[] };
 
 export function Replay() {
+  const dict = useT();
+  const t = dict.highlight;
   const data = useMemo(() => sampleReplay(), []);
   const events = useMemo(() => replayEvents(data), [data]);
   const end = data.durationSec;
@@ -88,16 +91,19 @@ export function Replay() {
 
   return (
     <div className={styles.replay}>
-      <p className={styles.meta}>
-        실제 방송이 아니라 예시로 만든 30분짜리 채팅 흐름이에요. 채팅 내용 없이 초마다 채팅 수만
-        담았어요. 서버와 같은 계산으로, 지금까지 들어온 채팅만 보고 후보를 찾아요.
-      </p>
+      <p className={styles.meta}>{t.replayLead}</p>
 
       <div className={styles.controls}>
         <button type="button" className={styles.primary} onClick={toggle}>
-          {finished ? '처음부터 다시' : playing ? '잠시 멈춤' : sec > 0 ? '이어서 재생' : '재생'}
+          {finished
+            ? t.replayAgain
+            : playing
+              ? t.replayPause
+              : sec > 0
+                ? t.replayResume
+                : t.replayPlay}
         </button>
-        <div className={styles.speeds} role="group" aria-label="재생 속도">
+        <div className={styles.speeds} role="group" aria-label={t.speed}>
           {SPEEDS.map((s) => (
             <button
               key={s}
@@ -106,13 +112,13 @@ export function Replay() {
               aria-pressed={speed === s}
               onClick={() => setSpeed(s)}
             >
-              {s}배
+              {t.speedX(s)}
             </button>
           ))}
         </div>
         {!finished && (
           <button type="button" className={styles.ghost} onClick={skip}>
-            결과 바로 보기
+            {t.skip}
           </button>
         )}
       </div>
@@ -122,7 +128,7 @@ export function Replay() {
           {clock(sec)} / {clock(end)}
         </b>
         <span className={styles.meta}>
-          지금 10초에 채팅 {recent}개 · 지금까지 {total.toLocaleString('ko-KR')}개
+          {t.replayCounts(recent, total.toLocaleString(dict.locale))}
         </span>
       </p>
 
@@ -131,7 +137,7 @@ export function Replay() {
         viewBox={`0 0 ${w} ${h}`}
         preserveAspectRatio="none"
         role="img"
-        aria-label="10초마다 채팅 수 그래프. 칠한 곳이 지금까지 찾은 하이라이트 후보예요."
+        aria-label={t.replayGraph}
       >
         {candidates.map((c) => (
           <rect
@@ -148,20 +154,21 @@ export function Replay() {
       </svg>
 
       {ordered.length === 0 ? (
-        <p className={styles.meta}>아직 눈에 띄게 채팅이 몰린 순간이 없어요.</p>
+        <p className={styles.meta}>{t.replayNone}</p>
       ) : (
-        <ol className={styles.list} aria-label="찾은 하이라이트 후보">
+        <ol className={styles.list} aria-label={t.replayFound}>
           {ordered.map((c) => (
             <li key={c.peak} className={styles.item}>
               <b className={styles.time}>
                 {clock(c.start)} – {clock(c.end)}
               </b>
               <span className={styles.meta}>
-                {clock(detectedAt(c))}에 감지 · 채팅 {c.counts.chat} · 반응 {c.counts.reaction}
-                {c.counts.donation > 0 && ` · 후원 ${c.counts.donation}`}
-                {c.counts.subscription > 0 && ` · 구독 ${c.counts.subscription}`}
+                {t.detectedAt(clock(detectedAt(c)))} · {t.chat} {c.counts.chat} · {t.reaction}{' '}
+                {c.counts.reaction}
+                {c.counts.donation > 0 && ` · ${t.donation} ${c.counts.donation}`}
+                {c.counts.subscription > 0 && ` · ${t.subscription} ${c.counts.subscription}`}
               </span>
-              {c.rank <= 3 && <span className={styles.badge}>{c.rank}위</span>}
+              {c.rank <= 3 && <span className={styles.badge}>{t.rank(c.rank)}</span>}
             </li>
           ))}
         </ol>
@@ -169,17 +176,12 @@ export function Replay() {
 
       {finished && scenes.length > 0 && (
         <div className={styles.summary} role="status">
-          <b>
-            예시에 넣은 장면 {scenes.length}개 중 {found.length}개를 찾았어요.
-          </b>
-          <span className={styles.meta}>
-            점수가 높은 후보 5개 중 {top5}개가 실제 장면이에요. 나머지 후보는 채팅이 잠깐 늘었거나
-            시청자가 늘어난 구간이에요.
-          </span>
+          <b>{t.replaySummary(scenes.length, found.length)}</b>
+          <span className={styles.meta}>{t.replayTop5(top5)}</span>
           <ul className={styles.scenes}>
             {scenes.map((s) => (
               <li key={s.t}>
-                {clock(s.t)} {s.label} · {found.includes(s) ? '찾음' : '못 찾음'}
+                {clock(s.t)} {t.sceneLabel(s.label)} · {found.includes(s) ? t.foundYes : t.foundNo}
               </li>
             ))}
           </ul>

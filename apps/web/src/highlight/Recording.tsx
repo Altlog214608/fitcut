@@ -16,6 +16,7 @@ import {
 import { Clips } from './Clips';
 import { StreamerError } from './streamer';
 import { clock, type Candidate } from './timeline';
+import { useT } from '../i18n/context';
 import styles from './Recording.module.css';
 
 type Props = {
@@ -32,6 +33,8 @@ type Props = {
 const gb = (n: number) => `${(n / 1024 ** 3).toFixed(n >= 10 * 1024 ** 3 ? 0 : 1)}GB`;
 
 export function Recording({ id, candidates, offset, onOffset, syncable = true, sound }: Props) {
+  const all = useT();
+  const t = all.highlight;
   const [file, setFile] = useState<File | null>(null);
   const [src, setSrc] = useState<string | null>(null);
   const [server, setServer] = useState<RecordingView | null | undefined>(undefined);
@@ -98,11 +101,11 @@ export function Recording({ id, candidates, offset, onOffset, syncable = true, s
         ctrl.signal,
       );
       setServer(r);
-      setMessage('녹화 파일을 올렸어요. 2일 뒤 자동으로 지워져요.');
+      setMessage(t.uploadedMsg);
     } catch (e) {
-      if (ctrl.signal.aborted) setMessage('멈췄어요. 같은 파일을 다시 고르면 이어서 올려요.');
-      else if (e instanceof StreamerError) setMessage(e.message);
-      else setMessage('올리다 끊겼어요. 같은 파일로 다시 누르면 이어서 올려요.');
+      if (ctrl.signal.aborted) setMessage(t.paused);
+      else if (e instanceof StreamerError) setMessage(all.apiError('', e.message));
+      else setMessage(t.cutOff);
       setServer(await recordingStatus(id).catch(() => null));
     } finally {
       setProgress(null);
@@ -111,13 +114,15 @@ export function Recording({ id, candidates, offset, onOffset, syncable = true, s
   }
 
   async function remove() {
-    if (!window.confirm('올린 녹화 파일을 지울까요?')) return;
+    if (!window.confirm(t.confirmRemove)) return;
     try {
       await deleteRecording(id);
       setServer(null);
-      setMessage('올린 녹화 파일을 지웠어요.');
+      setMessage(t.removed);
     } catch (e) {
-      setMessage(e instanceof StreamerError ? e.message : '잠시 후 다시 시도해 주세요.');
+      setMessage(
+        all.apiError('', e instanceof StreamerError ? e.message : '잠시 후 다시 시도해 주세요.'),
+      );
     }
   }
 
@@ -126,19 +131,16 @@ export function Recording({ id, candidates, offset, onOffset, syncable = true, s
   const pct = progress ? Math.floor((progress.sent / progress.total) * 100) : 0;
 
   return (
-    <section className={styles.box} aria-label="녹화 파일">
-      <h3 className={styles.heading}>녹화 파일</h3>
-      <p className={styles.meta}>
-        OBS·프리즘 등으로 녹화한 파일을 고르면 이 기기에서 바로 재생해요. 후보 장면 확인은 올리지
-        않아도 돼요.
-      </p>
+    <section className={styles.box} aria-label={t.recording}>
+      <h3 className={styles.heading}>{t.recording}</h3>
+      <p className={styles.meta}>{t.recordingLead}</p>
       <label className={styles.pick}>
         <input
           type="file"
           accept="video/*,audio/*,.mkv,.flv,.ts"
           onChange={(e) => choose(e.target.files?.[0])}
         />
-        <span>{file ? '다른 녹화 파일 고르기' : '녹화 파일 고르기'}</span>
+        <span>{file ? t.pickAnother : t.pick}</span>
       </label>
 
       {src && (
@@ -152,7 +154,7 @@ export function Recording({ id, candidates, offset, onOffset, syncable = true, s
             preload="metadata"
             onTimeUpdate={onTime}
           />
-          <div className={styles.chips} role="group" aria-label="후보 장면 재생">
+          <div className={styles.chips} role="group" aria-label={t.playScenes}>
             {ordered.map((c, i) => (
               <button key={c.rank} type="button" className={styles.chip} onClick={() => play(c)}>
                 ▶ {i + 1}. {clock(c.start + offset)}
@@ -160,8 +162,8 @@ export function Recording({ id, candidates, offset, onOffset, syncable = true, s
             ))}
           </div>
           {syncable && (
-            <div className={styles.sync} role="group" aria-label="시각 맞추기">
-              <span className={styles.meta}>장면이 어긋나면</span>
+            <div className={styles.sync} role="group" aria-label={t.sync}>
+              <span className={styles.meta}>{t.syncLead}</span>
               {[-5, -1, 1, 5].map((d) => (
                 <button
                   key={d}
@@ -169,10 +171,10 @@ export function Recording({ id, candidates, offset, onOffset, syncable = true, s
                   className={styles.chip}
                   onClick={() => onOffset(Math.max(0, offset + d))}
                 >
-                  {d > 0 ? `+${d}초` : `${d}초`}
+                  {t.sec(d)}
                 </button>
               ))}
-              <span className={styles.meta}>지금 {clock(offset)}만큼 더해요</span>
+              <span className={styles.meta}>{t.syncNow(clock(offset))}</span>
             </div>
           )}
         </>
@@ -181,9 +183,7 @@ export function Recording({ id, candidates, offset, onOffset, syncable = true, s
       <div className={styles.upload}>
         {server?.status === 'uploaded' ? (
           <>
-            <p className={styles.meta}>
-              올린 녹화 파일 {gb(server.size)} · 2일 뒤 자동으로 지워져요
-            </p>
+            <p className={styles.meta}>{t.uploadedFile(gb(server.size))}</p>
             {sound && (
               <button
                 type="button"
@@ -191,12 +191,12 @@ export function Recording({ id, candidates, offset, onOffset, syncable = true, s
                 disabled={sound.busy}
                 onClick={sound.onClick}
               >
-                {sound.busy ? '소리를 분석하고 있어요…' : sound.label}
+                {sound.busy ? t.analyzingShort : sound.label}
               </button>
             )}
             {candidates.length > 0 && <Clips id={id} candidates={candidates} offset={offset} />}
             <button type="button" className={styles.ghost} onClick={() => void remove()}>
-              올린 파일 지우기
+              {t.removeFile}
             </button>
           </>
         ) : progress ? (
@@ -206,19 +206,18 @@ export function Recording({ id, candidates, offset, onOffset, syncable = true, s
               {pct}% · {gb(progress.sent)} / {gb(progress.total)}
             </p>
             <button type="button" className={styles.ghost} onClick={() => abort.current?.abort()}>
-              멈추기
+              {t.stopUpload}
             </button>
           </>
         ) : (
           file && (
             <>
               <p className={styles.meta}>
-                소리 분석이나 클립·움짤을 만들려면 녹화 파일을 올려야 해요 ({gb(file.size)},
-                20GB까지).
-                {resumable && ' 올리다 멈춘 파일이에요. 이어서 올려요.'}
+                {t.needUpload(gb(file.size))}
+                {resumable && t.resumable}
               </p>
               <button type="button" className={styles.primary} onClick={() => void upload()}>
-                {resumable ? '이어서 올리기' : '녹화 파일 올리기'}
+                {resumable ? t.resume : t.upload}
               </button>
             </>
           )
