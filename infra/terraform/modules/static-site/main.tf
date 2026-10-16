@@ -130,11 +130,33 @@ resource "aws_cloudfront_origin_access_control" "web" {
 resource "aws_cloudfront_function" "spa_rewrite" {
   name    = "${var.name_prefix}-spa-rewrite"
   runtime = "cloudfront-js-2.0"
-  comment = "Rewrite extensionless paths to /index.html"
+  comment = "Redirect to the canonical host, rewrite extensionless paths to /index.html"
   publish = true
-  code    = <<-EOT
+  # 주소를 하나로 모은다 (광고·검색·쿠키가 한 주소에 쌓이게, ADR-051). 쿼리 값은 받은 그대로(인코딩된 채) 붙인다
+  code = <<-EOT
+    var CANONICAL = ${jsonencode(var.canonical_host)};
+
+    function query(qs) {
+      var parts = [];
+      for (var key in qs) {
+        var values = qs[key].multiValue || [qs[key]];
+        for (var i = 0; i < values.length; i++) {
+          parts.push(values[i].value === '' ? key : key + '=' + values[i].value);
+        }
+      }
+      return parts.length ? '?' + parts.join('&') : '';
+    }
+
     function handler(event) {
       var request = event.request;
+      var host = request.headers.host ? request.headers.host.value : '';
+      if (CANONICAL && host !== CANONICAL) {
+        return {
+          statusCode: 301,
+          statusDescription: 'Moved Permanently',
+          headers: { location: { value: 'https://' + CANONICAL + request.uri + query(request.querystring) } },
+        };
+      }
       var lastSegment = request.uri.substring(request.uri.lastIndexOf('/') + 1);
       if (lastSegment.indexOf('.') === -1) {
         request.uri = '/index.html';

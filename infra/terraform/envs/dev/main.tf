@@ -63,8 +63,11 @@ module "domain" {
   }
 }
 
+# 화면 주소는 koicut.com 하나로 모은다. www와 cloudfront.net 주소는 301로 보낸다 (static-site canonical_host)
+# S3 CORS에는 옮기는 동안 열려 있던 탭을 위해 다른 주소도 남겨 둔다
 locals {
-  domain_origins = [for name in module.domain.site_names : "https://${name}"]
+  site_origin   = "https://${module.domain.site_names[0]}"
+  extra_origins = ["https://${module.domain.site_names[1]}", "https://${module.web.domain_name}"]
 }
 
 module "web" {
@@ -73,6 +76,7 @@ module "web" {
   name_prefix     = "fitcut-dev"
   aliases         = module.domain.site_names
   certificate_arn = module.domain.certificate_arn
+  canonical_host  = module.domain.site_names[0]
   api = {
     domain        = module.api.api_domain
     origin_verify = module.api.origin_verify
@@ -86,8 +90,8 @@ module "api" {
   lambda_zip            = data.archive_file.api.output_path
   lambda_zip_hash       = data.archive_file.api.output_base64sha256
   workload_boundary_arn = local.workload_boundary_arn
-  site_origin           = "https://${module.web.domain_name}"
-  extra_origins         = local.domain_origins
+  site_origin           = local.site_origin
+  extra_origins         = local.extra_origins
   queue_url             = module.worker.queue_url
   queue_arn             = module.worker.queue_arn
   events_queue_url      = module.events.queue_url
@@ -171,8 +175,8 @@ module "highlight" {
   table_arn          = module.api.table_arn
   origin_param_name  = module.api.origin_param_name
   origin_param_arn   = module.api.origin_param_arn
-  site_origin        = "https://${module.web.domain_name}"
-  extra_origins      = local.domain_origins
+  site_origin        = local.site_origin
+  extra_origins      = local.extra_origins
   chzzk_client_id    = local.chzzk_client_id
   chzzk_secret_param = local.chzzk_secret_param
   worker_queue_url   = module.worker.queue_url
