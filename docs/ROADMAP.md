@@ -127,4 +127,7 @@
 - [x] CloudWatch 대시보드, 실패율 알람 — ADR-046, 무료 한도 안 (알람 지표 8개, 대시보드 1개)
 - [x] 태그별 월 비용 리포트 → README — `pnpm --filter @fitcut/admin cost:report` (ADR-047). 2026-10-15 README에 첫 표
 - [x] 브라우저 변환(ffmpeg.wasm)과 서버 변환 비교 실험 (ADR-003) — PC 단일 스레드 약 6초 vs 서버 7.5초(+업로드 1.5초), wasm 30.7MB·멀티 스레드는 탭이 죽음 → 서버 경로 유지
+- [x] 잉어 브랜드 UI (ADR-050) — 주황 포인트, 잉어 마크와 표정, 연못을 도는 잉어 진행 표시
+- [x] 내 도메인 koicut.com (ADR-051) — Route 53 + ACM + CloudFront 별칭, www·cloudfront.net은 301. 2026-10-16
+- [ ] 광고 (ADR-052) — AdSense 확인 코드·ads.txt·광고 자리 두 곳 배포 완료, 심사 승인 후 광고 단위 번호 넣기
 - [ ] (선택) PR 미리보기 환경, 보안 사고 자동 대응
