@@ -44,3 +44,35 @@ resource "aws_route53_record" "cert_validation" {
   ttl             = 300
   allow_overwrite = true
 }
+
+# 네임서버가 바뀌어 발급이 끝난 뒤라 바로 넘어간다. CloudFront는 이 ARN을 쓴다
+resource "aws_acm_certificate_validation" "site" {
+  region                  = "us-east-1"
+  certificate_arn         = aws_acm_certificate.site.arn
+  validation_record_fqdns = [for r in aws_route53_record.cert_validation : r.fqdn]
+}
+
+locals {
+  site_names = var.site == null ? [] : [var.domain_name, "www.${var.domain_name}"]
+  site_records = {
+    for pair in setproduct(local.site_names, ["A", "AAAA"]) : "${pair[0]} ${pair[1]}" => {
+      name = pair[0]
+      type = pair[1]
+    }
+  }
+}
+
+# www 없는 주소는 CNAME을 못 쓰므로 별칭 기록. CloudFront 별칭 조회는 요금이 없다
+resource "aws_route53_record" "site" {
+  for_each = local.site_records
+
+  zone_id = aws_route53_zone.this.zone_id
+  name    = each.value.name
+  type    = each.value.type
+
+  alias {
+    name                   = var.site.domain_name
+    zone_id                = var.site.hosted_zone_id
+    evaluate_target_health = false
+  }
+}

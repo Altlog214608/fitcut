@@ -10,6 +10,11 @@ output "web_url" {
   value = "https://${module.web.domain_name}"
 }
 
+output "site_url" {
+  description = "내 도메인 주소 (ADR-051)"
+  value       = "https://${module.domain.site_names[0]}"
+}
+
 output "domain_name_servers" {
   description = "가비아 도메인 관리의 네임서버 설정에 넣을 값"
   value       = module.domain.name_servers

@@ -260,7 +260,7 @@ resource "aws_s3_bucket_cors_configuration" "recordings" {
 
   cors_rule {
     allowed_methods = ["PUT"]
-    allowed_origins = [var.site_origin]
+    allowed_origins = concat([var.site_origin], var.extra_origins)
     allowed_headers = ["*"]
     expose_headers  = ["ETag"]
     max_age_seconds = 3600

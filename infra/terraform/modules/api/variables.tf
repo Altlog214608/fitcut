@@ -85,3 +85,9 @@ variable "daily_link_limit" {
   type        = number
   default     = 50
 }
+
+variable "extra_origins" {
+  description = "site_origin 말고도 S3 CORS에 허용할 웹 주소 (내 도메인으로 옮기는 동안 둘 다 허용)"
+  type        = list(string)
+  default     = []
+}

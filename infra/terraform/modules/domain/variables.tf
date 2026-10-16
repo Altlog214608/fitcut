@@ -8,3 +8,12 @@ variable "component" {
   type        = string
   default     = "domain"
 }
+
+variable "site" {
+  description = "koicut.com·www가 가리킬 CloudFront 배포. null이면 별칭 기록을 만들지 않는다 (1단계)."
+  type = object({
+    domain_name    = string
+    hosted_zone_id = string
+  })
+  default = null
+}
