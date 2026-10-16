@@ -134,6 +134,7 @@
 
 - Lambda는 VPC 밖에서 실행한다 (VPC가 필요 없다).
 - Fargate 태스크는 NAT Gateway 없이 실행한다: 퍼블릭 서브넷 + 퍼블릭 IP + 인바운드를 모두 막은 보안그룹. S3는 게이트웨이 VPC 엔드포인트(무료)로 접근한다.
+- 도메인 (ADR-051): `koicut.com`은 가비아에서 등록하고 네임서버만 Route 53 호스팅 영역으로 넘겼다. `koicut.com`·`www.koicut.com`은 CloudFront를 가리키는 A·AAAA 별칭 기록이고, 인증서는 us-east-1 ACM(DNS 검증, SNI). 영역만 월 $0.50이고 나머지는 무료다.
 
 ## 보안
 
@@ -159,6 +160,7 @@
 - 이벤트 수집 배치 Lambda: 배치 창을 크게 잡아 S3 객체 수를 줄인다
 - Cost Explorer API는 요청마다 요금이 붙으므로 하루 한 번만 호출해 저장한다
 - CloudWatch Logs 보존 기간 14일
+- 상시 과금은 Route 53 호스팅 영역 하나뿐이다 (월 $0.50, 사용자 확인 2026-10-16, ADR-051)
 - 모든 리소스에 `Project`, `Env`, `Component` 태그 → 비용 할당 태그로 켜서(bootstrap) Cost Explorer에서 기능별 비용 확인. 월 리포트는 `cost:report` 스크립트로 README에 남긴다 (ADR-047)
 
 ## 관측성

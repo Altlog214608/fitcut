@@ -52,17 +52,27 @@ data "archive_file" "highlight_api" {
   output_path = "${path.module}/.build/highlight-api.zip"
 }
 
-# 내 도메인 koicut.com (ADR-051). 1단계: 영역과 인증서만. 가비아 네임서버를 바꾼 뒤 CloudFront에 붙인다
+# 내 도메인 koicut.com (ADR-051). 가비아 네임서버를 Route 53 영역으로 바꿨다 (2026-10-16)
 module "domain" {
   source = "../../modules/domain"
 
   domain_name = "koicut.com"
+  site = {
+    domain_name    = module.web.domain_name
+    hosted_zone_id = module.web.hosted_zone_id
+  }
+}
+
+locals {
+  domain_origins = [for name in module.domain.site_names : "https://${name}"]
 }
 
 module "web" {
   source = "../../modules/static-site"
 
-  name_prefix = "fitcut-dev"
+  name_prefix     = "fitcut-dev"
+  aliases         = module.domain.site_names
+  certificate_arn = module.domain.certificate_arn
   api = {
     domain        = module.api.api_domain
     origin_verify = module.api.origin_verify
@@ -77,6 +87,7 @@ module "api" {
   lambda_zip_hash       = data.archive_file.api.output_base64sha256
   workload_boundary_arn = local.workload_boundary_arn
   site_origin           = "https://${module.web.domain_name}"
+  extra_origins         = local.domain_origins
   queue_url             = module.worker.queue_url
   queue_arn             = module.worker.queue_arn
   events_queue_url      = module.events.queue_url
@@ -161,6 +172,7 @@ module "highlight" {
   origin_param_name  = module.api.origin_param_name
   origin_param_arn   = module.api.origin_param_arn
   site_origin        = "https://${module.web.domain_name}"
+  extra_origins      = local.domain_origins
   chzzk_client_id    = local.chzzk_client_id
   chzzk_secret_param = local.chzzk_secret_param
   worker_queue_url   = module.worker.queue_url

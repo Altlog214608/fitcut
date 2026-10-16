@@ -8,5 +8,11 @@ output "name_servers" {
 }
 
 output "certificate_arn" {
-  value = aws_acm_certificate.site.arn
+  description = "검증이 끝난 인증서 ARN (CloudFront용)"
+  value       = aws_acm_certificate_validation.site.certificate_arn
+}
+
+output "site_names" {
+  description = "CloudFront에 붙일 도메인"
+  value       = [var.domain_name, "www.${var.domain_name}"]
 }

@@ -136,7 +136,7 @@ resource "aws_s3_bucket_cors_configuration" "uploads" {
 
   cors_rule {
     allowed_methods = ["POST"]
-    allowed_origins = [var.site_origin]
+    allowed_origins = concat([var.site_origin], var.extra_origins)
     allowed_headers = ["*"]
     max_age_seconds = 3600
   }
@@ -150,7 +150,7 @@ resource "aws_s3_bucket_cors_configuration" "outputs" {
 
   cors_rule {
     allowed_methods = ["GET"]
-    allowed_origins = [var.site_origin]
+    allowed_origins = concat([var.site_origin], var.extra_origins)
     max_age_seconds = 3600
   }
 }
@@ -160,7 +160,7 @@ resource "aws_s3_bucket_cors_configuration" "retained" {
 
   cors_rule {
     allowed_methods = ["GET"]
-    allowed_origins = [var.site_origin]
+    allowed_origins = concat([var.site_origin], var.extra_origins)
     max_age_seconds = 3600
   }
 }

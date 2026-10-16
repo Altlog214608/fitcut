@@ -27,3 +27,15 @@ variable "api" {
   default   = null
   sensitive = true
 }
+
+variable "aliases" {
+  description = "CloudFront에 붙일 내 도메인 (예: koicut.com, www.koicut.com). 비우면 cloudfront.net 주소만 쓴다."
+  type        = list(string)
+  default     = []
+}
+
+variable "certificate_arn" {
+  description = "aliases를 덮는 us-east-1 ACM 인증서 (검증이 끝난 것). aliases를 쓰면 필요하다."
+  type        = string
+  default     = null
+}

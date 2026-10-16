@@ -191,6 +191,7 @@ resource "aws_cloudfront_distribution" "web" {
   http_version        = "http2and3"
   default_root_object = "index.html"
   price_class         = var.price_class
+  aliases             = var.aliases
   tags                = local.tags
 
   origin {
@@ -256,7 +257,11 @@ resource "aws_cloudfront_distribution" "web" {
     }
   }
 
+  # 내 도메인이 있으면 SNI 방식 ACM 인증서 (전용 IP 방식은 월 $600이라 쓰지 않는다)
   viewer_certificate {
-    cloudfront_default_certificate = true
+    cloudfront_default_certificate = var.certificate_arn == null
+    acm_certificate_arn            = var.certificate_arn
+    ssl_support_method             = var.certificate_arn == null ? null : "sni-only"
+    minimum_protocol_version       = var.certificate_arn == null ? null : "TLSv1.2_2021"
   }
 }
