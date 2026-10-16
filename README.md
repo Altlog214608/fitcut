@@ -1,4 +1,8 @@
-# KoiCut
+<h1><img src="apps/web/public/favicon.svg" width="36" height="36" alt="" align="top" /> KoiCut</h1>
+
+[![CI](https://github.com/Altlog214608/fitcut/actions/workflows/ci.yml/badge.svg)](https://github.com/Altlog214608/fitcut/actions/workflows/ci.yml)
+[![Deploy](https://github.com/Altlog214608/fitcut/actions/workflows/deploy.yml/badge.svg)](https://github.com/Altlog214608/fitcut/actions/workflows/deploy.yml)
+[![Demo](https://img.shields.io/badge/demo-koicut.com-C2441C)](https://koicut.com)
 
 사진·영상·음성을 내 기기에 딱 맞게. 폰 배경화면, 워치 페이스, 움짤, 벨소리, 방송 하이라이트를 한 곳에서 만드는 웹 서비스.
 
@@ -7,7 +11,7 @@
 **클라우드 포트폴리오 프로젝트**다. 기능만큼 중요한 목표는 **AWS 서버리스로 쓰지 않을 때 비용이 0에 가까운 구조를 만들고, 그 근거를 숫자로 남기는 것**이다.
 
 - 데모: https://koicut.com (main에 머지하면 자동 배포되는 dev 환경)
-- 상태: M0~M5 기능 완료, M7 운영 고도화(관측성·비용 리포트·부하 테스트·브라우저 변환 비교) 완료. 남은 것은 실제 방송 데이터로 하는 정확도 측정 ([로드맵](docs/ROADMAP.md))
+- 상태: M0~M5 기능 완료, M7 운영 고도화(관측성·비용 리포트·부하 테스트·브라우저 변환 비교) 완료, 내 도메인(Route 53)과 광고 자리까지 붙여 실제 운영 중. 남은 것은 실제 방송 데이터로 하는 정확도 측정 ([로드맵](docs/ROADMAP.md))
 
 | 홈 | 사진: 기기에 맞춰 자르기 | 하이라이트: 예시 방송 리플레이 |
 | --- | --- | --- |
@@ -44,7 +48,7 @@
 
 ```mermaid
 flowchart TB
-  user([사용자 브라우저]) --> cf[CloudFront]
+  user([사용자 브라우저]) -- koicut.com --> r53[Route 53] --> cf[CloudFront<br/>ACM 인증서]
   cf --> web[(S3 웹)]
   cf -- /api/* --> api[HTTP API + Lambda]
   api --> ddb[(DynamoDB)]
@@ -63,6 +67,7 @@ flowchart TB
 - **비용 상한이 설계에 들어 있다.** IP 해시별 하루 할당량, API 속도 제한, 워커 동시 실행 상한, 입력 크기·길이 제한, S3 수명 주기, Athena 쿼리당 스캔 한도, 월 예산 알림.
 - **개인정보는 최소로.** 사진 원본·파일명·원본 IP·채팅 닉네임을 저장하지 않는다 (IP는 솔트 해시). 파일은 기본적으로 하루 안에 지워지고, 사용자가 동의한 파일만 30일 보관한다.
 - **보안.** CI는 GitHub OIDC로 plan 역할과 배포 역할을 나누고 권한 경계를 건다 (장기 액세스 키 없음). 비밀값은 SSM, 스트리머 OAuth 토큰은 KMS로 암호화한다. 관리자 API는 Cognito 관리자 그룹 + MFA.
+- **내 도메인도 코드로.** Route 53 호스팅 영역, ACM 인증서(DNS 검증), CloudFront 별칭을 Terraform 모듈 하나로 만들고, www·cloudfront.net 주소는 CloudFront Function이 koicut.com으로 301 보낸다. 상시 비용은 호스팅 영역 월 $0.50 하나 ([ADR-051](docs/DECISIONS.md)).
 - **관측성.** CloudWatch 대시보드 하나와 알람 8개(잡 실패율, 실패 대기열 4개, Lambda 오류, API 5xx)가 무료 한도 안에서 이메일로 알린다 ([ADR-046](docs/DECISIONS.md)).
 
 자세한 구성: [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md)
@@ -74,9 +79,24 @@ flowchart TB
 | 프론트엔드 | React, TypeScript, Vite, Web Worker + OffscreenCanvas, TF.js(업스케일), libheif-js(HEIC) |
 | 백엔드 | TypeScript (Node.js 24, arm64 Lambda), ffmpeg (Lambda 컨테이너 이미지), Fargate(수집기) |
 | 데이터 | DynamoDB 온디맨드, S3, SQS, Glue Data Catalog, Athena |
-| 인프라 | Terraform (모듈 9개, S3 원격 상태), 서울 리전, CloudFront + OAC |
+| 인프라 | Terraform (모듈 10개, S3 원격 상태), 서울 리전, CloudFront + OAC, Route 53 + ACM |
 | CI/CD | GitHub Actions + AWS OIDC. PR에서 lint·test·terraform plan, main 머지 시 apply와 배포 |
 | 테스트 | Vitest(단위), Playwright(E2E: 데스크톱·Pixel 7·iPhone), k6(부하) |
+
+## 로컬에서 실행
+
+Node 24, pnpm 12가 필요하다. AWS 없이 웹 화면과 사진 도구(브라우저 처리)는 그대로 돌아간다.
+
+```sh
+pnpm install
+pnpm dev                          # http://localhost:5173
+pnpm lint && pnpm typecheck && pnpm test
+pnpm --filter @fitcut/web e2e             # Playwright (데스크톱·Pixel 7·iPhone)
+```
+
+인프라는 `infra/terraform/bootstrap`(상태 버킷·OIDC 역할·예산, 로컬 1회)을 먼저 적용하고, 그다음부터는 PR에서 plan, main 머지 때 GitHub Actions가 `envs/dev`를 apply하고 웹을 배포한다 ([ADR-018](docs/DECISIONS.md)).
+
+README 화면 캡처는 `README_SHOTS=1 pnpm --filter @fitcut/web e2e readme-shots --project=desktop`로 다시 찍는다.
 
 ## 측정 기록
 
@@ -145,4 +165,4 @@ docs/                  기획·설계 문서, 기술 결정 기록(ADR)
 - [기기 프리셋](docs/PRESETS.md)
 - [UI/UX](docs/UI.md)
 - [로드맵](docs/ROADMAP.md)
-- [기술 결정 기록 (ADR 48개)](docs/DECISIONS.md)
+- [기술 결정 기록 (ADR 52개)](docs/DECISIONS.md)
