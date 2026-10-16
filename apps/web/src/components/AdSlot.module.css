@@ -1,0 +1,20 @@
+.ad {
+  display: grid;
+  gap: 4px;
+  width: 100%;
+  max-width: var(--content-max);
+  margin: var(--space-3) auto 0;
+}
+
+.label {
+  font-size: 12px;
+  color: var(--color-slate);
+}
+
+/* 광고가 오기 전에도 자리를 잡아 둔다 (화면 밀림 방지) */
+.unit {
+  display: block;
+  min-height: 100px;
+  border-radius: var(--radius-control);
+  background: var(--color-paper);
+}

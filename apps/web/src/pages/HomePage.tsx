@@ -11,6 +11,7 @@ import {
 } from 'lucide-react';
 import { useState, type FormEvent } from 'react';
 import { Link, useNavigate } from 'react-router';
+import { AdSlot } from '../components/AdSlot';
 import { DropZone } from '../components/DropZone';
 import { Koi } from '../components/Koi';
 import { useT } from '../i18n/context';
@@ -151,6 +152,7 @@ export function HomePage() {
       </form>
 
       <ToolList tools={tools} label={t.tools} />
+      <AdSlot place="home" />
 
       <div className={styles.streamer}>
         <p className={styles.streamerLabel}>{t.streamerLabel}</p>

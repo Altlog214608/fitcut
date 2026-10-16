@@ -38,6 +38,7 @@ export const en: Dict = {
     toOtherLang: '한국어',
     myJobs: 'My jobs',
     privacy: 'Privacy',
+    ad: 'Advertisement',
   },
 
   dropZone: {
@@ -635,17 +636,29 @@ export const en: Dict = {
     deleteRetainedAfter: ' removes the original and result right away.',
     localTitle: 'What stays only on this device',
     local:
-      'Recent devices, my devices, my link sections, my jobs (including delete keys), and your theme and language choices are stored only in this browser. Clearing the site data in your browser deletes them. We don’t use advertising or tracking cookies.',
+      'Recent devices, my devices, my link sections, my jobs (including delete keys), and your theme and language choices are stored only in this browser. Clearing the site data in your browser deletes them. KoiCut itself sets no advertising or tracking cookies. For ad cookies, see “Ads” below.',
+    adsTitle: 'Ads',
+    ads: [
+      'KoiCut shows Google AdSense ads to cover running costs. Ads appear only at the bottom of the home and tool screens, never on link sections or the admin screen.',
+      'Google and its ad partners may use cookies and similar technologies to choose ads and measure them based on your visits to this and other sites. Google collects and processes this information directly; KoiCut does not receive it.',
+      'Your photos, uploaded files, link sections and highlight data are never used for ads.',
+    ],
+    adsMoreBefore: 'You can turn off personalized ads in ',
+    adsSettingsLink: 'Google Ad Settings',
+    adsMoreMiddle: '. How Google uses this information is explained in ',
+    adsPartnerLink: 'Google’s partner sites policy',
+    adsMoreAfter: '.',
     externalTitle: 'Third-party services',
     external: [
       'Link sections play in YouTube’s official player (privacy-enhanced mode). YouTube’s (Google’s) privacy policy applies while playing.',
       'All data is stored in the Amazon Web Services Seoul region.',
+      'Ads are served by Google AdSense. Google’s privacy policy applies to ads.',
     ],
     contactTitle: 'Contact',
     contactBefore: 'For privacy questions or deletion requests, please open a ',
     contactLink: 'GitHub issue',
     contactAfter: '. It’s a public board, so please don’t include personal information.',
-    effective: 'Effective: October 15, 2026',
+    effective: 'Effective: October 16, 2026',
     translationNote:
       'This is a translation. If it differs from the Korean version, the Korean version applies.',
   },

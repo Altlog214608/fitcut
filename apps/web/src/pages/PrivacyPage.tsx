@@ -8,6 +8,8 @@ import { useT } from '../i18n/context';
 import styles from './PrivacyPage.module.css';
 
 const REPO_ISSUES = 'https://github.com/Altlog214608/fitcut/issues';
+const AD_SETTINGS = 'https://adssettings.google.com';
+const GOOGLE_PARTNER_SITES = 'https://policies.google.com/technologies/partner-sites';
 
 export function PrivacyPage() {
   const t = useT().privacy;
@@ -65,6 +67,26 @@ export function PrivacyPage() {
       <section className={styles.section}>
         <h2>{t.localTitle}</h2>
         <p>{t.local}</p>
+      </section>
+
+      <section className={styles.section}>
+        <h2>{t.adsTitle}</h2>
+        <ul>
+          {t.ads.map((line) => (
+            <li key={line}>{line}</li>
+          ))}
+        </ul>
+        <p>
+          {t.adsMoreBefore}
+          <a href={AD_SETTINGS} target="_blank" rel="noreferrer">
+            {t.adsSettingsLink}
+          </a>
+          {t.adsMoreMiddle}
+          <a href={GOOGLE_PARTNER_SITES} target="_blank" rel="noreferrer">
+            {t.adsPartnerLink}
+          </a>
+          {t.adsMoreAfter}
+        </p>
       </section>
 
       <section className={styles.section}>
