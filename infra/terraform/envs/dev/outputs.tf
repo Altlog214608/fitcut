@@ -10,6 +10,11 @@ output "web_url" {
   value = "https://${module.web.domain_name}"
 }
 
+output "domain_name_servers" {
+  description = "가비아 도메인 관리의 네임서버 설정에 넣을 값"
+  value       = module.domain.name_servers
+}
+
 output "api_function_name" {
   value = module.api.function_name
 }
