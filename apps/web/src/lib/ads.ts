@@ -5,6 +5,9 @@
  */
 export const AD_CLIENT = 'ca-pub-5555123248227301';
 
+/** 배포 빌드에서만 켠다 (vite.config.ts가 같은 값으로 AdSense 코드를 넣는다) */
+export const ADS_ON = import.meta.env.VITE_ADS === 'on';
+
 export const AD_SLOTS = {
   home: '',
   tool: '',

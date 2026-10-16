@@ -1,14 +1,14 @@
 import { useEffect } from 'react';
 import { useT } from '../i18n/context';
-import { AD_CLIENT, AD_SLOTS, requestAd, type AdPlace } from '../lib/ads';
+import { AD_CLIENT, AD_SLOTS, ADS_ON, requestAd, type AdPlace } from '../lib/ads';
 import styles from './AdSlot.module.css';
 
-type Props = { place: AdPlace; slots?: Record<AdPlace, string> };
+type Props = { place: AdPlace; slots?: Record<AdPlace, string>; enabled?: boolean };
 
 /** 광고 자리 (ADR-052). 높이를 미리 잡아 광고가 늦게 떠도 화면이 밀리지 않게 한다 */
-export function AdSlot({ place, slots = AD_SLOTS }: Props) {
+export function AdSlot({ place, slots = AD_SLOTS, enabled = ADS_ON }: Props) {
   const t = useT().layout;
-  const slot = slots[place];
+  const slot = enabled ? slots[place] : '';
   useEffect(() => {
     if (slot) requestAd();
   }, [slot]);
