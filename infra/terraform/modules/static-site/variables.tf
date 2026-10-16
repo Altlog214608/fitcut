@@ -39,3 +39,9 @@ variable "certificate_arn" {
   type        = string
   default     = null
 }
+
+variable "canonical_host" {
+  description = "이 주소가 아닌 호스트(www, cloudfront.net)로 온 화면 요청을 여기로 301 보낸다. null이면 보내지 않는다. /api/*는 그대로 둔다."
+  type        = string
+  default     = null
+}

@@ -14,7 +14,7 @@ import http from 'k6/http';
 import { check, sleep } from 'k6';
 import { Counter, Trend } from 'k6/metrics';
 
-const BASE = __ENV.BASE_URL || 'https://d2iecjbez8jmja.cloudfront.net';
+const BASE = __ENV.BASE_URL || 'https://koicut.com';
 const clip = open('../../apps/web/e2e/fixtures/clip.webm', 'b');
 
 const serverErrors = new Counter('server_errors');

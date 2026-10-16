@@ -7,12 +7,8 @@ output "web_distribution_id" {
 }
 
 output "web_url" {
-  value = "https://${module.web.domain_name}"
-}
-
-output "site_url" {
-  description = "내 도메인 주소 (ADR-051)"
-  value       = "https://${module.domain.site_names[0]}"
+  description = "사이트 주소 (ADR-051). cloudfront.net 주소는 여기로 301된다"
+  value       = local.site_origin
 }
 
 output "domain_name_servers" {
