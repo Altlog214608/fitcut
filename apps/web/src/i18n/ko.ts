@@ -11,6 +11,7 @@ export const ko = {
     toOtherLang: 'English',
     myJobs: '내 작업 기록',
     privacy: '개인정보 처리방침',
+    ad: '광고',
   },
 
   dropZone: {
@@ -611,17 +612,29 @@ export const ko = {
     deleteRetainedAfter: '에서 지우면 그 자리에서 원본과 결과가 함께 지워져요.',
     localTitle: '이 기기에만 저장하는 것',
     local:
-      '최근 쓴 기기, 내 기기, 내 링크 구간, 내 작업 기록(삭제 열쇠 포함), 화면 테마와 언어는 이 브라우저에만 저장돼요. 브라우저의 사이트 데이터를 지우면 함께 지워져요. 광고·추적용 쿠키는 쓰지 않아요.',
+      '최근 쓴 기기, 내 기기, 내 링크 구간, 내 작업 기록(삭제 열쇠 포함), 화면 테마와 언어는 이 브라우저에만 저장돼요. 브라우저의 사이트 데이터를 지우면 함께 지워져요. KoiCut이 직접 만드는 광고·추적용 쿠키는 없어요. 광고 쿠키는 아래 "광고"를 봐 주세요.',
+    adsTitle: '광고',
+    ads: [
+      'KoiCut은 운영비를 위해 Google AdSense 광고를 보여 줘요. 광고는 홈과 도구 화면 아래에만 있고, 링크 구간과 관리자 화면에는 없어요.',
+      'Google과 광고 파트너는 쿠키 같은 기술로 이 사이트와 다른 사이트 방문 기록을 바탕으로 광고를 고르고 광고 성과를 잴 수 있어요. 이 정보는 Google이 직접 수집하고 처리하며 KoiCut은 받지 않아요.',
+      '사진, 올린 파일, 링크 구간, 하이라이트 데이터는 광고에 쓰지 않아요.',
+    ],
+    adsMoreBefore: '맞춤 광고는 ',
+    adsSettingsLink: 'Google 광고 설정',
+    adsMoreMiddle: '에서 끌 수 있어요. Google이 정보를 어떻게 쓰는지는 ',
+    adsPartnerLink: 'Google 파트너 사이트 정책',
+    adsMoreAfter: '에 있어요.',
     externalTitle: '외부 서비스',
     external: [
       '링크 구간은 YouTube 공식 플레이어(개인정보 보호 모드)로 재생해요. 재생할 때는 YouTube(Google)의 개인정보 처리방침이 적용돼요.',
       '모든 데이터는 Amazon Web Services 서울 리전에 저장해요.',
+      '광고는 Google AdSense가 보여 줘요. 광고에는 Google의 개인정보 처리방침이 적용돼요.',
     ],
     contactTitle: '문의',
     contactBefore: '개인정보와 관련한 문의나 삭제 요청은 ',
     contactLink: 'GitHub 이슈',
     contactAfter: '로 남겨 주세요. 공개 게시판이라 개인정보는 적지 말아 주세요.',
-    effective: '시행일: 2026년 10월 15일',
+    effective: '시행일: 2026년 10월 16일',
     translationNote: '',
   },
 

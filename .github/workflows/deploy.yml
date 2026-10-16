@@ -33,6 +33,8 @@ jobs:
         env:
           # 사용 이벤트의 appVersion (lib/analytics.ts)
           VITE_APP_VERSION: ${{ github.sha }}
+          # AdSense 코드와 광고 자리 (ADR-052). 배포 빌드에서만 켠다
+          VITE_ADS: 'on'
       - run: pnpm --filter @fitcut/api build
       - run: pnpm --filter @fitcut/events build
       - run: pnpm --filter @fitcut/admin build
