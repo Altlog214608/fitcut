@@ -52,6 +52,13 @@ data "archive_file" "highlight_api" {
   output_path = "${path.module}/.build/highlight-api.zip"
 }
 
+# 내 도메인 koicut.com (ADR-051). 1단계: 영역과 인증서만. 가비아 네임서버를 바꾼 뒤 CloudFront에 붙인다
+module "domain" {
+  source = "../../modules/domain"
+
+  domain_name = "koicut.com"
+}
+
 module "web" {
   source = "../../modules/static-site"
 
