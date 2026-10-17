@@ -17,3 +17,9 @@ variable "site" {
   })
   default = null
 }
+
+variable "apex_txt" {
+  description = "koicut.com TXT 기록 (검색 엔진 소유 확인 등). 비어 있으면 만들지 않는다."
+  type        = list(string)
+  default     = []
+}

@@ -57,6 +57,7 @@ module "domain" {
   source = "../../modules/domain"
 
   domain_name = "koicut.com"
+  apex_txt    = ["google-site-verification=blIk4Md4xoy4eniJbduyUYriIi_6whCxSLrEGFiVtzI"]
   site = {
     domain_name    = module.web.domain_name
     hosted_zone_id = module.web.hosted_zone_id

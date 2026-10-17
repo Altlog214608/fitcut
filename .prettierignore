@@ -6,3 +6,6 @@ coverage/
 docs/
 CLAUDE.md
 README.md
+
+# 검색 엔진 소유 확인 파일은 받은 그대로 둔다
+apps/web/public/naver*.html

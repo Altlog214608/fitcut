@@ -76,3 +76,14 @@ resource "aws_route53_record" "site" {
     evaluate_target_health = false
   }
 }
+
+# 검색 엔진 소유 확인 (Google Search Console 도메인 속성). 확인 뒤에도 지우면 확인이 풀리므로 남겨 둔다
+resource "aws_route53_record" "apex_txt" {
+  count = length(var.apex_txt) > 0 ? 1 : 0
+
+  zone_id = aws_route53_zone.this.zone_id
+  name    = var.domain_name
+  type    = "TXT"
+  ttl     = 300
+  records = var.apex_txt
+}
