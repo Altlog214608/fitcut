@@ -304,7 +304,6 @@ resource "aws_lambda_function" "api" {
       ORIGIN_PARAM       = aws_ssm_parameter.secret["origin-verify"].name
       DAILY_JOB_LIMIT    = tostring(var.daily_job_limit)
       DAILY_UPLOAD_LIMIT = tostring(var.daily_upload_limit)
-      DAILY_LINK_LIMIT   = tostring(var.daily_link_limit)
       NODE_OPTIONS       = "--enable-source-maps"
     }
   }
@@ -334,8 +333,6 @@ resource "aws_apigatewayv2_route" "api" {
     "GET /api/jobs/{id}",
     "DELETE /api/jobs/{id}",
     "POST /api/events",
-    "POST /api/links",
-    "GET /api/links/{id}",
   ])
   api_id    = aws_apigatewayv2_api.api.id
   route_key = each.key

@@ -138,7 +138,6 @@ const TOOL_PATHS: Record<string, string> = {
   '/photo': 'photo',
   '/gif': 'gif',
   '/audio': 'audio',
-  '/link': 'link',
   '/highlight': 'highlight',
   '/rotate': 'rotate',
 };

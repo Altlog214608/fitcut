@@ -15,7 +15,6 @@ describe('routes', () => {
     ['/gif', '움짤'],
     ['/audio', '음성'],
     ['/rotate', '영상 똑바로 세우기'],
-    ['/link', '링크 구간'],
     ['/highlight', '하이라이트'],
     ['/admin', '관리자'],
     ['/my-jobs', '내 작업 기록'],
@@ -25,8 +24,8 @@ describe('routes', () => {
     expect(screen.getByRole('heading', { level: 1, name: heading })).toBeDefined();
   });
 
-  it('없는 경로는 404 페이지를 보여준다', () => {
-    renderAt('/no-such-page');
+  it.each(['/no-such-page', '/link', '/r/Ab3dEf9Z'])('%s는 404 페이지를 보여준다', (path) => {
+    renderAt(path);
     expect(screen.getByRole('heading', { level: 1, name: '여기는 없는 페이지예요' })).toBeDefined();
   });
 });

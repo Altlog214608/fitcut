@@ -54,10 +54,6 @@ export const ko = {
     rotateChoice: '누워 있는 영상을 똑바로',
     unknownFile:
       '앗, 이 파일은 열 수 없어요. 사진(JPG · PNG · WebP · HEIC), 영상(MP4 · MOV · WebM), 음성(MP3 · M4A · WAV)을 골라 주세요.',
-    badLink: '유튜브 링크가 맞는지 확인해 주세요. 예: https://youtu.be/영상ID',
-    linkLabel: '유튜브 링크',
-    linkPlaceholder: '유튜브 링크 붙여넣기',
-    linkGo: '구간 고르기',
     streamerLabel: '스트리머라면',
     streamerTools: '스트리머 도구',
     highlight: { title: '방송 하이라이트 찾기', detail: '채팅이 터진 순간을 찾아 드려요' },
@@ -335,39 +331,6 @@ export const ko = {
   /** 날짜·숫자 표시 */
   locale: 'ko-KR',
 
-  link: {
-    title: '링크 구간',
-    lead: '영상은 유튜브에서 재생되고, 링크와 구간만 저장돼요.',
-    notYoutube: '유튜브 링크가 아니에요. 유튜브 앱이나 사이트의 공유 링크를 붙여 넣어 주세요.',
-    open: '열기',
-    openOnYoutube: '유튜브에서 열기',
-    loading: '플레이어를 불러오는 중이에요…',
-    playerErrors: {
-      blocked: '이 영상은 다른 사이트에서 재생할 수 없게 설정돼 있어요. 유튜브에서 직접 봐 주세요.',
-      missing: '영상을 찾을 수 없어요. 삭제됐거나 비공개일 수 있어요.',
-      failed: '영상을 재생하지 못했어요. 링크를 다시 확인해 주세요.',
-      load: '유튜브 플레이어를 불러오지 못했어요. 인터넷 연결을 확인해 주세요.',
-    },
-    savedTitle: '구간을 저장했어요',
-    copyRepeat: '반복 링크 복사',
-    copyYoutube: '유튜브 시작 시점 링크',
-    copied: '복사했어요',
-    saveFailed: '저장하지 못했어요. 다시 해 볼까요?',
-    saving: '저장하는 중…',
-    save: '구간 저장',
-    trust: '영상은 유튜브에서 재생되고, 링크와 구간만 저장돼요',
-    mine: '내 구간',
-    removeMine: '이 구간을 목록에서 지우기',
-    mineHint: '이 목록은 이 브라우저에만 저장돼요.',
-    repeatTitle: '구간 반복',
-    repeatRange: (from: string, to: string) => `${from} ~ ${to} 반복`,
-    loadFailed: '구간을 불러오지 못했어요.',
-    playRange: '구간 재생',
-    watchOnYoutube: '유튜브에서 보기',
-    editAsNew: '이 구간 고쳐서 새로 만들기',
-    repeatTrust: '영상은 유튜브에서 재생돼요. KoiCut은 링크와 구간만 저장해요',
-  },
-
   highlight: {
     title: '하이라이트',
     summary: '채널을 연결하면 방송 중 채팅으로 하이라이트 후보를 찾아 드려요.',
@@ -580,7 +543,11 @@ export const ko = {
         '서비스 품질 확인 (관리자가 볼 수 있고, 볼 때마다 기록이 남아요)',
         '30일 (내 작업 기록에서 언제든 삭제)',
       ],
-      ['저장한 링크 구간 (YouTube 영상 ID, 시작·끝 시각)', '구간 반복 링크 제공', '12개월'],
+      [
+        '예전에 저장한 링크 구간 (YouTube 영상 ID, 시작·끝 시각). 링크 구간 기능은 2026년 10월에 내렸어요',
+        '새로 저장하지 않아요',
+        '저장한 날부터 12개월 뒤 자동 삭제',
+      ],
       [
         '하이라이트 채널 연결: 치지직 채널 ID·채널 이름, 치지직 권한 토큰(암호화해 저장), 로그인 유지용 값의 해시',
         '방송 채팅으로 하이라이트 후보 찾기',
@@ -612,12 +579,12 @@ export const ko = {
     deleteRetainedAfter: '에서 지우면 그 자리에서 원본과 결과가 함께 지워져요.',
     localTitle: '이 기기에만 저장하는 것',
     local:
-      '최근 쓴 기기, 내 기기, 내 링크 구간, 내 작업 기록(삭제 열쇠 포함), 화면 테마와 언어는 이 브라우저에만 저장돼요. 브라우저의 사이트 데이터를 지우면 함께 지워져요. KoiCut이 직접 만드는 광고·추적용 쿠키는 없어요. 광고 쿠키는 아래 "광고"를 봐 주세요.',
+      '최근 쓴 기기, 내 기기, 내 작업 기록(삭제 열쇠 포함), 화면 테마와 언어는 이 브라우저에만 저장돼요. 브라우저의 사이트 데이터를 지우면 함께 지워져요. KoiCut이 직접 만드는 광고·추적용 쿠키는 없어요. 광고 쿠키는 아래 "광고"를 봐 주세요.',
     adsTitle: '광고',
     ads: [
-      'KoiCut은 운영비를 위해 Google AdSense 광고를 보여 줘요. 광고는 홈과 도구 화면 아래에만 있고, 링크 구간과 관리자 화면에는 없어요.',
+      'KoiCut은 운영비를 위해 Google AdSense 광고를 보여 줘요. 광고는 홈과 도구 화면 아래에만 있고, 관리자 화면에는 없어요.',
       'Google과 광고 파트너는 쿠키 같은 기술로 이 사이트와 다른 사이트 방문 기록을 바탕으로 광고를 고르고 광고 성과를 잴 수 있어요. 이 정보는 Google이 직접 수집하고 처리하며 KoiCut은 받지 않아요.',
-      '사진, 올린 파일, 링크 구간, 하이라이트 데이터는 광고에 쓰지 않아요.',
+      '사진, 올린 파일, 하이라이트 데이터는 광고에 쓰지 않아요.',
     ],
     adsMoreBefore: '맞춤 광고는 ',
     adsSettingsLink: 'Google 광고 설정',
@@ -626,7 +593,6 @@ export const ko = {
     adsMoreAfter: '에 있어요.',
     externalTitle: '외부 서비스',
     external: [
-      '링크 구간은 YouTube 공식 플레이어(개인정보 보호 모드)로 재생해요. 재생할 때는 YouTube(Google)의 개인정보 처리방침이 적용돼요.',
       '모든 데이터는 Amazon Web Services 서울 리전에 저장해요.',
       '광고는 Google AdSense가 보여 줘요. 광고에는 Google의 개인정보 처리방침이 적용돼요.',
     ],
@@ -634,7 +600,7 @@ export const ko = {
     contactBefore: '개인정보와 관련한 문의나 삭제 요청은 ',
     contactLink: 'GitHub 이슈',
     contactAfter: '로 남겨 주세요. 공개 게시판이라 개인정보는 적지 말아 주세요.',
-    effective: '시행일: 2026년 10월 16일',
+    effective: '시행일: 2026년 10월 21일',
     translationNote: '',
   },
 

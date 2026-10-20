@@ -3,13 +3,12 @@ import {
   ChevronRight,
   Crop,
   Film,
-  Link as LinkIcon,
   MessageSquareText,
   RotateCw,
   ShieldCheck,
   type LucideIcon,
 } from 'lucide-react';
-import { useState, type FormEvent } from 'react';
+import { useState } from 'react';
 import { Link, useNavigate } from 'react-router';
 import { AdSlot } from '../components/AdSlot';
 import { DropZone } from '../components/DropZone';
@@ -17,7 +16,6 @@ import { Koi } from '../components/Koi';
 import { useT } from '../i18n/context';
 import { detectKind } from '../lib/detectKind';
 import { setSelectedFile } from '../lib/selectedFile';
-import { parseYouTubeId } from '../lib/youtube';
 import styles from './HomePage.module.css';
 
 /** 도구 입구 타일 색 (tokens.css --tint-*) */
@@ -67,8 +65,6 @@ export function HomePage() {
   ];
   const [video, setVideo] = useState<File | null>(null);
   const [fileError, setFileError] = useState<string | null>(null);
-  const [link, setLink] = useState('');
-  const [linkError, setLinkError] = useState<string | null>(null);
 
   function openFile(file: File) {
     setFileError(null);
@@ -82,17 +78,6 @@ export function HomePage() {
     if (result.kind === 'image') navigate('/photo');
     else if (result.kind === 'audio') navigate('/audio');
     else setVideo(file);
-  }
-
-  function openLink(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-    const id = parseYouTubeId(link);
-    if (!id) {
-      setLinkError(t.badLink);
-      return;
-    }
-    setLinkError(null);
-    navigate(`/link?v=${id}`);
   }
 
   return (
@@ -121,35 +106,6 @@ export function HomePage() {
           <ToolList tools={videoChoices} label={t.chooseLabel} />
         </section>
       )}
-
-      <form className={styles.linkForm} onSubmit={openLink} noValidate>
-        <label htmlFor="youtube-link" className="visually-hidden">
-          {t.linkLabel}
-        </label>
-        <div className={styles.field}>
-          <LinkIcon size={20} strokeWidth={1.75} />
-          <input
-            id="youtube-link"
-            type="url"
-            inputMode="url"
-            placeholder={t.linkPlaceholder}
-            value={link}
-            onChange={(event) => setLink(event.currentTarget.value)}
-            aria-invalid={linkError ? true : undefined}
-            aria-describedby={linkError ? 'youtube-link-error' : undefined}
-          />
-          {link && (
-            <button type="submit" className={styles.linkButton}>
-              {t.linkGo}
-            </button>
-          )}
-        </div>
-        {linkError && (
-          <p id="youtube-link-error" className={styles.error} role="alert">
-            {linkError}
-          </p>
-        )}
-      </form>
 
       <ToolList tools={tools} label={t.tools} />
       <AdSlot place="home" />

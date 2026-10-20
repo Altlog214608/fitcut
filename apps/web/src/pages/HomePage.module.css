@@ -65,53 +65,6 @@
   overflow-wrap: anywhere;
 }
 
-.linkForm {
-  display: grid;
-  gap: var(--space-1);
-}
-
-.field {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  min-height: 52px;
-  padding: 0 6px 0 14px;
-  border-radius: var(--radius-control);
-  background: var(--color-paper);
-  color: var(--color-slate);
-}
-
-.field:focus-within {
-  outline: 2px solid var(--color-accent-ink);
-  outline-offset: 2px;
-}
-
-.field input {
-  flex: 1;
-  min-width: 0;
-  height: 48px;
-  border: 0;
-  background: transparent;
-  color: var(--color-ink);
-  outline: none;
-}
-
-.field input::placeholder {
-  color: var(--color-slate);
-}
-
-.linkButton {
-  height: 40px;
-  padding: 0 14px;
-  border: 0;
-  border-radius: 10px;
-  background: var(--color-accent);
-  color: var(--color-on-accent);
-  font-weight: 650;
-  font-size: var(--text-caption);
-  cursor: pointer;
-}
-
 .rows {
   list-style: none;
   display: grid;
