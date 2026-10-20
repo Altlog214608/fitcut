@@ -80,12 +80,6 @@ variable "events_throttle_rate" {
   default     = 5
 }
 
-variable "daily_link_limit" {
-  description = "IP 해시별 하루 링크 구간 저장 수 (F15)"
-  type        = number
-  default     = 50
-}
-
 variable "extra_origins" {
   description = "site_origin 말고도 S3 CORS에 허용할 웹 주소 (내 도메인으로 옮기는 동안 둘 다 허용)"
   type        = list(string)

@@ -5,9 +5,7 @@ import { AudioPage } from './pages/AudioPage';
 import { GifPage } from './pages/GifPage';
 import { HighlightPage } from './pages/HighlightPage';
 import { HomePage } from './pages/HomePage';
-import { LinkPage } from './pages/LinkPage';
 import { MyJobsPage } from './pages/MyJobsPage';
-import { RepeatPage } from './link/RepeatPage';
 import { NotFoundPage } from './pages/NotFoundPage';
 import { PhotoPage } from './pages/PhotoPage';
 import { PrivacyPage } from './pages/PrivacyPage';
@@ -23,9 +21,6 @@ export const routes: RouteObject[] = [
       { path: 'gif', element: <GifPage /> },
       { path: 'audio', element: <AudioPage /> },
       { path: 'rotate', element: <RotatePage /> },
-      { path: 'link', element: <LinkPage /> },
-      // 구간 반복 링크 (F15). 짧게 공유할 수 있게 /r/<id>
-      { path: 'r/:id', element: <RepeatPage /> },
       { path: 'highlight', element: <HighlightPage /> },
       // 보관에 동의한 작업 (F16). 목록과 삭제 열쇠는 이 브라우저에만 있다
       { path: 'my-jobs', element: <MyJobsPage /> },

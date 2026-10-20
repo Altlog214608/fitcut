@@ -23,7 +23,6 @@ test('영어로 바꾸면 홈·사진 도구가 영어로 나오고, 새로고�
     await expect(page.getByLabel(drop)).toBeAttached();
   }
   for (const [path, title] of [
-    ['/link', 'Link sections'],
     ['/highlight', 'Highlights'],
     ['/my-jobs', 'My jobs'],
     ['/privacy', 'Privacy policy'],

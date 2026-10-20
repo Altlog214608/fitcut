@@ -41,23 +41,4 @@ describe('홈', () => {
     pick('notes.pdf', 'application/pdf');
     expect(screen.getByRole('alert').textContent).toContain('이 파일은 열 수 없어요');
   });
-
-  it('유튜브 링크를 넣으면 링크 구간으로 간다', async () => {
-    const router = renderHome();
-    fireEvent.change(screen.getByLabelText('유튜브 링크'), {
-      target: { value: 'https://youtu.be/dQw4w9WgXcQ' },
-    });
-    fireEvent.click(screen.getByRole('button', { name: '구간 고르기' }));
-    expect(await screen.findByRole('heading', { name: '링크 구간' })).toBeDefined();
-    expect(router.state.location.search).toBe('?v=dQw4w9WgXcQ');
-  });
-
-  it('유튜브 링크가 아니면 안내한다', () => {
-    renderHome();
-    fireEvent.change(screen.getByLabelText('유튜브 링크'), {
-      target: { value: 'https://example.com/video' },
-    });
-    fireEvent.click(screen.getByRole('button', { name: '구간 고르기' }));
-    expect(screen.getByRole('alert').textContent).toContain('유튜브 링크가 맞는지 확인해 주세요');
-  });
 });
