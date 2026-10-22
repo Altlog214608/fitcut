@@ -130,5 +130,6 @@
 - [x] 잉어 브랜드 UI (ADR-050) — 주황 포인트, 잉어 마크와 표정, 연못을 도는 잉어 진행 표시
 - [x] 내 도메인 koicut.com (ADR-051) — Route 53 + ACM + CloudFront 별칭, www·cloudfront.net은 301. 2026-10-16
 - [x] 링크 구간 내리기 (ADR-053) — 화면·API·라우트를 지우고, 남은 기록은 TTL로 지워지게 둠. 2026-10-21
+- [x] 검색 색인 (2026-10-22) — 경로마다 HTML(제목·설명·canonical·og)을 빌드에서 만들고 CloudFront 함수가 /photo를 /photo.html로, 없는 페이지는 noindex
 - [ ] 광고 (ADR-052) — AdSense 확인 코드·ads.txt·광고 자리 두 곳 배포 완료, 심사 승인 후 광고 단위 번호 넣기
 - [ ] (선택) PR 미리보기 환경, 보안 사고 자동 대응

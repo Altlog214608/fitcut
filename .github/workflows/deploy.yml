@@ -117,7 +117,7 @@ jobs:
       # 1) 해시가 붙은 assets를 먼저 올린다 (1년 캐시). 이전 assets는 지우지 않아
       #    아직 이전 index.html을 가진 브라우저도 깨지지 않는다.
       # 2) 나머지(index.html 등)는 no-cache로 올리고, 빌드에 없는 파일은 지운다.
-      # 3) index.html만 캐시를 무효화한다 (SPA 경로는 모두 /index.html로 바뀌어 캐시된다).
+      # 3) 모든 경로의 캐시를 무효화한다 (경로는 index.html이나 검색용 photo.html 등으로 바뀌어 캐시된다. "/*"는 한 건으로 센다).
       - name: Upload web
         env:
           BUCKET: ${{ steps.tf.outputs.bucket }}
@@ -131,7 +131,7 @@ jobs:
           aws s3 sync apps/web/dist "s3://$BUCKET" --delete --exclude "assets/*" --exclude "models/*" \
             --cache-control "no-cache"
           aws cloudfront create-invalidation --distribution-id "$DISTRIBUTION_ID" \
-            --paths "/index.html" > /dev/null
+            --paths "/*" > /dev/null
 
       - name: Summary
         env:
