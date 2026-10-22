@@ -6,6 +6,7 @@ import { Koi } from './components/Koi';
 import { startSession, toolOf, track } from './lib/analytics';
 import { IN_APP } from './lib/inApp';
 import { currentTheme, setTheme, type Theme } from './lib/theme';
+import { applyHead } from './seo/pages';
 import { useLang, useT } from './i18n/context';
 import styles from './Layout.module.css';
 
@@ -20,6 +21,7 @@ export function Layout() {
     setThemeState(next);
   };
   useEffect(() => startSession(IN_APP !== null), []);
+  useEffect(() => applyHead(document, pathname), [pathname]);
   useEffect(() => {
     const tool = toolOf(pathname);
     if (tool) track('tool_open', { tool });
