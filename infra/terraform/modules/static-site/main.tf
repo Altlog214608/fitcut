@@ -125,7 +125,8 @@ resource "aws_cloudfront_origin_access_control" "web" {
   signing_protocol                  = "sigv4"
 }
 
-# SPA 경로 처리: 확장자가 없는 경로(/photo 등)는 /index.html로 바꾼다.
+# SPA 경로 처리: 확장자가 없는 경로는 /index.html로 바꾼다. 검색용으로 따로 만든 페이지(/photo 등)는
+# 그 페이지의 HTML(/photo.html, 제목·설명·canonical이 다름)로 바꾼다 (apps/web/src/seo/pages.ts).
 # 403·404 오류 응답을 index.html로 돌리는 방식은 진짜 오류까지 가리므로 쓰지 않는다.
 resource "aws_cloudfront_function" "spa_rewrite" {
   name    = "${var.name_prefix}-spa-rewrite"
@@ -135,6 +136,7 @@ resource "aws_cloudfront_function" "spa_rewrite" {
   # 주소를 하나로 모은다 (광고·검색·쿠키가 한 주소에 쌓이게, ADR-051). 쿼리 값은 받은 그대로(인코딩된 채) 붙인다
   code = <<-EOT
     var CANONICAL = ${jsonencode(var.canonical_host)};
+    var SEO_PAGES = ${jsonencode(var.seo_pages)};
 
     function query(qs) {
       var parts = [];
@@ -159,7 +161,8 @@ resource "aws_cloudfront_function" "spa_rewrite" {
       }
       var lastSegment = request.uri.substring(request.uri.lastIndexOf('/') + 1);
       if (lastSegment.indexOf('.') === -1) {
-        request.uri = '/index.html';
+        var path = request.uri.replace(/\/+$/, '');
+        request.uri = SEO_PAGES.indexOf(path) !== -1 ? path + '.html' : '/index.html';
       }
       return request;
     }
