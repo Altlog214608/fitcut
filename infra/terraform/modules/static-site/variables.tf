@@ -45,3 +45,9 @@ variable "canonical_host" {
   type        = string
   default     = null
 }
+
+variable "seo_pages" {
+  description = "따로 HTML을 만든 검색용 경로 (/photo → /photo.html). apps/web/src/seo/pages.ts와 같은 목록"
+  type        = list(string)
+  default     = ["/photo", "/gif", "/audio", "/rotate", "/highlight", "/privacy"]
+}
