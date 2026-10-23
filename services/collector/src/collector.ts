@@ -14,7 +14,7 @@ import {
   unsubscribe,
   type ChzzkTokens,
   type Fetch,
-} from '@fitcut/chzzk';
+} from '@koicut/chzzk';
 import { GetParameterCommand, PutParameterCommand, type SSMClient } from '@aws-sdk/client-ssm';
 import { SendMessageCommand, type SQSClient } from '@aws-sdk/client-sqs';
 import { GetCommand, UpdateCommand, type DynamoDBDocumentClient } from '@aws-sdk/lib-dynamodb';

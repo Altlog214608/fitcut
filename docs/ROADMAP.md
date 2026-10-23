@@ -123,13 +123,14 @@
 
 ## M7. 운영 고도화
 
-- [x] k6 부하 테스트 (잡 생성 API, 동시 변환, 이벤트 수집) — `scripts/load/fitcut.js`, ADR-048. 계정 Lambda 동시 실행 한도 10에서 API가 503(25건)을 냈다 → 한도 1000 승인(2026-10-15) 후 5xx 0건
+- [x] k6 부하 테스트 (잡 생성 API, 동시 변환, 이벤트 수집) — `scripts/load/koicut.js`, ADR-048. 계정 Lambda 동시 실행 한도 10에서 API가 503(25건)을 냈다 → 한도 1000 승인(2026-10-15) 후 5xx 0건
 - [x] CloudWatch 대시보드, 실패율 알람 — ADR-046, 무료 한도 안 (알람 지표 8개, 대시보드 1개)
-- [x] 태그별 월 비용 리포트 → README — `pnpm --filter @fitcut/admin cost:report` (ADR-047). 2026-10-15 README에 첫 표
+- [x] 태그별 월 비용 리포트 → README — `pnpm --filter @koicut/admin cost:report` (ADR-047). 2026-10-15 README에 첫 표
 - [x] 브라우저 변환(ffmpeg.wasm)과 서버 변환 비교 실험 (ADR-003) — PC 단일 스레드 약 6초 vs 서버 7.5초(+업로드 1.5초), wasm 30.7MB·멀티 스레드는 탭이 죽음 → 서버 경로 유지
 - [x] 잉어 브랜드 UI (ADR-050) — 주황 포인트, 잉어 마크와 표정, 연못을 도는 잉어 진행 표시
 - [x] 내 도메인 koicut.com (ADR-051) — Route 53 + ACM + CloudFront 별칭, www·cloudfront.net은 301. 2026-10-16
 - [x] 링크 구간 내리기 (ADR-053) — 화면·API·라우트를 지우고, 남은 기록은 TTL로 지워지게 둠. 2026-10-21
 - [x] 검색 색인 (2026-10-22) — 경로마다 HTML(제목·설명·canonical·og)을 빌드에서 만들고 CloudFront 함수가 /photo를 /photo.html로, 없는 페이지는 noindex
+- [ ] 저장소·패키지 이름 koicut으로 (ADR-054) — 코드·문서·패키지·파일 이름 변경 완료. 남은 것: bootstrap 적용 → GitHub 저장소 이름 변경 → CI 역할 맡기 확인
 - [ ] 광고 (ADR-052) — AdSense 확인 코드·ads.txt·광고 자리 두 곳 배포 완료, 심사 승인 후 광고 단위 번호 넣기
 - [ ] (선택) PR 미리보기 환경, 보안 사고 자동 대응

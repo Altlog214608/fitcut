@@ -4,7 +4,7 @@ import {
   type OverlayGuide,
   type ScreenRole,
   type ScreenShape,
-} from '@fitcut/presets';
+} from '@koicut/presets';
 import type { Size } from './layout';
 
 /** 사진을 맞출 대상: 기기 프리셋의 화면 하나, 또는 직접 입력한 크기 */

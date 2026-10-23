@@ -1,5 +1,5 @@
 {
-  "name": "@fitcut/api",
+  "name": "@koicut/api",
   "private": true,
   "type": "module",
   "description": "잡 API: 잡 만들기·상태 조회, 업로드 주소 발급, IP 해시별 하루 할당량 (Lambda)",
@@ -16,7 +16,7 @@
     "@aws-sdk/lib-dynamodb": "^3.1148.0",
     "@aws-sdk/s3-presigned-post": "^3.1148.0",
     "@aws-sdk/s3-request-presigner": "^3.1148.0",
-    "@fitcut/shared": "workspace:*"
+    "@koicut/shared": "workspace:*"
   },
   "devDependencies": {
     "@types/aws-lambda": "^8.10.164",

@@ -1,8 +1,8 @@
 /* global __ENV, open */
-// FitCut 부하 테스트 (ROADMAP M7, ADR-048). 비용 가드레일이 실제로 막는지 본다.
+// KoiCut 부하 테스트 (ROADMAP M7, ADR-048). 비용 가드레일이 실제로 막는지 본다.
 //
-//   k6 run scripts/load/fitcut.js                     # 세 시나리오 모두 (약 3분)
-//   k6 run -e ONLY=throttle scripts/load/fitcut.js    # 하나만 (throttle | events | jobs)
+//   k6 run scripts/load/koicut.js                     # 세 시나리오 모두 (약 3분)
+//   k6 run -e ONLY=throttle scripts/load/koicut.js    # 하나만 (throttle | events | jobs)
 //
 // - throttle: 잡 조회 경로에 초당 30건 (API 상한 초당 10건, 순간 20건) → 넘는 요청은 429, 5xx는 0
 // - events:   사용 이벤트 경로에 초당 15건 (상한 초당 5건). 빈 묶음이라 대기열·S3에는 아무것도 쌓이지 않는다
@@ -98,7 +98,7 @@ const json = { headers: { 'content-type': 'application/json' } };
 
 /** S3 POST는 file이 맨 뒤에 와야 하는데 k6 폼은 필드 순서를 지키지 않아 직접 만든다 (필드 값은 ASCII) */
 function multipart(fields, file, type) {
-  const boundary = `----fitcut${Math.random().toString(16).slice(2)}`;
+  const boundary = `----koicut${Math.random().toString(16).slice(2)}`;
   const nl = '\r\n';
   let head = '';
   for (const [k, v] of Object.entries(fields))

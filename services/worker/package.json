@@ -1,5 +1,5 @@
 {
-  "name": "@fitcut/worker",
+  "name": "@koicut/worker",
   "private": true,
   "type": "module",
   "description": "ffmpeg 워커: 움짤(GIF·WebP)·MP4 만들기. Lambda 컨테이너 이미지와 Fargate 태스크가 같은 코드를 쓴다",

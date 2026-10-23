@@ -32,8 +32,8 @@ locals {
 
 data "aws_iam_policy_document" "github_trust" {
   for_each = {
-    plan   = "${var.github_oidc_subject_prefix}:pull_request"
-    deploy = "${var.github_oidc_subject_prefix}:ref:refs/heads/main"
+    plan   = ":pull_request"
+    deploy = ":ref:refs/heads/main"
   }
 
   statement {
@@ -53,7 +53,7 @@ data "aws_iam_policy_document" "github_trust" {
     condition {
       test     = "StringEquals"
       variable = "token.actions.githubusercontent.com:sub"
-      values   = [each.value]
+      values   = [for prefix in var.github_oidc_subject_prefixes : "${prefix}${each.value}"]
     }
   }
 }

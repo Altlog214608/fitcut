@@ -2,7 +2,7 @@
  * Fargate 태스크 진입점. 하이라이트 API가 RunTask로 방송 하나에 하나씩 띄운다 (ADR-040).
  * 환경 변수는 태스크 정의(고정값)와 RunTask overrides(BROADCAST_ID, CHANNEL_ID)로 받는다.
  */
-import { SOCKET_OPTIONS } from '@fitcut/chzzk';
+import { SOCKET_OPTIONS } from '@koicut/chzzk';
 import { DynamoDBClient } from '@aws-sdk/client-dynamodb';
 import { SQSClient } from '@aws-sdk/client-sqs';
 import { SSMClient } from '@aws-sdk/client-ssm';

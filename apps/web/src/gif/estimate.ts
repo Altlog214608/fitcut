@@ -2,7 +2,7 @@
  * 결과 크기와 예상 용량 (순수 함수).
  * 크기는 워커(services/worker/src/ffmpeg.ts)와 같게 계산한다: 원본보다 키우지 않고, 세로는 비율대로 짝수.
  */
-import type { JobKind } from '@fitcut/shared';
+import type { JobKind } from '@koicut/shared';
 
 export type Size = { width: number; height: number };
 

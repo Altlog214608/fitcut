@@ -41,7 +41,7 @@ import {
   type UploadItem,
 } from './jobs';
 import { LIMITS } from './limits';
-import { cleanEvent, MAX_EVENTS_PER_REQUEST, type JobEvent } from '@fitcut/shared';
+import { cleanEvent, MAX_EVENTS_PER_REQUEST, type JobEvent } from '@koicut/shared';
 import { parseCreateJob, parseCreateUpload } from './validate';
 
 export type Env = {

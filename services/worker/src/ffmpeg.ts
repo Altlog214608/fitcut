@@ -5,7 +5,7 @@
  * - 보통은 가로 폭만 정하고 세로는 비율대로, 짝수로 맞춘다(-2). 원본보다 크게 키우지 않는다.
  * - 세로까지 정하면(워치 화면 등) 그 크기에 꽉 차게 키우거나 줄인 뒤 가운데를 잘라 정확히 맞춘다.
  */
-/** 다시 압축하는 회전의 작업량 상한 (@fitcut/shared JOB_LIMITS.rotateEncodeBudget과 같다) */
+/** 다시 압축하는 회전의 작업량 상한 (@koicut/shared JOB_LIMITS.rotateEncodeBudget과 같다) */
 const ENCODE_BUDGET = 1920 * 1080 * 30 * 180;
 
 export type OutputKind =

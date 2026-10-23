@@ -2,7 +2,7 @@
  * 이벤트를 모아 SQS 메시지 하나에 여러 개씩 넣는다 (ADR-030: SQS → 배치 Lambda → S3).
  * 메시지 본문: {"v":1,"broadcastId","channelId","events":[...]}. SQS 메시지 한도(256KB)보다 작게 자른다.
  */
-import type { ChatEvent } from '@fitcut/chzzk';
+import type { ChatEvent } from '@koicut/chzzk';
 
 export const MAX_BODY_BYTES = 200_000;
 /** 보내지 못한 이벤트를 이만큼까지만 들고 있는다 (메모리 보호) */

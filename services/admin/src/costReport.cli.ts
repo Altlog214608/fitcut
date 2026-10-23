@@ -1,8 +1,8 @@
 /**
  * 태그별 월 비용 리포트를 로컬에서 만든다 (ADR-047). Cost Explorer 호출 1번 = $0.01.
  *
- *   $env:AWS_PROFILE="fitcut"; pnpm --filter @fitcut/admin cost:report            # 이번 달, 화면에만
- *   $env:AWS_PROFILE="fitcut"; pnpm --filter @fitcut/admin cost:report 2026-10 --write   # README 표 갱신
+ *   $env:AWS_PROFILE="fitcut"; pnpm --filter @koicut/admin cost:report            # 이번 달, 화면에만
+ *   $env:AWS_PROFILE="fitcut"; pnpm --filter @koicut/admin cost:report 2026-10 --write   # README 표 갱신
  */
 import { readFileSync, writeFileSync } from 'node:fs';
 import { CostExplorerClient, GetCostAndUsageCommand } from '@aws-sdk/client-cost-explorer';

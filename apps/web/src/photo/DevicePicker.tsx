@@ -1,4 +1,4 @@
-import { searchPresets, VISIBLE_PRESETS, type DevicePreset } from '@fitcut/presets';
+import { searchPresets, VISIBLE_PRESETS, type DevicePreset } from '@koicut/presets';
 import { Search, Star, X } from 'lucide-react';
 import { useId, useState } from 'react';
 import { track } from '../lib/analytics';

@@ -11,7 +11,7 @@ import {
   trackDetections,
   type Candidate,
   type Detection,
-} from '@fitcut/shared';
+} from '@koicut/shared';
 import { clock } from './timeline';
 import { useT } from '../i18n/context';
 import styles from './Replay.module.css';

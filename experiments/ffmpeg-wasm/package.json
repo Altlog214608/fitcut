@@ -1,5 +1,5 @@
 {
-  "name": "fitcut-experiment-ffmpeg-wasm",
+  "name": "koicut-experiment-ffmpeg-wasm",
   "private": true,
   "type": "module",
   "description": "브라우저 변환(ffmpeg.wasm)과 서버 변환 비교 실험 (ADR-003, ADR-049). 사이트에는 들어가지 않는다",

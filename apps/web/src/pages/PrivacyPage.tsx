@@ -7,7 +7,7 @@ import { Link } from 'react-router';
 import { useT } from '../i18n/context';
 import styles from './PrivacyPage.module.css';
 
-const REPO_ISSUES = 'https://github.com/Altlog214608/fitcut/issues';
+const REPO_ISSUES = 'https://github.com/Altlog214608/koicut/issues';
 const AD_SETTINGS = 'https://adssettings.google.com';
 const GOOGLE_PARTNER_SITES = 'https://policies.google.com/technologies/partner-sites';
 

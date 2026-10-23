@@ -1,4 +1,4 @@
-FitCut 웹에 들어 있는 오픈소스 (주요한 것)
+KoiCut 웹에 들어 있는 오픈소스 (주요한 것)
 
 libheif-js 1.23.5 (libheif, libde265 포함) — LGPL-3.0
   HEIC 사진을 브라우저에서 열 때만 별도 파일(assets/libheif-bundle-*.js)로 불러온다. 고치지 않고 그대로 쓴다.

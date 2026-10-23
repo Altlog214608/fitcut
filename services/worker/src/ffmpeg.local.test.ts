@@ -27,7 +27,7 @@ let input = '';
 
 beforeAll(() => {
   if (!enabled) return;
-  dir = mkdtempSync(join(tmpdir(), 'fitcut-worker-'));
+  dir = mkdtempSync(join(tmpdir(), 'koicut-worker-'));
   input = join(dir, 'in.mp4');
   // 10초, 1280x720, 30fps 시험 영상 (소리 포함)
   execFileSync(FFMPEG, [

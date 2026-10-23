@@ -2,7 +2,7 @@
  * 사진을 어디에 쓸지 (폰 배경화면, 태블릿, 워치 페이스, PC 바탕화면). 기기 고르기를 용도별로 나눠 보여준다
  * (2026-10-15 사용자 요청: 배경화면·워치·데스크톱 구분을 쉽게).
  */
-import type { Category, DevicePreset } from '@fitcut/presets';
+import type { Category, DevicePreset } from '@koicut/presets';
 import { MONITORS, QUICK_PICK_IDS, type Target } from './target';
 
 export { monitorLabel, monitorName } from './target';

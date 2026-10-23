@@ -1,5 +1,5 @@
 {
-  "name": "@fitcut/admin",
+  "name": "@koicut/admin",
   "private": true,
   "type": "module",
   "description": "관리자 API와 일별 집계 (Athena로 사용 이벤트, Cost Explorer로 비용, docs/ADMIN.md)",

@@ -2,9 +2,9 @@
  * 사용 이벤트 보내기 (docs/ADMIN.md). 몇 초씩 모아 /api/events로 보내고, 화면을 떠날 때는 sendBeacon으로 보낸다.
  * - sessionId는 이 탭에서만 쓰는 무작위 값이다 (sessionStorage). 신원과 연결하지 않는다
  * - 브라우저의 추적 거부(Do Not Track, Global Privacy Control)를 켜면 보내지 않는다
- * - 파일명·파일 내용은 보내지 않는다. 허용한 필드는 @fitcut/shared CLIENT_EVENTS에 있다
+ * - 파일명·파일 내용은 보내지 않는다. 허용한 필드는 @koicut/shared CLIENT_EVENTS에 있다
  */
-import { MAX_EVENTS_PER_REQUEST, type ClientEventName, type EventProps } from '@fitcut/shared';
+import { MAX_EVENTS_PER_REQUEST, type ClientEventName, type EventProps } from '@koicut/shared';
 
 const ENDPOINT = '/api/events';
 const FLUSH_MS = 5000;

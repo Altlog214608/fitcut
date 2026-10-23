@@ -136,7 +136,7 @@ locals {
     {
       type = "text", x = 0, y = 0, width = 24, height = 2
       properties = {
-        markdown = "## FitCut ${var.name_prefix}\n쓰지 않을 때 비용 0을 목표로 한 서버리스 구성. 알람은 이메일(SNS)로 와요. 지표 정의: docs/ARCHITECTURE.md 관측성, ADR-046"
+        markdown = "## KoiCut ${var.name_prefix}\n쓰지 않을 때 비용 0을 목표로 한 서버리스 구성. 알람은 이메일(SNS)로 와요. 지표 정의: docs/ARCHITECTURE.md 관측성, ADR-046"
       }
     },
     {

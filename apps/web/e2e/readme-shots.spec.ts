@@ -3,7 +3,7 @@ import { fileURLToPath } from 'node:url';
 
 /**
  * README 화면 캡처 (docs/images). 평소 테스트에서는 건너뛴다.
- * 다시 찍기: README_SHOTS=1 pnpm --filter @fitcut/web e2e readme-shots --project=desktop
+ * 다시 찍기: README_SHOTS=1 pnpm --filter @koicut/web e2e readme-shots --project=desktop
  */
 test.skip(!process.env.README_SHOTS, 'README_SHOTS=1일 때만 찍는다');
 

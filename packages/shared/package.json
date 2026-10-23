@@ -1,5 +1,5 @@
 {
-  "name": "@fitcut/shared",
+  "name": "@koicut/shared",
   "private": true,
   "type": "module",
   "description": "웹과 서버가 함께 쓰는 값 (잡 입력 제한 등)",

@@ -1,5 +1,5 @@
 {
-  "name": "@fitcut/events",
+  "name": "@koicut/events",
   "private": true,
   "type": "module",
   "description": "사용 이벤트 배치 Lambda: SQS에서 최대 5분씩 모아 S3에 gzip JSON Lines로 (ADR-030)",

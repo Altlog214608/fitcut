@@ -1,4 +1,4 @@
-import { VISIBLE_PRESETS } from '@fitcut/presets';
+import { VISIBLE_PRESETS } from '@koicut/presets';
 import { describe, expect, it } from 'vitest';
 import { monitorLabel, purposeOf, purposeTargets } from './purpose';
 import { resolveTarget } from './target';

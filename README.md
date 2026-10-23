@@ -1,12 +1,12 @@
 <h1><img src="apps/web/public/favicon.svg" width="36" height="36" alt="" align="top" /> KoiCut</h1>
 
-[![CI](https://github.com/Altlog214608/fitcut/actions/workflows/ci.yml/badge.svg)](https://github.com/Altlog214608/fitcut/actions/workflows/ci.yml)
-[![Deploy](https://github.com/Altlog214608/fitcut/actions/workflows/deploy.yml/badge.svg)](https://github.com/Altlog214608/fitcut/actions/workflows/deploy.yml)
+[![CI](https://github.com/Altlog214608/koicut/actions/workflows/ci.yml/badge.svg)](https://github.com/Altlog214608/koicut/actions/workflows/ci.yml)
+[![Deploy](https://github.com/Altlog214608/koicut/actions/workflows/deploy.yml/badge.svg)](https://github.com/Altlog214608/koicut/actions/workflows/deploy.yml)
 [![Demo](https://img.shields.io/badge/demo-koicut.com-C2441C)](https://koicut.com)
 
 사진·영상·음성을 내 기기에 딱 맞게. 폰 배경화면, 워치 페이스, 움짤, 벨소리, 방송 하이라이트를 한 곳에서 만드는 웹 서비스.
 
-> 옛 이름은 FitCut이다. 저장소·AWS 리소스 이름은 그대로 `fitcut`을 쓴다 ([ADR-049](docs/DECISIONS.md)).
+> 옛 이름은 FitCut이다. 저장소·패키지 이름은 `koicut`으로 바꿨고, 데이터가 든 AWS 리소스 이름은 그대로 `fitcut`을 쓴다 ([ADR-049, ADR-054](docs/DECISIONS.md)).
 
 **클라우드 포트폴리오 프로젝트**다. 기능만큼 중요한 목표는 **AWS 서버리스로 쓰지 않을 때 비용이 0에 가까운 구조를 만들고, 그 근거를 숫자로 남기는 것**이다.
 
@@ -90,12 +90,12 @@ Node 24, pnpm 12가 필요하다. AWS 없이 웹 화면과 사진 도구(브라�
 pnpm install
 pnpm dev                          # http://localhost:5173
 pnpm lint && pnpm typecheck && pnpm test
-pnpm --filter @fitcut/web e2e             # Playwright (데스크톱·Pixel 7·iPhone)
+pnpm --filter @koicut/web e2e             # Playwright (데스크톱·Pixel 7·iPhone)
 ```
 
 인프라는 `infra/terraform/bootstrap`(상태 버킷·OIDC 역할·예산, 로컬 1회)을 먼저 적용하고, 그다음부터는 PR에서 plan, main 머지 때 GitHub Actions가 `envs/dev`를 apply하고 웹을 배포한다 ([ADR-018](docs/DECISIONS.md)).
 
-README 화면 캡처는 `README_SHOTS=1 pnpm --filter @fitcut/web e2e readme-shots --project=desktop`로 다시 찍는다.
+README 화면 캡처는 `README_SHOTS=1 pnpm --filter @koicut/web e2e readme-shots --project=desktop`로 다시 찍는다.
 
 ## 측정 기록
 
@@ -117,7 +117,7 @@ README 화면 캡처는 `README_SHOTS=1 pnpm --filter @fitcut/web e2e readme-sho
 
 ### 구성 요소별 월 비용
 
-`$env:AWS_PROFILE="fitcut"; pnpm --filter @fitcut/admin cost:report 2026-10 --write`로 갱신한다 (ADR-047).
+`$env:AWS_PROFILE="fitcut"; pnpm --filter @koicut/admin cost:report 2026-10 --write`로 갱신한다 (ADR-047).
 
 태그는 2026-10-14에 켰고 이전 날짜는 백필하지 않아 "태그 없음"에 들어 있다. 이 규모에서는 비용을 재는 Cost Explorer API(호출당 $0.01, 일별 집계 하루 1번 + 리포트)가 서비스 운영보다 비싸다.
 

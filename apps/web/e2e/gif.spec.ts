@@ -71,7 +71,7 @@ async function fakeServer(
       body: GIF,
       headers: {
         'content-type': 'image/gif',
-        'content-disposition': 'attachment; filename="fitcut_gif_480_0b8f4c56.gif"',
+        'content-disposition': 'attachment; filename="koicut_gif_480_0b8f4c56.gif"',
         'access-control-allow-origin': '*',
       },
     }),
@@ -117,7 +117,7 @@ test('영상을 고르면 바로 올리고, 구간을 직접 입력해 GIF를 �
 
   const download = page.waitForEvent('download');
   await page.getByRole('button', { name: 'GIF 저장하기' }).click();
-  expect((await download).suggestedFilename()).toBe('fitcut_gif_480_0b8f4c56.gif');
+  expect((await download).suggestedFilename()).toBe('koicut_gif_480_0b8f4c56.gif');
 });
 
 test('키보드로 구간을 고른다: →·Shift+→로 옮기고 I·O로 시작·끝', async ({ page }) => {

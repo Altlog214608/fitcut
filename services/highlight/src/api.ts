@@ -47,7 +47,7 @@ import {
   revokeToken,
   type ChzzkTokens,
   type Fetch,
-} from '@fitcut/chzzk';
+} from '@koicut/chzzk';
 
 export type Env = CollectorEnv & {
   /** 모드 B 녹화 파일 버킷 (ADR-042) */

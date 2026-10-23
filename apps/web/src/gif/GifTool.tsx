@@ -1,4 +1,4 @@
-import { JOB_LIMITS, sizeBucket, type JobKind } from '@fitcut/shared';
+import { JOB_LIMITS, sizeBucket, type JobKind } from '@koicut/shared';
 import { Koi, KoiPond } from '../components/Koi';
 import { Film, Pause, Play, Repeat, ShieldCheck } from 'lucide-react';
 import { useEffect, useId, useRef, useState, type CSSProperties } from 'react';

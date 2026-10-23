@@ -29,18 +29,18 @@ jobs:
           node-version-file: .nvmrc
           cache: pnpm
       - run: pnpm install --frozen-lockfile
-      - run: pnpm --filter @fitcut/web build
+      - run: pnpm --filter @koicut/web build
         env:
           # 사용 이벤트의 appVersion (lib/analytics.ts)
           VITE_APP_VERSION: ${{ github.sha }}
           # AdSense 코드와 광고 자리 (ADR-052). 배포 빌드에서만 켠다
           VITE_ADS: 'on'
-      - run: pnpm --filter @fitcut/api build
-      - run: pnpm --filter @fitcut/events build
-      - run: pnpm --filter @fitcut/admin build
-      - run: pnpm --filter @fitcut/highlight build
-      - run: pnpm --filter @fitcut/worker build
-      - run: pnpm --filter @fitcut/collector build
+      - run: pnpm --filter @koicut/api build
+      - run: pnpm --filter @koicut/events build
+      - run: pnpm --filter @koicut/admin build
+      - run: pnpm --filter @koicut/highlight build
+      - run: pnpm --filter @koicut/worker build
+      - run: pnpm --filter @koicut/collector build
 
       - uses: hashicorp/setup-terraform@dfe3c3f87815947d99a8997f908cb6525fc44e9e # v4.0.1
         with:

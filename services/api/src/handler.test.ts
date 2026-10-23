@@ -301,7 +301,7 @@ describe('잡 상태', () => {
     expect(url.hostname).toContain('fitcut-dev-outputs-x');
     expect(url.pathname).toBe(`/out/${ID}.gif`);
     expect(url.searchParams.get('response-content-disposition')).toBe(
-      'attachment; filename="fitcut_gif_480_0b8f4c56.gif"',
+      'attachment; filename="koicut_gif_480_0b8f4c56.gif"',
     );
     expect(url.searchParams.get('X-Amz-Expires')).toBe('600');
   });

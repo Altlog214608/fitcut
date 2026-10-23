@@ -4,7 +4,7 @@ Claude Code가 세션마다 읽는 프로젝트 안내서다. 원칙과 문서 �
 
 ## 프로젝트 요약
 
-KoiCut(코이컷, 옛 이름 FitCut)은 사진·영상·음성을 기기와 용도에 딱 맞게 바꿔주는 웹 서비스다.
+KoiCut(코이컷, 옛 이름 FitCut, 저장소 `Altlog214608/koicut`)은 사진·영상·음성을 기기와 용도에 딱 맞게 바꿔주는 웹 서비스다.
 
 - 사진 도구: 리사이즈·크롭, 폰·폴더블·태블릿·워치 기기 프리셋
 - 움짤 도구: 영상 구간을 프레임 단위로 골라 GIF·WebP·MP4로 변환
@@ -101,12 +101,13 @@ terraform fmt -recursive infra/terraform
 terraform -chdir=infra/terraform/envs/dev init
 terraform -chdir=infra/terraform/envs/dev plan
 
-k6 run scripts/load/fitcut.js                # 부하 테스트, 실제 사이트 (ADR-048, 하루 할당량을 쓴다)
-pnpm --filter @fitcut/admin cost:report      # 태그별 월 비용 (ADR-047, 호출당 $0.01)
+k6 run scripts/load/koicut.js                # 부하 테스트, 실제 사이트 (ADR-048, 하루 할당량을 쓴다)
+pnpm --filter @koicut/admin cost:report      # 태그별 월 비용 (ADR-047, 호출당 $0.01)
 ```
 
 - `infra/terraform/bootstrap`은 상태 버킷·GitHub OIDC 역할·Budgets를 만드는 1회성 스택이다. 로컬에서만 적용하고 CI는 건드리지 않는다. 개인 값은 커밋하지 않는 `terraform.tfvars`에 둔다 (`terraform.tfvars.example` 참고).
 - `envs/dev`는 PR에서 plan, main 머지 시 GitHub Actions가 apply와 웹 배포를 한다 (ADR-018). PR은 CI 통과 후 Claude가 `gh pr merge --merge --delete-branch`로 머지한다 (예외는 위 원칙).
+- 데이터가 든 AWS 리소스·SSM 경로·쿠키·브라우저 저장 키는 옛 이름 `fitcut`을 그대로 쓴다. 새 리소스 이름도 기존 접두사(`fitcut-dev-`)를 따른다 (권한이 이 접두사로 묶여 있다, ADR-054).
 - 저장소는 공개다. 이메일·AWS 계정 ID 같은 개인 식별 값을 커밋하지 않는다.
 
 ## 코딩 규칙

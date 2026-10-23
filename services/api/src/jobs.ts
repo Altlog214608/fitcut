@@ -136,19 +136,19 @@ export function publicJob(item: JobItem | undefined, now: Date) {
   };
 }
 
-/** 내려받을 때 쓸 파일 이름: fitcut_gif_480_0b8f4c56.gif, 크기를 정했으면 fitcut_gif_480x480_… */
+/** 내려받을 때 쓸 파일 이름: koicut_gif_480_0b8f4c56.gif, 크기를 정했으면 koicut_gif_480x480_… */
 export function downloadName(item: JobItem): string {
   const ext = item.outputKey?.split('.').at(-1) ?? item.kind;
   const { width, height } = item.params;
-  if (item.kind === 'clip') return `fitcut_highlight_${item.id.slice(0, 8)}.${ext}`;
+  if (item.kind === 'clip') return `koicut_highlight_${item.id.slice(0, 8)}.${ext}`;
   if (item.kind === 'rotate' || item.kind === 'rotate-fast') {
-    return `fitcut_rotated_${item.id.slice(0, 8)}.${ext}`;
+    return `koicut_rotated_${item.id.slice(0, 8)}.${ext}`;
   }
   if (['mp3', 'm4a', 'wav', 'm4r'].includes(item.kind)) {
-    return `fitcut_${item.kind === 'm4r' ? 'ringtone' : 'audio'}_${item.id.slice(0, 8)}.${ext}`;
+    return `koicut_${item.kind === 'm4r' ? 'ringtone' : 'audio'}_${item.id.slice(0, 8)}.${ext}`;
   }
   const size = height ? `${width}x${height}` : `${width}`;
-  return `fitcut_${item.kind}_${size}_${item.id.slice(0, 8)}.${ext}`;
+  return `koicut_${item.kind}_${size}_${item.id.slice(0, 8)}.${ext}`;
 }
 
 /** 업로드·잡 ID 모양 검사 (UUID). 이상한 값으로 DynamoDB를 부르지 않는다 */

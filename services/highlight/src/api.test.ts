@@ -19,7 +19,7 @@ import type { APIGatewayProxyEventV2 } from 'aws-lambda';
 import { mockClient } from 'aws-sdk-client-mock';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { makeHandler, readCookie } from './api';
-import type { Fetch } from '@fitcut/chzzk';
+import type { Fetch } from '@koicut/chzzk';
 
 const ddb = DynamoDBDocumentClient.from(new DynamoDBClient({ region: 'ap-northeast-2' }));
 const ssm = new SSMClient({ region: 'ap-northeast-2' });

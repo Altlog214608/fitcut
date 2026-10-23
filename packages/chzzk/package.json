@@ -1,5 +1,5 @@
 {
-  "name": "@fitcut/chzzk",
+  "name": "@koicut/chzzk",
   "private": true,
   "type": "module",
   "description": "치지직 Open API 클라이언트 (서버 전용): 토큰, 사용자, 세션, 이벤트 구독, 이벤트 정규화",

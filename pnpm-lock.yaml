@@ -193,10 +193,10 @@ importers:
 
   apps/web:
     dependencies:
-      '@fitcut/presets':
+      '@koicut/presets':
         specifier: workspace:*
         version: link:../../packages/presets
-      '@fitcut/shared':
+      '@koicut/shared':
         specifier: workspace:*
         version: link:../../packages/shared
       '@tensorflow/tfjs-backend-cpu':
@@ -363,7 +363,7 @@ importers:
       '@aws-sdk/s3-request-presigner':
         specifier: ^3.1148.0
         version: 3.1148.0
-      '@fitcut/shared':
+      '@koicut/shared':
         specifier: workspace:*
         version: link:../../packages/shared
     devDependencies:
@@ -400,7 +400,7 @@ importers:
       '@aws-sdk/lib-dynamodb':
         specifier: ^3.1148.0
         version: 3.1148.0(@aws-sdk/client-dynamodb@3.1148.0)
-      '@fitcut/chzzk':
+      '@koicut/chzzk':
         specifier: workspace:*
         version: link:../../packages/chzzk
       socket.io-client:
@@ -474,10 +474,10 @@ importers:
       '@aws-sdk/s3-request-presigner':
         specifier: ^3.1148.0
         version: 3.1148.0
-      '@fitcut/chzzk':
+      '@koicut/chzzk':
         specifier: workspace:*
         version: link:../../packages/chzzk
-      '@fitcut/shared':
+      '@koicut/shared':
         specifier: workspace:*
         version: link:../../packages/shared
     devDependencies:

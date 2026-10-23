@@ -3,8 +3,8 @@
  * - 갤럭시 워치: 화면 크기의 GIF (animated: gif)
  * - 애플워치: 사진 페이스는 Live Photo만 움직인다 (animated: live-photo). 1차로 화면 크기의 짧은 MP4를 만든다
  */
-import type { JobKind } from '@fitcut/shared';
-import { VISIBLE_PRESETS, type DevicePreset, type ScreenShape } from '@fitcut/presets';
+import type { JobKind } from '@koicut/shared';
+import { VISIBLE_PRESETS, type DevicePreset, type ScreenShape } from '@koicut/presets';
 import type { Size } from './estimate';
 
 export type WatchTarget = {

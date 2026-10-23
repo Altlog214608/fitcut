@@ -1,4 +1,4 @@
-import { VISIBLE_PRESETS } from '@fitcut/presets';
+import { VISIBLE_PRESETS } from '@koicut/presets';
 import { Koi, KoiPond } from '../components/Koi';
 import { ImageUp, ShieldCheck } from 'lucide-react';
 import { useEffect, useId, useMemo, useRef, useState } from 'react';
@@ -8,7 +8,7 @@ import { IN_APP, SAVE_METHOD } from '../lib/inApp';
 import { useT } from '../i18n/context';
 import { readJson, writeJson } from '../lib/storage';
 import { track } from '../lib/analytics';
-import { sizeBucket } from '@fitcut/shared';
+import { sizeBucket } from '@koicut/shared';
 import { canShareAll, download, openShare } from '../lib/save';
 import { targetKey, uniqueNames, zipFiles, zipName } from './batch';
 import { targetLabel } from './targetSize';

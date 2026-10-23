@@ -417,7 +417,7 @@
 - 상태: 확정 (2026-10-10, M2)
 - 맥락: 워치 화면은 정사각·세로형이라 가로 폭만 정하는 지금 방식(비율 유지)으로는 화면에 맞지 않는다. 기기 프리셋에 워치 화면 크기와 움직이는 형식(`animated`: gif·live-photo)이 이미 있다.
 - 결정:
-  - 잡에 선택 값 `height`(120~1920)를 더한다. 있으면 워커가 `scale=W:H:force_original_aspect_ratio=increase,crop=W:H`로 꽉 차게 맞춰 가운데를 자른다. 없으면 예전처럼 가로만 맞춘다. 파일 이름은 `fitcut_gif_480x480_…`.
+  - 잡에 선택 값 `height`(120~1920)를 더한다. 있으면 워커가 `scale=W:H:force_original_aspect_ratio=increase,crop=W:H`로 꽉 차게 맞춰 가운데를 자른다. 없으면 예전처럼 가로만 맞춘다. 파일 이름은 `koicut_gif_480x480_…`.
   - 화면의 용도 "워치 화면": 워치를 고르면 크기와 형식을 기기가 정한다 (갤럭시 GIF, 애플워치 MP4). 잘릴 영역을 영상 위에 틀로 보여준다.
   - 자를 위치는 가운데로 시작한다. 위치 옮기기는 사용해 보고 필요하면 더한다.
   - 애플워치는 MP4까지 만든다. 사진 앱의 Live Photo로 바꾸는 방법은 조사 과제로 둔다 (ROADMAP M6).
@@ -520,7 +520,7 @@
 - 맥락: 녹화 파일(수 GB)을 통째로 Lambda `/tmp`에 받으면 느리고 용량 한도(10GB)에 걸린다. 움짤 도구(F3·F4)는 이미 있고, 하이라이트 도구는 새 변환 엔진을 만들지 않는다(docs/HIGHLIGHT.md).
 - 결정:
   - 하이라이트 API가 `JOB#` 기록(kind `clip`, `inputBucket: recordings`)을 만들어 기존 워커 큐에 넣는다. 워커는 녹화 파일을 받지 않고 15분짜리 서명 주소를 ffprobe·ffmpeg에 그대로 준다. `-ss`를 입력 앞에 둬서 ffmpeg가 HTTP 범위 요청으로 필요한 부분만 읽는다. 고정한 ffmpeg 빌드(BtbN n9.0.2)의 입력 프로토콜에 https가 있는 것을 확인했다.
-  - 출력: 1분까지, 세로 720 이하 H.264(veryfast, CRF 23) + AAC MP4. 결과는 기존 outputs 버킷·잡 API로 받는다(파일 이름 `fitcut_highlight_<id>.mp4`).
+  - 출력: 1분까지, 세로 720 이하 H.264(veryfast, CRF 23) + AAC MP4. 결과는 기존 outputs 버킷·잡 API로 받는다(파일 이름 `koicut_highlight_<id>.mp4`).
   - 움짤로 만들기: 화면이 클립을 받아 `File`로 만들어 움짤 도구 원본으로 넘긴다(홈에서 고른 것과 같은 경로). 움짤 도구가 그 파일을 다시 올리지만 1분 720p라 작다.
   - 남용 방지: 녹화 파일을 다 올린 방송만, 채널당 하루 30개.
 - 대안: 클립을 만들 때 녹화 파일 전체 받기 (느리고 /tmp 한도), 움짤 도구가 서버 원본을 바로 쓰게 바꾸기 (미리보기·타임라인이 로컬 파일 기준이라 고칠 곳이 많다), 하이라이트 전용 ffmpeg Lambda (이미지·권한 중복).
@@ -576,7 +576,7 @@
 - 결정:
   - 태그 활성화는 `aws_ce_cost_allocation_tag`로 bootstrap에 둔다. 계정 단위 결제 설정이라 CI 역할에 권한을 주지 않는다.
   - 켠 시점 이전 달은 콘솔의 "태그 백필"(최대 12개월, 24시간에 한 번)로 채운다. 문서에 요금 언급이 없어 TODO(verify).
-  - 리포트는 `pnpm --filter @fitcut/admin cost:report [YYYY-MM] [--write]`. Cost Explorer를 Component 태그 × 서비스로 한 번만 부르고(페이지가 나뉘면 그만큼), `RECORD_TYPE=Usage`만 본다(크레딧·세금 제외, 크레딧 적용 전 사용 금액). `--write`는 README의 `cost-report` 표시 사이만 바꾼다.
+  - 리포트는 `pnpm --filter @koicut/admin cost:report [YYYY-MM] [--write]`. Cost Explorer를 Component 태그 × 서비스로 한 번만 부르고(페이지가 나뉘면 그만큼), `RECORD_TYPE=Usage`만 본다(크레딧·세금 제외, 크레딧 적용 전 사용 금액). `--write`는 README의 `cost-report` 표시 사이만 바꾼다.
   - 표 계산(`reportOf`, `toMarkdown`)은 순수 함수로 테스트한다.
 - 대안: 일별 집계 Lambda에서 매일 태그별로도 부르기 (호출이 하루 2번으로 늘고, 월 리포트는 한 달에 한 번이면 된다), CUR/Data Exports + Athena (S3에 매일 파일이 쌓이고 설정이 크다. 이 규모에는 과하다), 리포트를 CI에서 자동 커밋 (배포 역할에 Cost Explorer 권한과 저장소 쓰기가 필요하다).
 - 결과: 2026-10-14 첫 실행에서 이번 달 사용 금액 $0.10 (태그를 켜기 전이라 모두 "태그 없음"). 2026-10-15에 태그가 반영돼 구성 요소별로 나뉘었다 (10월 1~14일 $0.15, 태그가 붙은 14일분은 구성 요소마다 $0.0031 이하). 가장 큰 비용은 Cost Explorer API 자체($0.09)라, 1센트 아래 금액은 소수점 넷째 자리까지 보이게 했다.
@@ -587,7 +587,7 @@
 
 - 상태: 확정 (2026-10-14, M7)
 - 맥락: 무료 플랜이라 처리량을 늘리는 것보다, 몰려도 비용이 늘지 않고 막아야 할 곳에서 막히는지가 중요하다. 실제 사이트에 돌리므로 비용(요청 약 1,500건 + 워커 몇 번 ≈ $0.003)과 하루 할당량(IP당 업로드·잡 20개), 관리자 통계 오염을 줄여야 한다.
-- 결정: `scripts/load/fitcut.js` (k6). 시나리오 세 개.
+- 결정: `scripts/load/koicut.js` (k6). 시나리오 세 개.
   - throttle: 없는 잡 조회(`GET /api/jobs/{id}`, 404)에 초당 30건 30초. 상한(초당 10건, 순간 20건)을 넘는 요청은 429여야 하고 5xx는 0이어야 한다.
   - events: `POST /api/events`에 빈 묶음 초당 15건 20초. 상한 초당 5건. 빈 묶음이라 대기열·S3·통계에 아무것도 쌓이지 않는다.
   - jobs: 4초 320×180 영상으로 GIF 잡 N개(기본 6)를 한꺼번에. 워커 동시 2개 상한으로 차례로 처리되는지, 대기·완료 시간을 잰다.
@@ -607,6 +607,7 @@
   - 그대로 두는 것: AWS 리소스 이름(`fitcut-dev-*`, 바꾸면 DynamoDB·S3가 교체된다), 저장소 이름, 패키지 이름(`@fitcut/*`), 브라우저 저장 키(`fitcut.*`, 바꾸면 사용자의 내 기기·내 구간이 사라진다), 사용 이벤트 값.
 - 대안: FrameCut(같은 이름의 아이폰 영상 편집 앱이 있음), FrameWave·FrameLab(.com·.app 모두 등록됨), AnyCut(anycut.app만 가능), SizeClip(사진 크기만 떠오름).
 - 결과: 상표는 사용자가 KIPRIS로 확인한다. 도메인은 사용자가 가비아에서 샀다 (2026-10-16). DNS는 Route 53 (ADR-051).
+- 바뀜 (2026-10-23): 저장소 이름, 패키지 이름, 내려받는 파일 이름도 `koicut`으로 바꾼다 (ADR-054).
 
 ## ADR-050 브랜드: 잉어 주황 포인트와 잉어 마크
 
@@ -666,6 +667,27 @@
   - ADR-007 원칙(외부 영상 내려받지 않기)은 그대로다.
 - 대안: 구간 공유 링크를 더 다듬기 (쓰는 사람이 바라는 것과 달라 효과가 작다), 내 영상만 받게 안내하기 (유튜브 스튜디오에서 받아 움짤·음성 도구에 올리면 되므로 따로 기능이 필요 없다).
 - 결과: 홈이 파일 하나로 시작하는 흐름으로 단순해졌다. 링크 API 라우트 2개가 줄었다.
+
+## ADR-054 저장소·패키지 이름도 koicut으로
+
+- 상태: 확정 (2026-10-23, 사용자 요청 "저장소 이름은 fitcut인데 koicut으로 변경해주고")
+- 맥락: ADR-049는 서비스 이름만 바꾸고 저장소·패키지 이름은 `fitcut`으로 두었다. 포트폴리오·이력서 링크와 저장소 이름이 달라 보는 사람이 헷갈린다. 사용자가 받는 파일 이름도 `fitcut_gif_…`로 옛 이름이 남아 있었다.
+- 결정:
+  - 바꾸는 것: GitHub 저장소 이름(`Altlog214608/koicut`, 사용자가 Settings에서 바꾼다), 문서·배지·개인정보 처리방침의 저장소 링크, 워크스페이스 패키지 이름(`@koicut/*`), 루트 패키지 이름, 부하 테스트 스크립트(`scripts/load/koicut.js`), 내려받는 파일 이름(`koicut_gif_…`, `koicut_highlight_…` 등), CI 안에서만 쓰는 도커 이미지 태그, 대시보드 제목.
+  - 그대로 두는 것 (바꾸면 되돌리기 어렵거나 사용자에게 손해다):
+    - AWS 리소스 이름(`fitcut-dev-*`), 상태 버킷(`fitcut-tfstate-*`), IAM 역할·정책(`fitcut-github-*`), SNS(`fitcut-alerts`), Budgets 이름, `Project=fitcut` 태그. 이름은 대부분 바꾸면 교체라 DynamoDB·S3 데이터가 사라지고, 태그는 수집기 EC2·VPC 권한 조건(`bootstrap/m5-permissions.tf`)과 비용 리포트(ADR-047)가 쓴다.
+    - SSM 경로(`/fitcut/dev/…`): 스트리머 토큰과 비밀값이 들어 있다.
+    - 쿠키(`fitcut_s`, `fitcut_oauth`): 바꾸면 연결된 스트리머가 모두 로그아웃된다.
+    - 브라우저 저장 키(`fitcut.*`): 바꾸면 사용자의 테마·언어·내 기기·내 작업이 사라진다.
+    - CloudWatch 지표 네임스페이스(`FitCut`)와 Cognito·Athena 설명: 바꾸면 지표 기록이 끊기거나 이득 없이 plan만 생긴다.
+    - 로컬 AWS 프로필 이름(`fitcut`): 사용자 PC의 설정이다.
+  - GitHub OIDC 신뢰 조건은 옛 이름과 새 이름의 sub를 함께 받는다. 둘 다 저장소 ID(1411410621)가 같아 이 저장소만 가리킨다. bootstrap은 로컬 적용이라 사용자가 이름을 바꾸기 전에 적용한다.
+- 대안: 저장소 이름만 바꾸고 나머지는 두기 (패키지 이름과 파일 이름에 옛 이름이 계속 보인다), AWS 리소스까지 모두 바꾸기 (테이블·버킷 교체로 데이터 이전 작업이 필요하고 이득은 이름뿐이다).
+- 결과: 사용자 확인이 남았다.
+  - [ ] bootstrap 적용 (`AWS_PROFILE=fitcut terraform -chdir=infra/terraform/bootstrap apply`)
+  - [ ] GitHub에서 저장소 이름 변경 (옛 주소는 GitHub가 새 주소로 넘겨 준다)
+  - [ ] 로컬 클론의 원격 주소 변경 (`git remote set-url origin https://github.com/Altlog214608/koicut.git`)
+  - [ ] TODO(verify): 이름 변경 뒤 `gh api repos/Altlog214608/koicut/actions/oidc/customization/sub`와 CI의 역할 맡기가 되는지 확인하고, 옛 sub 줄을 지운다.
 
 ---
 

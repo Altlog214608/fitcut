@@ -1,5 +1,5 @@
 /** 구간 시각 표시·입력과 구간 규칙 (순수 함수). 화면은 분:초.백분의일초(00:12.34)로 보여준다. */
-import { JOB_LIMITS, type JobKind } from '@fitcut/shared';
+import { JOB_LIMITS, type JobKind } from '@koicut/shared';
 
 export type Range = { start: number; end: number };
 

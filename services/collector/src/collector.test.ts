@@ -2,7 +2,7 @@ import { DynamoDBClient } from '@aws-sdk/client-dynamodb';
 import { GetParameterCommand, PutParameterCommand, SSMClient } from '@aws-sdk/client-ssm';
 import { SendMessageCommand, SQSClient } from '@aws-sdk/client-sqs';
 import { DynamoDBDocumentClient, GetCommand, UpdateCommand } from '@aws-sdk/lib-dynamodb';
-import type { Fetch } from '@fitcut/chzzk';
+import type { Fetch } from '@koicut/chzzk';
 import { mockClient } from 'aws-sdk-client-mock';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { runCollector, type Deps, type SocketLike } from './collector';

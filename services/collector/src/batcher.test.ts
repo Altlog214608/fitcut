@@ -1,4 +1,4 @@
-import type { ChatEvent } from '@fitcut/chzzk';
+import type { ChatEvent } from '@koicut/chzzk';
 import { describe, expect, it, vi } from 'vitest';
 import { Batcher, MAX_PENDING, packBodies } from './batcher';
 import { backoffMs, stopReason, DEFAULT_LIMITS } from './rules';

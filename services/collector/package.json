@@ -1,5 +1,5 @@
 {
-  "name": "@fitcut/collector",
+  "name": "@koicut/collector",
   "private": true,
   "type": "module",
   "description": "치지직 라이브 채팅 수집기: 방송 중에만 도는 Fargate 태스크 (docs/HIGHLIGHT.md)",
@@ -13,7 +13,7 @@
     "@aws-sdk/client-sqs": "^3.1148.0",
     "@aws-sdk/client-ssm": "^3.1148.0",
     "@aws-sdk/lib-dynamodb": "^3.1148.0",
-    "@fitcut/chzzk": "workspace:*",
+    "@koicut/chzzk": "workspace:*",
     "socket.io-client": "2.5.0"
   },
   "devDependencies": {

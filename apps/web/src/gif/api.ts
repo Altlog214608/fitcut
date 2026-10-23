@@ -2,7 +2,7 @@
  * 잡 API 클라이언트 (ADR-033). 같은 주소의 /api/* 로 부른다 (CloudFront → HTTP API).
  * 1) createUpload → 2) sendFile(S3 presigned POST, 진행률·취소) → 3) createJob → 4) getJob 반복 조회
  */
-import { JOB_LIMITS, type JobKind } from '@fitcut/shared';
+import { JOB_LIMITS, type JobKind } from '@koicut/shared';
 
 export type Upload = { id: string; url: string; fields: Record<string, string> };
 
@@ -176,13 +176,13 @@ export async function getJob(id: string): Promise<Job> {
 export function resultName(job: Pick<Job, 'id' | 'kind' | 'params'>): string {
   const { width, height } = job.params;
   if (job.kind === 'rotate' || job.kind === 'rotate-fast') {
-    return `fitcut_rotated_${job.id.slice(0, 8)}.mp4`;
+    return `koicut_rotated_${job.id.slice(0, 8)}.mp4`;
   }
   if (job.kind === 'mp3' || job.kind === 'm4a' || job.kind === 'wav' || job.kind === 'm4r') {
-    return `fitcut_${job.kind === 'm4r' ? 'ringtone' : 'audio'}_${job.id.slice(0, 8)}.${job.kind}`;
+    return `koicut_${job.kind === 'm4r' ? 'ringtone' : 'audio'}_${job.id.slice(0, 8)}.${job.kind}`;
   }
   const size = height ? `${width}x${height}` : `${width}`;
-  return `fitcut_${job.kind}_${size}_${job.id.slice(0, 8)}.${job.kind}`;
+  return `koicut_${job.kind}_${size}_${job.id.slice(0, 8)}.${job.kind}`;
 }
 
 /** 상태 조회 간격: 처음엔 자주, 길어지면 천천히 (ARCHITECTURE 5단계) */

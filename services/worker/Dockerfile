@@ -1,6 +1,6 @@
 # 워커 이미지: Lambda Node.js 24 기본 이미지 + ffmpeg·ffprobe 정적 빌드 (ADR-032)
-# 빌드: pnpm --filter @fitcut/worker build 후 services/worker 에서
-#   docker build --platform linux/arm64 -t fitcut-worker .
+# 빌드: pnpm --filter @koicut/worker build 후 services/worker 에서
+#   docker build --platform linux/arm64 -t koicut-worker .
 # ffmpeg는 BtbN/FFmpeg-Builds의 월말 빌드(2년 보관)를 버전·체크섬으로 고정한다.
 # GPL 빌드(libx264 포함)라서 이미지는 비공개 ECR에만 두고 배포하지 않는다.
 

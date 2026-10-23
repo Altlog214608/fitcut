@@ -1,6 +1,6 @@
 /** POST /api/uploads · POST /api/jobs 입력 검사 (순수 함수). 오류 문구는 화면에 그대로 보여준다 (docs/UI.md 문구 규칙). */
 import { isUuid } from './jobs';
-import { isAudioKind, isRotateKind } from '@fitcut/shared';
+import { isAudioKind, isRotateKind } from '@koicut/shared';
 import { JOB_KINDS, LIMITS, type JobKind } from './limits';
 
 export type CreateUpload = {

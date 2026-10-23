@@ -3,7 +3,7 @@
  * 파일을 고르자마자 올리기 → 만들기(올리는 중이면 끝나는 대로) → 상태 조회 → 결과 저장.
  * 화면마다 다른 것(구간·형식·옵션)은 request와 key로 받는다. key가 바뀌면 지난 결과는 감춘다.
  */
-import { isAudioKind } from '@fitcut/shared';
+import { isAudioKind } from '@koicut/shared';
 import { useEffect, useRef, useState } from 'react';
 import {
   ApiError,

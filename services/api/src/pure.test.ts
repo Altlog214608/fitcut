@@ -205,13 +205,13 @@ describe('업로드·잡 기록', () => {
 });
 
 describe('downloadName', () => {
-  it('하이라이트 클립은 fitcut_highlight_<id앞 8자리>.mp4', () => {
+  it('하이라이트 클립은 koicut_highlight_<id앞 8자리>.mp4', () => {
     const item = {
       id: '0b8f4c56-1d7e-4c3b-9a55-2f0d6c1e9a10',
       kind: 'clip',
       outputKey: 'out/0b8f4c56-1d7e-4c3b-9a55-2f0d6c1e9a10.mp4',
       params: { start: 0, end: 25, fps: 30, width: 0 },
     } as JobItem;
-    expect(downloadName(item)).toBe('fitcut_highlight_0b8f4c56.mp4');
+    expect(downloadName(item)).toBe('koicut_highlight_0b8f4c56.mp4');
   });
 });

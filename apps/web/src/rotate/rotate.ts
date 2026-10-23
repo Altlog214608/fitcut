@@ -1,5 +1,5 @@
 /** 세로로 돌리기 계산 (순수 함수, FEATURES F21) */
-import { JOB_LIMITS } from '@fitcut/shared';
+import { JOB_LIMITS } from '@koicut/shared';
 
 export type Turn = 90 | 180 | 270;
 export type Size = { width: number; height: number };

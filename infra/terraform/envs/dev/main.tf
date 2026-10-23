@@ -9,7 +9,7 @@ locals {
   chzzk_secret_param = "/fitcut/dev/chzzk/client-secret"
 }
 
-# services/api를 esbuild로 묶은 결과 (CI에서 plan·apply 전에 pnpm --filter @fitcut/api build)
+# services/api를 esbuild로 묶은 결과 (CI에서 plan·apply 전에 pnpm --filter @koicut/api build)
 data "archive_file" "api" {
   type        = "zip"
   source_dir  = "${path.module}/../../../../services/api/dist"

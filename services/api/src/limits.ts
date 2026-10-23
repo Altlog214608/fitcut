@@ -1,7 +1,7 @@
-/** 잡 입력 제한. 화면과 같이 쓰는 값은 @fitcut/shared에 있다 (바꾸면 화면 안내 문구도 같이 바뀐다). */
-import { JOB_LIMITS } from '@fitcut/shared';
+/** 잡 입력 제한. 화면과 같이 쓰는 값은 @koicut/shared에 있다 (바꾸면 화면 안내 문구도 같이 바뀐다). */
+import { JOB_LIMITS } from '@koicut/shared';
 
-export { JOB_KINDS, type JobKind } from '@fitcut/shared';
+export { JOB_KINDS, type JobKind } from '@koicut/shared';
 
 export const LIMITS = {
   ...JOB_LIMITS,
